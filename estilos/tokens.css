@@ -1,0 +1,122 @@
+/* Tokens de design.
+ *
+ * As cores saem da paleta observada no app Bubble atual
+ * (specs/bubble/02-telas-e-design.md, seção "Elementos globais"), para que as
+ * telas continuem reconhecíveis para quem usa hoje. O que muda é o que estava
+ * quebrado: contraste, foco visível e um tema escuro que o Bubble não tem.
+ *
+ * Nada de Tailwind (CLAUDE.md, Stack).
+ */
+
+:root {
+  /* --- marca e ações --- */
+  --azul: #3d78f3;
+  --azul-escuro: #2b5ed4;
+  --azul-claro: #eef3fb;
+  --lilas: #ded9f7;
+  --roxo: #7030a0;
+
+  /* --- semântica de negócio ---
+   * No app atual estas cores carregam significado, não decoração:
+   * verde = líquido / vencedor / concluído; vermelho = vencido / cancelado;
+   * laranja = salvar em popup de edição e alerta. Mantido de propósito. */
+  --verde: #1f9254;
+  --verde-fundo: #e6f4ec;
+  --vermelho: #c8372d;
+  --vermelho-fundo: #fbeceb;
+  --laranja: #f5a623;
+  --laranja-fundo: #fdf3e2;
+
+  /* --- superfícies e texto --- */
+  --fundo: #ffffff;
+  --fundo-2: #f7f9fc;
+  --superficie: #ffffff;
+  --borda: #dfe3eb;
+  --borda-forte: #c2c9d6;
+  --texto: #1f2430;
+  --texto-2: #5a6273;
+  --texto-3: #858c9b;
+
+  /* --- espaço (escala de 4) --- */
+  --e1: 0.25rem;
+  --e2: 0.5rem;
+  --e3: 0.75rem;
+  --e4: 1rem;
+  --e5: 1.5rem;
+  --e6: 2rem;
+  --e7: 3rem;
+
+  /* --- tipografia --- */
+  --fonte: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fonte-numero: ui-monospace, 'Cascadia Mono', 'Consolas', monospace;
+  --t-xs: 0.75rem;
+  --t-sm: 0.875rem;
+  --t-md: 1rem;
+  --t-lg: 1.25rem;
+  --t-xl: 1.75rem;
+
+  /* --- forma --- */
+  --raio: 6px;
+  --raio-g: 10px;
+  --sombra: 0 1px 2px rgb(31 36 48 / 8%), 0 2px 8px rgb(31 36 48 / 6%);
+  --sombra-alta: 0 4px 12px rgb(31 36 48 / 12%), 0 12px 32px rgb(31 36 48 / 10%);
+
+  --foco: 2px solid var(--azul);
+  --foco-offset: 2px;
+}
+
+:root[data-tema='escuro'] {
+  --azul: #6b9bff;
+  --azul-escuro: #8db3ff;
+  --azul-claro: #1b2436;
+  --lilas: #2e2a44;
+  --roxo: #b183d6;
+
+  --verde: #4ec07f;
+  --verde-fundo: #16291f;
+  --vermelho: #f0776c;
+  --vermelho-fundo: #2e1b19;
+  --laranja: #f0b453;
+  --laranja-fundo: #2e2416;
+
+  --fundo: #12151c;
+  --fundo-2: #171b24;
+  --superficie: #1b1f29;
+  --borda: #2b313d;
+  --borda-forte: #3c4453;
+  --texto: #e8eaf0;
+  --texto-2: #a9b0bf;
+  --texto-3: #79808f;
+
+  --sombra: 0 1px 2px rgb(0 0 0 / 40%), 0 2px 8px rgb(0 0 0 / 30%);
+  --sombra-alta: 0 4px 12px rgb(0 0 0 / 45%), 0 12px 32px rgb(0 0 0 / 35%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema='claro']) {
+    --azul: #6b9bff;
+    --azul-escuro: #8db3ff;
+    --azul-claro: #1b2436;
+    --lilas: #2e2a44;
+    --roxo: #b183d6;
+
+    --verde: #4ec07f;
+    --verde-fundo: #16291f;
+    --vermelho: #f0776c;
+    --vermelho-fundo: #2e1b19;
+    --laranja: #f0b453;
+    --laranja-fundo: #2e2416;
+
+    --fundo: #12151c;
+    --fundo-2: #171b24;
+    --superficie: #1b1f29;
+    --borda: #2b313d;
+    --borda-forte: #3c4453;
+    --texto: #e8eaf0;
+    --texto-2: #a9b0bf;
+    --texto-3: #79808f;
+
+    --sombra: 0 1px 2px rgb(0 0 0 / 40%), 0 2px 8px rgb(0 0 0 / 30%);
+    --sombra-alta: 0 4px 12px rgb(0 0 0 / 45%), 0 12px 32px rgb(0 0 0 / 35%);
+  }
+}

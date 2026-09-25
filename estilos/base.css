@@ -1,0 +1,65 @@
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: var(--fonte);
+  font-size: var(--t-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 var(--e3);
+  line-height: 1.25;
+}
+h1 {
+  font-size: var(--t-xl);
+}
+h2 {
+  font-size: var(--t-lg);
+}
+
+a {
+  color: var(--azul);
+}
+
+/* Foco sempre visível. No app Bubble atual o foco é inconsistente e em vários
+ * lugares invisível — não reproduzir (CLAUDE.md regra 7). */
+:focus-visible {
+  outline: var(--foco);
+  outline-offset: var(--foco-offset);
+  border-radius: var(--raio);
+}
+
+/* Valor monetário: tabular, alinhado à direita, para a coluna ficar legível.
+ * Dinheiro é numeric no banco (CLAUDE.md regra 10); aqui é só apresentação. */
+.valor {
+  font-family: var(--fonte-numero);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -59,6 +59,7 @@ Páginas de backup do Bubble, não linkadas em lugar nenhum: `vendas_bkp`, `vend
 | `specs/02-modelo-de-dados-proposto.md` | esquema Postgres novo + de-para Bubble→novo |
 | `specs/03-plano-de-construcao.md` | ordem das frentes, extração/carga, corte |
 | `specs/04-duvidas.md` | dúvidas consolidadas, por tema e urgência |
+| `specs/05-avisos-do-advisor.md` | veredito de cada aviso do `get_advisors` — o que é aceito por decisão e o que trava a fatia |
 | `design/LEIA-ME.md` | por que as capturas não estão no git e como usá-las no QA |
 | `docs/plano-de-migracao.md` | análise do app_capital e o plano geral |
 | `docs/estado-do-projeto.md` | onde o projeto está e onde retomar |

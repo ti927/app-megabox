@@ -1193,8 +1193,10 @@ create index on contas_pagar (vendedor_id, dt_vencimento);
 create index on historicos (grupo_clifor_id, criado_em desc);
 create index on historicos (autor_id, criado_em desc);
 
--- Busca de cliente por nome, com acento e parcial (a tela tem busca "exata" e "próxima")
-create index on grupos_clifor using gin (unaccent(nome) gin_trgm_ops);
+-- Busca de cliente por nome, ignorando acento (a tela tem busca "exata" e "próxima").
+-- NÃO dá para indexar unaccent() direto: ela é STABLE, e índice exige IMMUTABLE.
+-- Precisa do invólucro abaixo — ver §6.1.
+create index on grupos_clifor using gin (fn_unaccent(nome) gin_trgm_ops);
 create index on enderecos_clifor (documento);
 
 -- Fornecedores que atendem um produto, para o seletor de orçamento
@@ -1220,6 +1222,56 @@ create unique index entrega_em_uma_meta_so on meta_fechada_entregas (entrega_id)
 -- 4. Uma conta a pagar por entrega e vendedor
 alter table contas_pagar add constraint cp_unica unique (entrega_id, vendedor_id);
 ```
+
+---
+
+### 6.1 Extensões — conferidas no projeto
+
+Conferido em 25/09/2026 por `list_extensions` no projeto `bdntlmsuxpicpmpzosbt`. Todas as que este
+documento usa **estão disponíveis**; nenhuma precisa de plano acima do Micro.
+
+| Extensão | Versão | Para quê | Estado |
+|---|---|---|---|
+| `postgis` | 3.3.7 | `geography(point, 4326)` e distância entre filiais | disponível |
+| `pg_trgm` | 1.6 | busca de cliente por nome parcial | disponível |
+| `unaccent` | 1.1 | busca ignorando acento | disponível |
+| `btree_gist` | 1.7 | o `exclude` de `vendedor_nivel_historico` | disponível |
+| `pg_cron` | 1.6.4 | jobs que substituem rotinas e workflows auto-agendados | disponível |
+| `pgtap` | 1.3.3 | teste de função SQL — útil para os cálculos de dinheiro | disponível |
+| `pgcrypto` | 1.3 | — | **já instalada** |
+
+`gen_random_uuid()` é nativa do Postgres 13+; não depende de extensão.
+
+**Duas armadilhas que valem a migration inteira:**
+
+1. **No Supabase, extensão instala no schema `extensions`, não no `public`.** Como as funções de
+   RLS em §7.1 são `security definer set search_path = ''`, qualquer chamada a `unaccent()`,
+   `similarity()` ou função PostGIS **dentro delas** precisa ser qualificada
+   (`extensions.unaccent(...)`). Sem isso a função falha em tempo de execução, não de criação — ou
+   seja, quebra em produção, não na migration.
+
+2. **`unaccent()` é `STABLE`, e índice exige `IMMUTABLE`.** O índice de busca por nome de §6 **não
+   compila** se chamar `unaccent` direto: o Postgres responde *"functions in index expression must
+   be marked IMMUTABLE"*. Precisa do invólucro:
+
+```sql
+create extension if not exists unaccent with schema extensions;
+create extension if not exists pg_trgm  with schema extensions;
+
+-- Invólucro IMMUTABLE. O primeiro argumento fixa o dicionário, que é o que torna
+-- o resultado determinístico e permite indexar.
+create or replace function fn_unaccent(text)
+  returns text
+  language sql
+  immutable parallel safe strict
+  set search_path = ''
+as $$ select extensions.unaccent('extensions.unaccent', $1) $$;
+
+create index on grupos_clifor using gin (fn_unaccent(nome) extensions.gin_trgm_ops);
+```
+
+A consulta da tela tem de usar **a mesma** expressão do índice (`fn_unaccent(nome) ilike ...`),
+senão o planejador ignora o índice e volta a varrer a tabela.
 
 ---
 

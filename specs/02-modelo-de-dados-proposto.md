@@ -554,16 +554,26 @@ create unique index um_vencedor_por_item
 -- disparado com PAUSA de 1 segundo a cada tecla digitada. Passa a ser aritmética do banco.
 -- valor_venda_liquido e valor_unit_liquido viram view (§5), porque dependem das duas geradas acima.
 --
--- TRÊS DEFEITOS DO BUBBLE QUE NÃO SE REPRODUZEM AQUI:
---   1. bTPFv calcula o ICMS sobre cpo.TotalBonusExtra, campo EXCLUÍDO → ICMS e PIS/COFINS saem
---      sempre 0, logo valor_venda_liquido = valor_venda_bruto
---      (specs/paginas/financeiro-reusables.md §5).
---   2. Os nomes no mapa estão resolvidos com o id de outro data type: cpo.TotalComissaoVendedor
---      É a alíquota de PIS/COFINS e cpo.TotalBonusExtra É a de ICMS (specs/paginas/vendas.md, nota
---      inicial). O de-para de §5.2 usa o significado, não o nome.
---   3. Em bTtlO/bTtlb as DUAS alíquotas recebem o mesmo input (El[ip icms]): o campo de PIS/COFINS
---      da tela é decorativo (specs/paginas/historico.md §8).
--- AS FÓRMULAS REAIS de ICMS e PIS/COFINS são pendência que bloqueia a carga (§8.1).
+-- ARMADILHA DE LEITURA, RESOLVIDA EM 25/09/2026 (corrige o que estava escrito aqui antes):
+-- os ids `cpo_tributos_number` e `cpo_tributopiscofinsb_number` são usados por DOIS data types.
+-- Em `Tbl.MetasFechadas` eles carregam `TotalBonusExtra - deleted` e `TotalComissaoVendedor`; em
+-- `Tbl.OrcFornecedoresCotacao` eles são `TributosICMS` e `TributoPISCOFINS`, e NÃO estão excluídos.
+-- O decompilador rotulou os campos do orçamento com os nomes da meta.
+-- Prova: `AdicionarFornecedores` (bTNri) grava nesses campos, num NewThing de
+-- OrcFornecedoresCotacao, a alíquota de ICMS buscada em Tbl.IcmsEstados e 0.0925 de PIS/COFINS.
+-- Ou seja: `CalculaFornecedoresLista` (bTPFh) calcula os dois tributos CORRETAMENTE.
+-- Conclusão para a migração: não é defeito, e `valor_venda_liquido` é liquido de verdade —
+-- EXCETO quando as alíquotas ficam vazias, que é o caminho bThgz0 (origem fora de Lucro
+-- Real/Presumido), onde os tributos dão zero por regra, não por bug.
+--
+-- DEFEITOS QUE PERMANECEM E NÃO SE REPRODUZEM AQUI:
+--   1. Em bTtlO/bTtlb as DUAS alíquotas recebem o mesmo input (El[ip icms]): na tela de histórico
+--      o campo de PIS/COFINS é decorativo (specs/paginas/historico.md §8).
+--   2. A alíquota é COPIADA para a tela e gravada, em vez de derivada da tabela de ICMS no
+--      momento do cálculo — por isso muda de resultado conforme quem editou por último, e por isso
+--      a duplicação de pedido leva o ICMS da UF antiga (specs/paginas/vendas-reusables.md §5).
+--   3. `Tbl.IcmsEstados` tem auto-binding liberado: qualquer logado altera a alíquota
+--      (specs/00-achados-de-seguranca.md §2.3).
 -- aliquota_icms tem default vindo de icms_aliquotas(uf_origem, uf_destino) por função, não por
 -- cópia da tela; e só se aplica quando origem e destino são Lucro Real/Presumido
 -- (AdicionarFornecedores bTNri; specs/paginas/vendas.md [DÚVIDA 3]).
@@ -1343,9 +1353,16 @@ a resposta definitiva deve vir do `specs/bubble/` e do editor do Bubble.
 4. **Os 3% da comissão do vendedor são fixos para todos?** Hoje é literal em três workflows. Se
    vierem de `niveis_vendedor`, `contas_pagar.percentual` muda de default para lookup. —
    `specs/paginas/financeiro-reusables.md` [DÚVIDA 23].
-5. **Fórmulas reais de ICMS e PIS/COFINS.** As do Bubble estão quebradas (calculam sobre campo
-   excluído, e o input de PIS/COFINS é decorativo), então não dá para inferir do comportamento. —
-   `specs/paginas/financeiro-reusables.md` [DÚVIDA 21].
+5. **~~Fórmulas reais de ICMS e PIS/COFINS.~~ RESOLVIDA em 25/09/2026 — deixou de bloquear.**
+   A leitura anterior (campos excluídos, tributos sempre zero) estava errada: vinha de colisão de
+   id entre `Tbl.OrcFornecedoresCotacao` e `Tbl.MetasFechadas`, que o decompilador resolveu pelo
+   nome do data type errado. As fórmulas são as de §3.3:
+   `ICMS = qtd × valor_unit × aliquota_icms` e `PIS/COFINS = qtd × valor_unit × aliquota_pis_cofins`,
+   com a alíquota de ICMS vinda de `Tbl.IcmsEstados` por UF de origem × destino e PIS/COFINS em
+   0,0925. Detalhe e prova no comentário de `orcamentos_fornecedor` em §3.3.
+   **O que continua aberto, e é menor:** os 9,25% estão chumbados em dois lugares e precisam de
+   parâmetro com vigência, e falta confirmar a regra quando origem e destino não são ambos Lucro
+   Real/Presumido — hoje as alíquotas ficam vazias (`specs/paginas/vendas.md` [DÚVIDA 3]).
 
 ### 8.2 Decisões deste documento que podem ser revertidas
 

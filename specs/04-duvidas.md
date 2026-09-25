@@ -18,7 +18,7 @@ contradisser o mapa, o que muda é o app novo, não a leitura do app velho.
 
 ---
 
-## 1. As cinco que bloqueiam a carga
+## 1. As que bloqueiam a carga (eram cinco, são quatro)
 
 Repetidas de `specs/02-modelo-de-dados-proposto.md` §8.1, porque é aqui que se procura.
 
@@ -28,11 +28,36 @@ Repetidas de `specs/02-modelo-de-dados-proposto.md` §8.1, porque é aqui que se
 | B2 | Qual é a regra oficial de `RankingVendas`? | `relatorios` 7, `metas` 3 | define `v_ranking_metas`. As duas páginas calculam diferente hoje |
 | B3 | Em que escala estão `ComissaoPadrao` e `ComissaoMetaBatida` — 0,10 é 10% ou 0,10%? | `metas` 7 | define o tipo e a conversão de `niveis_vendedor` |
 | B4 | Os 3% da comissão do vendedor são fixos para todos? | `financeiro-reusables` 23, `rotinas` 7 | se vierem do nível, `contas_pagar.percentual` deixa de ser default e vira lookup |
-| B5 | Quais são as fórmulas reais de ICMS e PIS/COFINS? | `financeiro-reusables` 21, `enderecos-e-contatos` 9 | **não dá para inferir do comportamento**: as do Bubble calculam sobre campo excluído e dão sempre zero |
+| ~~B5~~ | ~~Quais são as fórmulas reais de ICMS e PIS/COFINS?~~ **RESOLVIDA em 25/09/2026** | `financeiro-reusables` 21, `enderecos-e-contatos` 9, `vendas-reusables` 10.1 | Não bloqueia mais. Ver abaixo |
 
-B5 merece nota: como o cálculo atual sempre resulta em zero, `ValorVendaLiquido` é igual ao
-`ValorVendaBruto` em toda a base. Isso significa que o "líquido" que aparece nas telas hoje **não é
-líquido**, e que a migração não pode recalcular o histórico sem mudar números que o negócio vê.
+### B5 foi respondida pela leitura do mapa — e a resposta era o contrário
+
+Registrado porque o erro custou caro e pode voltar. Três specs (`financeiro-reusables` 21,
+`enderecos-e-contatos` 9 e, por propagação, `02` e este arquivo) concluíram que o ICMS e o
+PIS/COFINS eram calculados sobre **campo excluído** e davam **sempre zero**, logo que
+`ValorVendaLiquido = ValorVendaBruto` em toda a base. **Isso está errado.**
+
+A causa: os ids `cpo_tributos_number` e `cpo_tributopiscofinsb_number` são usados por **dois** data
+types. Em `Tbl.MetasFechadas` eles são `TotalBonusExtra - deleted` e `TotalComissaoVendedor`; em
+`Tbl.OrcFornecedoresCotacao` são `TributosICMS` e `TributoPISCOFINS`, e **não estão excluídos**. O
+decompilador rotulou os campos do orçamento com os nomes da meta, e o "- deleted" veio junto.
+
+A prova está em `mapa/backend-workflows.md`, `AdicionarFornecedores` (bTNri): num `NewThing` de
+`Tbl.OrcFornecedoresCotacao`, ele grava nesses campos a alíquota de ICMS buscada em
+`Tbl.IcmsEstados` por UF de origem × destino, e `0.0925` de PIS/COFINS. Ninguém grava alíquota num
+campo morto.
+
+`specs/paginas/vendas.md` tinha isto certo desde o começo, na nota de campos do cabeçalho.
+`specs/paginas/vendas-reusables.md` [DÚVIDA 10.1] levantou o conflito, o que permitiu conferir.
+
+**Lição para as próximas leituras do mapa:** um campo marcado `- deleted` pode ser só o nome de
+outro data type que divide o id. Confira sempre **quem grava** nele antes de concluir que está
+morto — `mapa/LEIA-ME.md` regra 2 existe para isso.
+
+**O que sobrou aberto, e é menor:** os 9,25% estão chumbados em dois lugares e precisam de
+parâmetro com vigência; e falta confirmar o que deve acontecer quando origem e destino não são
+ambos Lucro Real/Presumido, caso em que as alíquotas hoje ficam vazias e os tributos dão zero
+(`vendas` 3). Nenhum dos dois bloqueia a carga.
 
 ---
 

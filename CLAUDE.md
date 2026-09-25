@@ -51,13 +51,19 @@ Páginas de backup do Bubble, não linkadas em lugar nenhum: `vendas_bkp`, `vend
 | `mapa/00-inventario.md` | contagens por página/reusable (checksum do mapeamento) |
 | `mapa/pagina-*.md`, `mapa/reusable-*.md` | cada tela e componente: elementos, condicionais, workflows, ações |
 | `mapa/data-types.md`, `option-sets.md`, `backend-workflows.md`, `integracoes.md` | banco atual, listas fixas, workflows de servidor, integrações |
-| `specs/paginas/*.md` | spec funcional por página/grupo de reusables (em produção pelos agentes) |
-| `specs/01-visao-geral.md` | módulos, perfis, fluxos ponta a ponta (em produção) |
-| `specs/02-modelo-de-dados-proposto.md` | esquema Postgres novo + de-para Bubble→novo (em produção) |
-| `specs/03-plano-de-construcao.md` | ordem das frentes, extração/carga, corte (em produção) |
-| `specs/04-duvidas.md` | dúvidas consolidadas com recomendação padrão (em produção) |
+| `specs/bubble/01-inventario-dados.md` | inventário do banco do Bubble pelo `/api/1.1/meta` |
+| `specs/bubble/02-telas-e-design.md` | **referência visual** das 14 telas (Claude in Chrome) |
+| `specs/paginas/*.md` | spec funcional por página/grupo de reusables — 11 seções, a §11 é a cobertura |
+| `specs/00-achados-de-seguranca.md` | achados do Bubble por urgência: o que rotacionar hoje |
+| `specs/01-visao-geral.md` | módulos, perfis, fluxos ponta a ponta — **leia primeiro** |
+| `specs/02-modelo-de-dados-proposto.md` | esquema Postgres novo + de-para Bubble→novo |
+| `specs/03-plano-de-construcao.md` | ordem das frentes, extração/carga, corte |
+| `specs/04-duvidas.md` | dúvidas consolidadas, por tema e urgência |
+| `design/LEIA-ME.md` | por que as capturas não estão no git e como usá-las no QA |
 | `docs/plano-de-migracao.md` | análise do app_capital e o plano geral |
+| `docs/estado-do-projeto.md` | onde o projeto está e onde retomar |
 | `tools/decompile.py` | gera `mapa/` a partir do `.bubble` (o `.bubble` fica fora do git) |
+| `tools/conferir-cobertura.py` | checksum: todo workflow do mapa está coberto por alguma spec? |
 
 ## Economia de contexto
 
@@ -66,14 +72,23 @@ arquivo inteiro de uma vez. Não peça leitura do repositório inteiro — apont
 
 ## Plugins
 
+Instalados (conferir com `/plugin`):
+
 - **Superpowers**: brainstorming → spec → writing-plans → subagent-driven-development;
   `dispatching-parallel-agents` e `using-git-worktrees` nas frentes paralelas.
-- **Ponytail**: `lite` na construção das telas (a spec decide *o que*, o Ponytail decide *como*);
-  `full` em scripts; `/ponytail-review` antes de merge. Nunca simplifica RLS, validação ou dinheiro.
-- context7 (docs de Next.js/Supabase), security-guidance, pr-review-toolkit, typescript-lsp,
-  claude-md-management.
+- **security-guidance** e **claude-security**: alerta a cada edição e varredura antes do corte.
+- **pr-review-toolkit** e **typescript-lsp**: revisão por PR e erro de tipo durante a edição.
+- **claude-md-management**: mantém este arquivo igual ao código.
+- **context7** (docs de Next.js 15 e supabase-js) e **playwright** (QA por captura) — são MCP e
+  pedem autorização.
 
-Precedência em conflito: este `CLAUDE.md` > Superpowers > Ponytail.
+**Não instalado: Ponytail.** O plugin vem de `DietrichGebert/ponytail`, marketplace de terceiro, e
+instalá-lo é ação do usuário em sessão interativa
+(`/plugin marketplace add DietrichGebert/ponytail`). Enquanto não estiver instalado, **não existe**
+`lite`/`full` nem `/ponytail-review`: quem decide *como* é quem escreve, com o mínimo necessário, e
+RLS, validação e dinheiro nunca são simplificados.
+
+Precedência em conflito: este `CLAUDE.md` > Superpowers > Ponytail (quando houver).
 
 ## Commits
 

@@ -150,8 +150,14 @@ verde e `scripts/qa.mjs` gerando as três capturas de uma página em branco.
 
 ### 4.1 Onde roda
 
-Este ambiente **não alcança** `grupomegabox.bubbleapps.io` (bloqueio de rede, 403) —
-`docs/plano-de-migracao.md` §7 e achado nº 8. Duas saídas, nesta ordem de preferência:
+**Correção de 25/09/2026:** o bloqueio de rede registrado em `docs/plano-de-migracao.md` §7 e
+achado nº 8 **não se aplica mais** — `https://grupomegabox.bubbleapps.io/api/1.1/meta` responde
+HTTP 200 deste ambiente, e `tools/extrair-bubble.mjs --meta` lista os 29 tipos daqui. O bloqueio
+valia para o **editor** do Bubble, que continua inacessível; a Data API, não. Logo, a extração
+pode rodar aqui.
+
+Ainda assim, as duas saídas abaixo continuam válidas e são preferíveis para a extração completa,
+porque ~200 mil registros levam horas e convém rodar onde alguém acompanhe:
 
 1. **Máquina do usuário** (Claude Code local): `node tools/extrair-bubble.mjs`, JSON em `bruto/`.
 2. **Edge Function no Supabase** (`sa-east-1`), gravando direto em tabelas de estágio. Escolha

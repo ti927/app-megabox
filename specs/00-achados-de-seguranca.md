@@ -20,6 +20,51 @@ gravado direto no banco por auto-binding, sem workflow, sem transação e sem au
 
 ---
 
+## 0. Verificado ao vivo em 25/09/2026
+
+O restante deste arquivo foi escrito a partir das privacy rules do mapa decompilado. Estes
+dois itens foram **confirmados contra o app em produção**, com requisição real. Nenhum
+conteúdo de registro foi lido ou gravado — só as contagens abaixo.
+
+### 0.1 A Data API responde sem nenhuma autenticação
+
+`GET https://grupomegabox.bubbleapps.io/api/1.1/obj/<tipo>?limit=1`, **sem cabeçalho
+`Authorization`**, devolve HTTP 200 com dado:
+
+| Tipo | Registros acessíveis |
+|---|---|
+| `tbl.cotacao` | 5.954 |
+| `tbl.grupoclifor` | 4.743 |
+| `user` | 31 |
+
+`user` é o que dói: `mapa/data-types.md` mostra que o tipo carrega `cpo.PassTexto` — a senha
+em texto puro (§1.2). Ou seja, **qualquer pessoa na internet lê nome, e-mail, CPF, RG e senha
+de todos os 31 usuários**, sem credencial nenhuma, e a carteira inteira de clientes junto.
+
+Isto eleva o §1.2 de "toda senha deve ser considerada comprometida" a fato consumado, e
+transforma o §2.7 ("o Bubble continua no ar depois do corte?") na decisão mais urgente do
+projeto — não do corte.
+
+### 0.2 `/api/1.1/meta` é público e entrega o mapa da API
+
+Mesma requisição sem autenticação devolve o esquema completo: os **29 data types com todos os
+campos** e os **24 endpoints da Workflow API com seus parâmetros**. É o índice que torna o
+§0.1 trivial de explorar e o §2.1 (backend workflow exposto) fácil de encontrar.
+
+### 0.3 O que fazer, em ordem
+
+1. Em Settings → API do Bubble, **desmarcar a exposição pública** dos data types, ou pôr o app
+   em modo que exija autenticação na Data API.
+2. Só então tratar as credenciais do §1.
+3. Reavaliar o §2.7: enquanto o Bubble estiver no ar assim, nada do que se faça no app novo
+   protege este dado.
+
+> Nota de escopo: `tools/extrair-bubble.mjs` depende desta mesma API para a migração. Fechar a
+> exposição pública **não** atrapalha — a extração usa `BUBBLE_API_KEY`, e passar a exigir a
+> chave é justamente o comportamento correto.
+
+---
+
 ## 1. Agir agora (credencial em circulação)
 
 ### 1.1 Senha do Gmail de disparo, em texto puro num option set

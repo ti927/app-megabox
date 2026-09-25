@@ -8,12 +8,12 @@ Estado em 24/09/2026. Base: repositório `ti927/app_capital` (67 commits, 17 a 2
 
 | Quando | Passo | O que saiu |
 |---|---|---|
-| antes do repo | Mapeamento no Bubble (Claude in Chrome, só leitura) | `specs/bubble/documentacao-completa.md` — 2.540 linhas em 6 fases: inventário → banco → páginas/reusables (árvore, pop-ups, custom states, expressões, 168+28 workflows) → backend WF → integrações → resumo com mapa de navegação, fluxos de ponta a ponta, itens [NÃO VERIFICADO] e pontos de atenção |
+| antes do repo | Mapeamento no Bubble (Claude in Chrome, só leitura) | `specs/bubble/documentacao-completa.md` **do app_capital** — 2.540 linhas em 6 fases: inventário → banco → páginas/reusables (árvore, pop-ups, custom states, expressões, 168+28 workflows) → backend WF → integrações → resumo com mapa de navegação, fluxos de ponta a ponta, itens [NÃO VERIFICADO] e pontos de atenção |
 | 17/09 15:11 | Esqueleto de governança | `CLAUDE.md` com regras não negociáveis, `.claude/settings.json` (allow/ask/deny), `.env.example`, handoff, primeiro prompt |
 | 15:34 | Banco a partir do mapeamento | `db/001` fundação (perfil, auditoria em `evento`), `db/002` 24 tabelas de domínio, `db/003` RLS escrita; option sets viraram tabela com `chave_bubble` para o de-para |
 | 16:01 | Extração + carga | `extrair-bubble.mjs` (Data API `/api/1.1/obj/<tipo>`, paginação por cursor, JSON bruto fora do git) e `carregar-supabase.mjs` (idempotente por `bubble_id`) |
 | 16:06 | Contas | usuários recriados no Supabase Auth com senha provisória (senha do Bubble não migra) |
-| 16:17–16:28 | Plano por fase + design system | `specs/04-fases.md`; tokens e 12 componentes da Lure |
+| 16:17–16:28 | Plano por fase + design system | `specs/04-fases.md` **do app_capital**; tokens e 12 componentes da Lure |
 | 16:47 | Fundação + 1ª tela (Cliente) | fixa o padrão de 5 arquivos por tela: `page.tsx` · `loading.tsx` · `tela.tsx` · `dialogo.tsx` · `acoes.ts` |
 | 17:01 | As outras 4 telas | Fornecedor, Operação, Esteira, Funil |
 | 17:16–17:47 | Ajuste pelo uso, QA com capturas, MCP | `scripts/qa.mjs` (Playwright, claro/escuro/celular); servidor MCP só leitura |

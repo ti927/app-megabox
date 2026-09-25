@@ -5,3 +5,7 @@ bruto/
 node_modules/
 .next/
 qa/
+
+# capturas do Bubble: contem dado real de cliente e o repo e publico (ver design/LEIA-ME.md)
+design/capturas/
+*.zip

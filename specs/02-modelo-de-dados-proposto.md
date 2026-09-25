@@ -1318,8 +1318,13 @@ create function fn_pode_acessar_pagina(p_slug text) returns boolean ...
 ### 7.3 Variações que importam
 
 - **`usuarios`:** todo usuário ativo lê `id`, `nome`, `perfil_id`, `departamento_id` (a tela precisa
-  do nome do vendedor). `cpf`, `rg`, `telefone` e `endereco` só o próprio e o perfil 1 — por isso a
-  tela usa a view `v_usuarios_publico`, não a tabela.
+  do nome do vendedor); `cpf`, `rg`, `telefone` e `endereco` não. **RLS é por linha e este sigilo é
+  por coluna**, então a solução não é RLS: é `grant select (colunas públicas) on usuarios to
+  authenticated`, com a policy liberando a linha de qualquer colega ativo. A linha completa do
+  próprio dono sai por `fn_meu_cadastro()`, função `security definer` sem parâmetro — o `where` é
+  `auth.uid()`, então não há como pedir a linha de outro. Implementado em `db/004_usuarios_leitura.sql`.
+  Uma view `security definer` foi tentada antes e descartada: o `get_advisors` a marca como ERROR,
+  porque ignora a RLS e passa a depender de ninguém acrescentar coluna sensível a ela depois.
 - **`historicos`:** `select` para quem tem a página, `insert` com `autor_id = auth.uid()`,
   **nenhuma** policy de `update` ou `delete`.
 - **`auditoria`:** `select` só perfil 1; `update`/`delete` revogados até para o dono.

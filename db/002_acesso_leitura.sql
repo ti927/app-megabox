@@ -17,6 +17,12 @@
 -- Não entra aqui: nenhuma tabela nova.
 -- =====================================================================================
 
+-- >>> SUPERADA PELA 004 <<<
+-- A view abaixo foi criada SECURITY DEFINER e o get_advisors classificou isso como ERROR
+-- (`security_definer_view`): ela ignora a RLS da tabela por completo. A 004 a remove e
+-- troca por privilégio de coluna (`grant select (colunas) on usuarios`) mais a função
+-- estreita `fn_meu_cadastro()`. O bloco fica aqui por histórico; aplicar esta migration
+-- num banco novo cria a view, e a 004 a derruba logo em seguida.
 -- -------------------------------------------------------------------------------------
 -- 1. Usuários visíveis dentro da empresa
 -- -------------------------------------------------------------------------------------

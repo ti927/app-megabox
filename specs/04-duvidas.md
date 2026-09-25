@@ -24,11 +24,80 @@ Repetidas de `specs/02-modelo-de-dados-proposto.md` §8.1, porque é aqui que se
 
 | # | Pergunta | Origem | O que trava |
 |---|---|---|---|
-| B1 | CNPJ/CPF deve ser único? E nome de produto dentro do grupo? | `cadastros` 9 e 10 | `create unique index` quebra no meio da carga se houver duplicata. Rodar a carga em modo relatório **antes** |
+| B1 | CNPJ/CPF deve ser único? E nome de produto dentro do grupo? | `cadastros` 9 e 10 | **MEDIDO em 25/09** — ver §1.1. Há 283 documentos repetidos. Continua bloqueando: agora é decisão, não incógnita |
 | B2 | Qual é a regra oficial de `RankingVendas`? | `relatorios` 7, `metas` 3 | define `v_ranking_metas`. As duas páginas calculam diferente hoje |
 | B3 | Em que escala estão `ComissaoPadrao` e `ComissaoMetaBatida` — 0,10 é 10% ou 0,10%? | `metas` 7 | define o tipo e a conversão de `niveis_vendedor` |
 | B4 | Os 3% da comissão do vendedor são fixos para todos? | `financeiro-reusables` 23, `rotinas` 7 | se vierem do nível, `contas_pagar.percentual` deixa de ser default e vira lookup |
 | ~~B5~~ | ~~Quais são as fórmulas reais de ICMS e PIS/COFINS?~~ **RESOLVIDA em 25/09/2026** | `financeiro-reusables` 21, `enderecos-e-contatos` 9, `vendas-reusables` 10.1 | Não bloqueia mais. Ver abaixo |
+
+### 1.1 B1 e B6 medidos contra a base real (25/09/2026)
+
+`node tools/conferir-conflitos.mjs` baixa os tipos pela Data API e conta. O relatório
+completo fica em `bruto/00-conflitos.md`, fora do git. O que ele achou:
+
+**B1 — `enderecos_clifor.documento` NÃO pode ser único como está.**
+
+| | |
+|---|---:|
+| Endereços (filiais) | 5.840 |
+| Com documento preenchido | 5.814 |
+| Documentos distintos | 5.470 |
+| **Documentos repetidos** | **283** |
+| Linhas envolvidas | 627 |
+| Documento com tamanho ≠ 11 e ≠ 14 | 23 |
+
+Um caso chama atenção: **20 endereços com o documento `"·"` (1 caractere)** — lixo de
+cadastro, não CNPJ. Os outros 282 são repetições legítimas de 2 ou 3 filiais com o mesmo
+documento, que é o padrão de "mesma empresa cadastrada duas vezes".
+
+Três caminhos, e a escolha é de negócio:
+1. **Documento não é único.** Aceita o que existe, e a deduplicação vira trabalho contínuo
+   do Comercial. Menor atrito, mantém o defeito.
+2. **Deduplicar antes da carga.** 283 casos para revisar — factível, mas ninguém pode fazer
+   isso sem conhecer os clientes.
+3. **Índice único parcial, só entre ativos** (`where ativo`). Resolve o caso comum (a
+   duplicata costuma estar inativa) sem exigir mutirão. **É a recomendação.**
+
+Em qualquer caso, os 23 documentos com tamanho inválido reprovam no
+`check documento_bate_com_tipo` de `02` §3.2 e precisam de tratamento na carga: ou o check
+afrouxa, ou a linha entra com documento nulo e um aviso.
+
+**B1 — `produtos (nome, grupo_id)`:** 11 combinações repetidas. Volume pequeno, dá para
+deduplicar antes da carga.
+
+**B6 — RESOLVIDA. Não era decisão, era dado.** As 22 linhas de `ConfigSistema` trazem 14 de
+permissão, que são a matriz real em produção hoje:
+
+| Alvo | Tipo | Departamentos | Perfis |
+|---|---|---|---|
+| Inicio | página | Administrativo, Financeiro | Diretor |
+| Fluxo de Vendas | página | Administrativo, Financeiro, Comercial, Operação | Diretor |
+| Fluxo Financeiro | página | Administrativo, Financeiro | Diretor, Analista |
+| Metas & Vendas | página | Administrativo, Financeiro, Comercial, Operação | Diretor |
+| Manutenção | página | — | — (2 usuários nomeados) |
+| Relatórios | página | — | Diretor |
+| Suporte de Vendas & Nps | página | — | Diretor (+2 usuários nomeados) |
+| Configurações de Usuário | config | — | Diretor, Gerente, Analista, Operador |
+| Cadastro Usuários | config | — | Diretor, Gerente, Analista |
+| Cliente / Fornecedor | config | Administrativo | Diretor, Gerente, Analista, Operador |
+| Cadastro Produtos | config | — | Diretor, Gerente, Analista |
+| Configurações de Sistema | config | — | Diretor |
+| FollowUp de Pedidos | config | — | Diretor |
+
+Duas observações que mudam o seed de `permissoes_pagina`: **Relatórios aparece duas vezes**
+(linha duplicada no Bubble, mesma regra), e **Manutenção não tem perfil nem departamento** —
+o acesso é por dois usuários nomeados. Como `/rotinas` é a página que dispara rotinas
+destrutivas, manter a concessão nominal é o comportamento certo, e não o padrão de "perfil 1".
+
+### Armadilha achada ao medir
+
+A Data API devolve os campos pelo **nome de exibição** (`cpo.CnpjCpf`), não pelo id interno
+(`cpo_cnpjcpf_text`) que `mapa/data-types.md` e o de-para de `02` §10 usam. Ler pelo id
+devolve `undefined` em silêncio — a primeira execução deste relatório informou "zero
+conflito" justamente porque não leu nada. **O carregador da Fase C tem de mapear por nome de
+exibição**, e qualquer contagem que dê zero merece desconfiança antes de comemoração.
+
+---
 
 ### B5 foi respondida pela leitura do mapa — e a resposta era o contrário
 

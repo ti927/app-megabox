@@ -50,13 +50,27 @@ Um caso chama atenção: **20 endereços com o documento `"·"` (1 caractere)** 
 cadastro, não CNPJ. Os outros 282 são repetições legítimas de 2 ou 3 filiais com o mesmo
 documento, que é o padrão de "mesma empresa cadastrada duas vezes".
 
-Três caminhos, e a escolha é de negócio:
-1. **Documento não é único.** Aceita o que existe, e a deduplicação vira trabalho contínuo
-   do Comercial. Menor atrito, mantém o defeito.
-2. **Deduplicar antes da carga.** 283 casos para revisar — factível, mas ninguém pode fazer
-   isso sem conhecer os clientes.
-3. **Índice único parcial, só entre ativos** (`where ativo`). Resolve o caso comum (a
-   duplicata costuma estar inativa) sem exigir mutirão. **É a recomendação.**
+**O índice único parcial entre ativos também não resolve** — medido depois, e derruba a
+recomendação anterior:
+
+| Recorte | Documentos repetidos | Linhas |
+|---|---:|---:|
+| Todos os 5.840 endereços | 283 | 627 |
+| Só os 5.374 ativos | 121 | 258 |
+| Ativos **e** com documento de 11 ou 14 dígitos | **120** | **250** |
+
+Ou seja, a duplicata não está concentrada nos inativos: 120 pares de filiais **ativas** com
+o mesmo CNPJ. Qualquer índice único quebra a carga.
+
+**Decisão adotada para a fatia 2** (reversível por migration quando a limpeza terminar):
+índice **não único** em `documento`, mais uma view `v_clifor_documento_duplicado` que
+lista os casos para o Comercial trabalhar. O `create unique index` entra numa migration
+posterior, quando a view voltar vazia. É o caminho que o plano previa para B1 sem resposta
+(`03` §2), agora com o número que faltava.
+
+Os 23 documentos de tamanho inválido continuam precisando de tratamento na carga: ou o
+`check documento_bate_com_tipo` de `02` §3.2 afrouxa, ou a linha entra com documento nulo
+e um aviso no relatório.
 
 Em qualquer caso, os 23 documentos com tamanho inválido reprovam no
 `check documento_bate_com_tipo` de `02` §3.2 e precisam de tratamento na carga: ou o check
@@ -91,11 +105,22 @@ destrutivas, manter a concessão nominal é o comportamento certo, e não o padr
 
 ### Armadilha achada ao medir
 
-A Data API devolve os campos pelo **nome de exibição** (`cpo.CnpjCpf`), não pelo id interno
-(`cpo_cnpjcpf_text`) que `mapa/data-types.md` e o de-para de `02` §10 usam. Ler pelo id
-devolve `undefined` em silêncio — a primeira execução deste relatório informou "zero
-conflito" justamente porque não leu nada. **O carregador da Fase C tem de mapear por nome de
-exibição**, e qualquer contagem que dê zero merece desconfiança antes de comemoração.
+São três, e todas têm a mesma raiz: **a Data API fala por nome, o mapa decompilado fala por
+id.** Já estão tratadas em `tools/carregar-supabase.mjs`, mas valem para qualquer coisa que
+leia o Bubble.
+
+1. **Campo vem pelo nome de exibição.** `cpo.CnpjCpf`, não `cpo_cnpjcpf_text`. Ler pelo id
+   devolve `undefined` em silêncio — a primeira execução do relatório de conflitos informou
+   "zero conflito" justamente porque não leu nada. Qualquer contagem que dê zero merece
+   desconfiança antes de comemoração.
+
+2. **Option set vem pelo rótulo, não pela chave.** O campo `Frete` devolve `"CIF Incluso"`,
+   não `cif_incluso`. Traduzir só por `chave_bubble` perde todo valor de lista fixa. O
+   carregador indexa pelas duas formas, sem acento e sem caixa.
+
+3. **Campo vazio é omitido do JSON.** O Bubble não devolve a chave quando o valor é nulo.
+   Conferir o de-para contra o primeiro registro dá falso positivo em todo campo opcional —
+   a conferência tem de olhar todas as linhas e só reclamar do que não aparece em nenhuma.
 
 ---
 

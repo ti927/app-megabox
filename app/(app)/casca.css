@@ -1,0 +1,157 @@
+.casca {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------------------------------------------------------------- cabeçalho */
+.cabecalho {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e2) var(--e4);
+  background: var(--superficie);
+  border-bottom: 1px solid var(--borda);
+}
+
+.cabecalho-menu {
+  padding: var(--e2);
+  font-size: var(--t-lg);
+  line-height: 1;
+  color: var(--azul);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  cursor: pointer;
+}
+.cabecalho-menu:hover {
+  background: var(--azul-claro);
+}
+
+.cabecalho-marca {
+  font-size: var(--t-lg);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--roxo);
+}
+.cabecalho-marca span {
+  color: var(--texto);
+}
+
+.cabecalho-usuario {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  margin-left: auto;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--azul), var(--roxo));
+  border-radius: 50%;
+}
+
+.cabecalho-identidade {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.cabecalho-identidade small {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+
+.botao-texto {
+  padding: var(--e1) var(--e2);
+  font: inherit;
+  font-size: var(--t-sm);
+  color: var(--azul);
+  background: none;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  cursor: pointer;
+}
+.botao-texto:hover {
+  background: var(--azul-claro);
+}
+
+/* -------------------------------------------------------------------- corpo */
+.corpo {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.menu {
+  flex: 0 0 15rem;
+  padding: var(--e4) var(--e3);
+  background: var(--superficie);
+  border-right: 1px solid var(--borda);
+}
+.casca[data-menu='fechado'] .menu {
+  display: none;
+}
+
+.menu ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e1);
+}
+.menu a {
+  display: block;
+  padding: var(--e2) var(--e3);
+  color: var(--azul);
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  border-radius: var(--raio);
+}
+.menu a:hover {
+  background: var(--azul-claro);
+}
+.menu a[aria-current='page'] {
+  font-weight: 600;
+  background: var(--azul-claro);
+  border-left-color: var(--azul);
+}
+
+.menu-vazio {
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+
+.conteudo {
+  flex: 1;
+  min-width: 0;
+  padding: var(--e5);
+  background: var(--fundo);
+}
+
+/* ------------------------------------------------------------------ celular
+ * O app Bubble não tem layout móvel: as tabelas espremem o texto até ficar
+ * vertical (design/LEIA-ME.md). Aqui o menu vira gaveta sobreposta em vez de
+ * roubar metade da largura. */
+@media (max-width: 48rem) {
+  .menu {
+    position: fixed;
+    inset: 3.5rem 0 0 0;
+    z-index: 10;
+    flex-basis: auto;
+    border-right: none;
+    border-top: 1px solid var(--borda);
+  }
+  .conteudo {
+    padding: var(--e4) var(--e3);
+  }
+  .cabecalho-identidade {
+    display: none;
+  }
+}

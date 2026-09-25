@@ -719,6 +719,12 @@ revoke insert, update, delete on table public.log_acesso from authenticated;
 revoke update, delete on table public.auditoria from authenticated, anon;
 revoke update, delete on table public.auditoria from service_role;
 revoke insert          on table public.auditoria from authenticated;
+-- E também SELECT. RLS ligada sem policy já devolve zero linha, mas isso é uma negativa
+-- silenciosa: no dia em que alguém criar uma policy permissiva por engano, a trilha de
+-- auditoria vaza inteira. Negando no nível do GRANT, a consulta falha em vez de mentir —
+-- e é preciso errar duas vezes para expor. Mesmo tratamento de integracao_tokens.
+-- Achado pelo scripts/testar-rls.mjs em 25/09/2026.
+revoke select          on table public.auditoria from authenticated;
 
 -- ------------------------------------------------- Nível FECHADO: integracao_tokens
 -- RLS ligada e NENHUMA policy; privilégios de anon e authenticated já revogados acima.

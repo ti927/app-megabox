@@ -1,5 +1,6 @@
 'use server'
 
+import { caminhoInternoSeguro } from '@/lib/caminho'
 import type { Route } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -50,7 +51,7 @@ export async function entrar(
 ): Promise<EstadoEntrar> {
   const email = String(form.get('email') ?? '').trim()
   const senha = String(form.get('senha') ?? '')
-  const proximo = String(form.get('proximo') ?? '') || '/inicio'
+  const proximo = caminhoInternoSeguro(form.get('proximo'))
 
   if (!email || !senha) {
     return { erro: 'Informe e-mail e senha.' }
@@ -86,7 +87,7 @@ export async function entrar(
   }
 
   await registrar('login', 'ok', email, data.user.id)
-  redirect((proximo.startsWith('/') ? proximo : '/inicio') as Route)
+  redirect(proximo as Route)
 }
 
 export async function sair() {

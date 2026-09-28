@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 
+import { caminhoInternoSeguro } from '@/lib/caminho'
 import { TelaEntrar } from './tela'
 
 import './entrar.css'
@@ -13,7 +14,7 @@ export default async function PaginaEntrar({
 }) {
   const { proximo } = await searchParams
   // Só caminho interno: `?proximo=https://outro-site` seria redirecionamento aberto.
-  const destino = proximo?.startsWith('/') && !proximo.startsWith('//') ? proximo : '/inicio'
+  const destino = caminhoInternoSeguro(proximo)
 
   return <TelaEntrar proximo={destino} />
 }

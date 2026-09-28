@@ -13,3 +13,10 @@ describe('formatarData', () => {
     expect(formatarData('ontem')).toBe('—')
   })
 })
+
+describe('formatarData com coluna date', () => {
+  it('não recua um dia por causa do fuso', () => {
+    expect(formatarData('2026-08-31')).toBe('31/08/26')
+    expect(formatarData('2026-01-01')).toBe('01/01/26')
+  })
+})

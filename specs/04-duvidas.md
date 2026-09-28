@@ -141,6 +141,31 @@ morrer no primeiro lote, porque só conferia a tradução:
 
 ---
 
+### Achados da carga de produtos (28/09/2026)
+
+Carregados: 5 tipos, 12 grupos, 133 produtos, 85 versões, 171 ligações de linha, 143 de condição e
+2.282 de fornecedor. Três coisas que o dado mostrou e que são **decisão de negócio**:
+
+- **[DÚVIDA] 19 ligações produto → filial apontam para filial de CLIENTE**, contra a regra "o
+  endereço tem de ser de fornecedor" (`specs/paginas/cadastros.md` §9.5). Como a regra fica na
+  server action, a carga gravou os pares como estão. *Recomendação padrão:* manter, e a tela de
+  produto mostrar o aviso; limpar é trabalho do Comercial.
+- **[DÚVIDA] 18 produtos só têm fornecedor na lista por GRUPO** (`QuaisFornecedores`), que a
+  decisão de `02` §3.2 descarta em favor da lista por filial. Eles entraram **sem fornecedor**.
+  *Recomendação padrão:* aceitar a perda e cadastrar a filial pela tela; a alternativa é ligar
+  automaticamente à filial principal do grupo, o que pode ligar a filial errada.
+- **55 ligações de fornecedor ficaram de fora** porque apontam para 10 filiais descartadas na carga
+  do cadastro (sem UF, sem regime ou documento inválido). Entram sozinhas numa recarga depois que
+  essas filiais forem corrigidas.
+
+Fotos de produto (30) e ícones de tipo (4) ainda são URL do CDN do Bubble e não foram carregados:
+entram no passo de arquivos, junto de `anexos`, copiados para o Storage privado.
+
+Armadilha do carregador: `alterado_em` vindo do Bubble só vale no primeiro insert — numa recarga o
+trigger `fn_set_alterado` sobrescreve com a hora da carga.
+
+---
+
 ### B5 foi respondida pela leitura do mapa — e a resposta era o contrário
 
 Registrado porque o erro custou caro e pode voltar. Três specs (`financeiro-reusables` 21,

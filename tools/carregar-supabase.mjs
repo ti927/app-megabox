@@ -24,7 +24,11 @@
  * Uso:
  *   node tools/carregar-supabase.mjs --relatorio            # confere, não grava
  *   node tools/carregar-supabase.mjs --tipos tbl.grupoclifor
+ *   node tools/carregar-supabase.mjs --relatorio --baixar --tipos tbl.produtostipo,tbl.produtosgrupo,tbl.produtosmodelo,tbl.produtoversao
  *   node tools/carregar-supabase.mjs                        # carrega tudo que o MAPA cobre
+ *
+ * Os nomes de tipo são os da Data API (`/api/1.1/meta`), que seguem o NOME do data type
+ * (`Tbl.ProdutosTipo` → `tbl.produtostipo`), e não a tabela física trocada do mapa.
  */
 
 import { existsSync, readFileSync } from 'node:fs'
@@ -36,10 +40,16 @@ import { createClient } from '@supabase/supabase-js'
 const LOTE = 500
 
 // ---------------------------------------------------------------------------------
-// De-para. Cresce a cada fatia; hoje cobre a fatia 2 (cadastro).
+// De-para. Cresce a cada fatia; hoje cobre a fatia 2 (cadastro) e a 3 (produtos).
 // `col`  = colunas escalares, destino ← nome de exibição do Bubble (ou função)
 // `ref`  = colunas de FK, traduzidas de bubble_id para uuid ANTES do insert
 // `dom`  = colunas que apontam para lista fixa, resolvidas por chave_bubble
+// `ligacoes` = LISTA dentro do registro que vira N linhas numa tabela de ligação pura
+//          (pk composta, sem bubble_id — 02 §1.5). Cada item: `de` (campo lista), `dono`
+//          (coluna que recebe o uuid do próprio registro), `alvo` (coluna do item) e `dom`
+//          (lista fixa) OU `ref` (tabela com bubble_id). Grava com `on conflict do nothing`.
+// `posCarga` = passo que roda depois da gravação do tipo (e, no relatório, só conta).
+// Todo tipo ganha `criado_em` ← `Created Date` e `alterado_em` ← `Modified Date`.
 // ---------------------------------------------------------------------------------
 const soDigitos = (v) => String(v ?? '').replace(/\D/g, '') || null
 const texto = (v) => (v === undefined || v === null || v === '' ? null : String(v))
@@ -107,8 +117,8 @@ const MAPA = {
       demanda: (r) => texto(r['cpo.Demanda']),
       observacoes: (r) => texto(r['cpo.Observacoes']),
       // `principal` NÃO vem do Bubble: lá é true em toda filial e nunca lido
-      // (02 §2.1.8). A escolha de um por grupo é o passo `principal` abaixo.
-      principal: () => false,
+      // (02 §2.1.8). A escolha de um por grupo é o `posCarga` abaixo. A coluna fica FORA
+      // do upsert de propósito: gravar `false` aqui apagaria a escolha a cada recarga.
       // tipo_pessoa é derivado do tamanho, porque o campo do Bubble é texto livre.
       tipo_pessoa: (r) => {
         const d = soDigitos(r['cpo.CnpjCpf'])
@@ -124,6 +134,7 @@ const MAPA = {
     ref: {
       grupo_id: { de: 'cpo.QualGrupoCliFor', tabela: 'grupos_clifor', obrigatorio: true },
     },
+    posCarga: escolherPrincipal,
   },
 
   'tbl.contatoclifor': {
@@ -145,6 +156,118 @@ const MAPA = {
       endereco_id: { de: 'cpo.QualEndereço', tabela: 'enderecos_clifor' },
     },
   },
+
+  // ------------------------------------------------------------------ fatia 3: produtos
+  // ARMADILHA do mapa, que NÃO se aplica aqui: Tbl.ProdutosTipo mora na tabela física
+  // tbl_produtosgrupo e Tbl.ProdutosGrupo em tbl_produtossubgrupo (trocadas). A Data API fala
+  // pelo NOME do data type, então `tbl.produtostipo` é o tipo mesmo. Não "corrija" invertendo.
+  // Fotos e ícone (`*_path`) ficam de fora: o Bubble manda URL do CDN, e a coluna é caminho no
+  // Storage privado. Entram no passo de arquivos (o mesmo de `anexos`), não aqui.
+  'tbl.produtostipo': {
+    tabela: 'produto_tipos',
+    obrigatorias: ['nome'],
+    col: {
+      nome: (r) => texto(r['cpo.NomeTipo']),
+    },
+  },
+
+  'tbl.produtosgrupo': {
+    tabela: 'produto_grupos',
+    obrigatorias: ['tipo_id', 'nome'],
+    col: {
+      nome: (r) => texto(r['cpo.NomeGrupo']),
+    },
+    ref: {
+      tipo_id: { de: 'cpo.QualTipoProduto', tabela: 'produto_tipos', obrigatorio: true },
+    },
+  },
+
+  'tbl.produtosmodelo': {
+    tabela: 'produtos',
+    obrigatorias: ['nome'],
+    col: {
+      nome: (r) => texto(r['cpo.NomeModelo']),
+      descricao: (r) => texto(r['cpo.Descricao']),
+      ativo: (r) => r['cpo.Ativo'] !== false,
+    },
+    ref: {
+      tipo_id: { de: 'cpo.QualTipoProduto', tabela: 'produto_tipos' },
+      grupo_id: { de: 'cpo.QualGrupoProduto', tabela: 'produto_grupos' },
+    },
+    // `cpo.QuaisVersoesProduto` NÃO entra: espelha `ProdutoVersao.QualModeloProduto` (conferido
+    // na base: as duas batem 100%), e a FK do lado N já diz tudo (02 §1.5).
+    // `cpo.QuaisFornecedores` (lista por GRUPO) é DESCARTADA: vale a da filial (02 §3.2).
+    ligacoes: {
+      produto_linhas: { de: 'cpo.QuaisLinhas', dono: 'produto_id', alvo: 'linha_id', dom: 'linhas_produto' },
+      produto_condicoes: {
+        de: 'cpo.QuaisCondicoes',
+        dono: 'produto_id',
+        alvo: 'condicao_id',
+        dom: 'condicoes_produto',
+      },
+      fornecedor_produtos: {
+        de: 'cpo.QuaisFornecedoresFiliais',
+        dono: 'produto_id',
+        alvo: 'endereco_fornecedor_id',
+        ref: 'enderecos_clifor',
+      },
+    },
+  },
+
+  'tbl.produtoversao': {
+    tabela: 'produto_versoes',
+    obrigatorias: ['produto_id', 'nome'],
+    col: {
+      nome: (r) => texto(r['cpo.NomeVersao']),
+      ativo: (r) => r['cpo.Ativo'] !== false,
+    },
+    ref: {
+      produto_id: { de: 'cpo.QualModeloProduto', tabela: 'produtos', obrigatorio: true },
+    },
+  },
+}
+
+/**
+ * Um endereço principal por grupo (02 §2.1.8; índice único parcial `um_principal_por_grupo`).
+ *
+ * Só mexe em grupo que AINDA NÃO TEM principal — é isso que o torna idempotente e deixa em paz a
+ * escolha feita depois na tela. Critério: filial ativa primeiro, depois a mais antiga pelo
+ * prefixo do bubble_id (`<epoch_ms>x<aleatório>`); filial sem bubble_id (nascida no app) vai
+ * para o fim. Lê o BANCO, não o JSON: o que decide é o que foi gravado.
+ */
+async function escolherPrincipal(db, { relatorio }) {
+  const filiais = []
+  for (let i = 0; ; i += 1000) {
+    const { data, error } = await db
+      .from('enderecos_clifor')
+      .select('id, grupo_id, ativo, bubble_id, principal')
+      .order('id')
+      .range(i, i + 999)
+    if (error) throw new Error(`lendo enderecos_clifor: ${error.message}`)
+    filiais.push(...data)
+    if (data.length < 1000) break
+  }
+  const jaTem = new Set(filiais.filter((f) => f.principal).map((f) => f.grupo_id))
+  const idade = (f) => (f.bubble_id ? Number(String(f.bubble_id).split('x')[0]) : Infinity)
+  const melhor = new Map()
+  for (const f of filiais) {
+    if (jaTem.has(f.grupo_id)) continue
+    const atual = melhor.get(f.grupo_id)
+    const antes =
+      !atual ||
+      (f.ativo && !atual.ativo) ||
+      (f.ativo === atual.ativo &&
+        (idade(f) < idade(atual) || (idade(f) === idade(atual) && String(f.bubble_id) < String(atual.bubble_id))))
+    if (antes) melhor.set(f.grupo_id, f)
+  }
+  const ids = [...melhor.values()].map((f) => f.id)
+  const resumo = `principal: ${jaTem.size} grupo(s) já têm, ${ids.length} receberiam agora`
+  if (relatorio) return resumo
+  for (let i = 0; i < ids.length; i += 200) {
+    const { error } = await db.from('enderecos_clifor').update({ principal: true }).in('id', ids.slice(i, i + 200))
+    if (error) throw new Error(`principal lote ${i / 200 + 1}: ${error.message}`)
+  }
+  return `principal: ${ids.length} grupo(s) receberam principal (${jaTem.size} já tinham)`
 }
 
 // ---------------------------------------------------------------------------------
@@ -176,11 +299,27 @@ async function baixar(base, chave, tipo) {
   let cursor = 0
   for (;;) {
     const url = `${base}/api/1.1/obj/${tipo}?limit=100&cursor=${cursor}`
-    const resposta = await fetch(url, {
-      headers: chave ? { Authorization: `Bearer ${chave}` } : {},
-    })
-    if (!resposta.ok) throw new Error(`${resposta.status} em ${tipo}`)
-    const r = (await resposta.json()).response ?? {}
+    // O Bubble derruba conexão longa (ECONNRESET) e às vezes responde 5xx/429 no meio de
+    // 80 páginas. Sem nova tentativa, uma queda na página 70 jogava fora as 69 anteriores.
+    // Tenta de novo a MESMA página, com espera crescente; erro 4xx (fora 429) não se repete,
+    // porque é pedido errado e insistir só esconde.
+    let r
+    for (let tentativa = 1; ; tentativa++) {
+      try {
+        const resposta = await fetch(url, {
+          headers: chave ? { Authorization: `Bearer ${chave}` } : {},
+        })
+        if (resposta.ok) {
+          r = (await resposta.json()).response ?? {}
+          break
+        }
+        const definitivo = resposta.status < 500 && resposta.status !== 429
+        if (definitivo || tentativa >= 5) throw new Error(`${resposta.status} em ${tipo}`)
+      } catch (erro) {
+        if (tentativa >= 5 || /^\d{3} em /.test(erro.message)) throw erro
+      }
+      await dormir(1000 * 2 ** (tentativa - 1))
+    }
     linhas.push(...(r.results ?? []))
     if (!r.remaining || r.remaining <= 0) break
     cursor += 100
@@ -228,6 +367,8 @@ function conferirMapa(tipo, config, linhas) {
 
   for (const [destino, d] of Object.entries(config.dom ?? {})) conferir(destino, d.de, d.reserva)
   for (const [destino, d] of Object.entries(config.ref ?? {})) conferir(destino, d.de)
+  for (const [destino, d] of Object.entries(config.ligacoes ?? {})) conferir(destino, d.de)
+  conferir('criado_em', 'Created Date')
   for (const destino of Object.keys(config.col ?? {})) {
     // As colunas escalares são funções; não dá para inspecionar o nome sem executá-las.
     void destino
@@ -276,6 +417,34 @@ async function main() {
     return mapa
   }
 
+  /**
+   * bubble_id → uuid já gravado, em lote. Lê o BANCO, então a ordem dos tipos não importa: o pai
+   * pode ter sido carregado numa rodada anterior.
+   *
+   * No relatório nada é gravado, então um pai que ESTA MESMA rodada gravaria (tipo anterior na
+   * lista) apareceria como órfão e o relatório de produtos seria só ruído. `previstos` guarda os
+   * bubble_id que cada tabela gravaria, e o ponteiro para eles conta como resolvido.
+   */
+  const previstos = {}
+  const PREVISTO = '(previsto)'
+  async function traduzir(tabela, conjunto) {
+    const mapa = new Map()
+    const ids = [...conjunto]
+    // 200 por vez, e não 1000: o `in` do PostgREST vai na URL, e 1000 bubble_id de 30
+    // caracteres estouram o limite do servidor — o erro que volta é só "Bad Request",
+    // sem dizer que o problema é tamanho.
+    for (let i = 0; i < ids.length; i += 200) {
+      const { data, error } = await db
+        .from(tabela)
+        .select('id, bubble_id')
+        .in('bubble_id', ids.slice(i, i + 200))
+      if (error) throw new Error(`traduzindo ${tabela}: ${error.message}`)
+      for (const l of data) mapa.set(l.bubble_id, l.id)
+    }
+    for (const b of previstos[tabela] ?? []) if (!mapa.has(b)) mapa.set(b, PREVISTO)
+    return mapa
+  }
+
   for (const tipo of tipos) {
     const config = MAPA[tipo]
     if (!config) {
@@ -315,6 +484,15 @@ async function main() {
     for (const r of linhas) {
       const linha = { bubble_id: r._id }
       for (const [destino, fn] of Object.entries(config.col)) linha[destino] = fn(r)
+      // Datas do Bubble (nomes de EXIBIÇÃO, com espaço: `Created Date`, `Modified Date`). Sem
+      // isto criado_em vira a hora da carga, e "o mais antigo" e toda ordenação por data mentem.
+      // A chave vai SEMPRE no objeto: o supabase-js manda ausente como NULL, não como default,
+      // e criado_em é not null. Registro sem `Created Date` fica com a hora da carga e um aviso.
+      linha.criado_em = texto(r['Created Date']) ?? new Date().toISOString()
+      if (!r['Created Date']) avisos.push('criado_em: registro sem Created Date — ficou a hora da carga')
+      // ARMADILHA: vale só no INSERT. Numa recarga o upsert vira UPDATE, e o trigger
+      // fn_set_alterado sobrescreve alterado_em com now() — não há como evitar sem mexer no banco.
+      linha.alterado_em = texto(r['Modified Date'])
 
       for (const [destino, d] of Object.entries(config.dom ?? {})) {
         const bruto = r[d.de] ?? (d.reserva ? r[d.reserva] : null)
@@ -359,8 +537,6 @@ async function main() {
     // só nas três tabelas desta fatia. Não dava para continuar assim por dois motivos, e o
     // segundo é o que obriga: `enderecos_clifor.grupo_id` e `contatos_clifor.grupo_id` são
     // `not null`, então a linha não ENTRA sem a FK resolvida. Resolver depois é impossível.
-    // A tradução lê o BANCO, não a memória, então a ordem dos tipos não importa: o pai pode ter
-    // sido carregado numa rodada anterior.
     const alvos = {}
     for (const linha of registros) {
       for (const [destino, bubble] of Object.entries(linha.__ref ?? {})) {
@@ -368,21 +544,7 @@ async function main() {
       }
     }
     const traducao = {}
-    for (const [tabela, conjunto] of Object.entries(alvos)) {
-      traducao[tabela] = new Map()
-      const ids = [...conjunto]
-      // 200 por vez, e não 1000: o `in` do PostgREST vai na URL, e 1000 bubble_id de 30
-      // caracteres estouram o limite do servidor — o erro que volta é só "Bad Request",
-      // sem dizer que o problema é tamanho.
-      for (let i = 0; i < ids.length; i += 200) {
-        const { data, error } = await db
-          .from(tabela)
-          .select('id, bubble_id')
-          .in('bubble_id', ids.slice(i, i + 200))
-        if (error) throw new Error(`traduzindo ${tabela}: ${error.message}`)
-        for (const l of data) traducao[tabela].set(l.bubble_id, l.id)
-      }
-    }
+    for (const [tabela, conjunto] of Object.entries(alvos)) traducao[tabela] = await traduzir(tabela, conjunto)
 
     let orfas = 0
     for (const linha of registros) {
@@ -408,44 +570,113 @@ async function main() {
     // aqui ou aparece no meio da gravação, com 500 linhas já dentro.
     // Linha sem valor no que é `not null` é PULADA, não corrigida: inventar nome de cliente é
     // pior do que deixar de fora e dizer quantos ficaram.
-    const descartados = []
+    // Contagem POR COLUNA: uma linha pode faltar em mais de uma, e cada uma conta.
+    let descartados = 0
+    const faltaPorColuna = {}
     const gravar = registros.filter((linha) => {
       const faltando = (config.obrigatorias ?? []).filter((c) => linha[c] == null)
       if (faltando.length === 0) return true
-      descartados.push(`${linha.bubble_id}: sem ${faltando.join(', ')}`)
+      descartados++
+      for (const c of faltando) faltaPorColuna[c] = (faltaPorColuna[c] ?? 0) + 1
       return false
     })
 
     const resumoAvisos = [...new Set(avisos)].slice(0, 10)
-    const resumoDescarte = descartados.length
-      ? `\n      ${descartados.length} linha(s) DESCARTADA(s) por coluna not null vazia` +
-        ` — ${(config.obrigatorias ?? []).join(', ')}`
+    const resumoDescarte = descartados
+      ? `${descartados} linha(s) DESCARTADA(s) por coluna not null vazia — ` +
+        Object.entries(faltaPorColuna)
+          .map(([c, n]) => `${c}: ${n}`)
+          .join(', ')
       : ''
 
     if (arg.relatorio) {
+      previstos[config.tabela] = new Set(gravar.map((l) => l.bubble_id))
       relatorio.push(
         `${tipo} → ${config.tabela}: ${gravar.length} linha(s) grava, ` +
-          `${descartados.length} descarta, ${avisos.length} aviso(s) de tradução` +
-          resumoDescarte +
+          `${descartados} descarta, ${avisos.length} aviso(s) de tradução` +
+          (resumoDescarte ? `\n      ${resumoDescarte}` : '') +
           (resumoAvisos.length ? `\n      ${resumoAvisos.join('\n      ')}` : ''),
       )
-      continue
-    }
-    if (descartados.length) {
-      console.warn(`  ${config.tabela}: ${descartados.length} linha(s) descartada(s) por not null vazio.`)
+    } else {
+      if (descartados) console.warn(`  ${config.tabela}: ${resumoDescarte}`)
+
+      for (let i = 0; i < gravar.length; i += LOTE) {
+        const fatia = gravar.slice(i, i + LOTE)
+        const { error } = await db
+          .from(config.tabela)
+          .upsert(fatia, { onConflict: 'bubble_id', ignoreDuplicates: false })
+        if (error) throw new Error(`${config.tabela} lote ${i / LOTE + 1}: ${error.message}`)
+        process.stdout.write(`\r  ${config.tabela}: ${Math.min(i + LOTE, gravar.length)}/${gravar.length}`)
+      }
+      console.log(`\r  ${config.tabela}: ${gravar.length} linha(s) gravada(s).           `)
+      if (avisos.length) console.warn(`    ${avisos.length} aviso(s); primeiros: ${resumoAvisos.join('; ')}`)
     }
 
-    for (let i = 0; i < gravar.length; i += LOTE) {
-      const fatia = gravar.slice(i, i + LOTE)
-      const { error } = await db
-        .from(config.tabela)
-        .upsert(fatia, { onConflict: 'bubble_id', ignoreDuplicates: false })
-      if (error) throw new Error(`${config.tabela} lote ${i / LOTE + 1}: ${error.message}`)
-      process.stdout.write(`\r  ${config.tabela}: ${Math.min(i + LOTE, registros.length)}/${registros.length}`)
-    }
-    console.log(`\r  ${config.tabela}: ${registros.length} linha(s) gravada(s).           `)
-    if (avisos.length) console.warn(`    ${avisos.length} aviso(s); primeiros: ${resumoAvisos.join('; ')}`)
+    // --------------------------------------------- ligações puras (listas dentro do registro)
+    // Roda DEPOIS da gravação do dono, porque precisa do uuid dele; no relatório o dono conta
+    // como `previsto`. Registro descartado não liga nada (o dono não existe).
+    const gravados = new Set(gravar.map((l) => l.bubble_id))
+    for (const [tabela, lig] of Object.entries(config.ligacoes ?? {})) {
+      const pares = []
+      let semDono = 0
+      for (const r of linhas) {
+        const lista = r[lig.de] ?? []
+        if (!gravados.has(r._id)) {
+          semDono += lista.length
+          continue
+        }
+        for (const item of lista) pares.push([r._id, item])
+      }
 
+      const avisosLig = []
+      const donos = await traduzir(config.tabela, new Set(pares.map(([d]) => d)))
+      const itens = lig.dom
+        ? await dominio(lig.dom)
+        : await traduzir(lig.ref, new Set(pares.map(([, i]) => String(i))))
+      const chave = (i) => (lig.dom ? normalizar(i) : String(i))
+
+      const unicas = new Map()
+      for (const [dono, item] of pares) {
+        const uuidDono = donos.get(dono)
+        const idItem = itens.get(chave(item))
+        if (uuidDono === undefined) {
+          avisosLig.push(`${lig.dono}: dono sem linha em ${config.tabela}`)
+          continue
+        }
+        if (idItem === undefined) {
+          avisosLig.push(
+            lig.dom
+              ? `${lig.alvo}: chave "${item}" não existe em ${lig.dom}`
+              : `${lig.alvo}: ponteiro para ${lig.ref} sem linha correspondente`,
+          )
+          continue
+        }
+        unicas.set(`${dono}|${idItem}`, { [lig.dono]: uuidDono, [lig.alvo]: idItem })
+      }
+      const ligar = [...unicas.values()]
+      const resumo =
+        `${tipo}.${lig.de} → ${tabela}: ${ligar.length} par(es) grava, ${avisosLig.length} aviso(s)` +
+        (semDono ? `, ${semDono} item(ns) de registro descartado` : '') +
+        (avisosLig.length ? `\n      ${[...new Set(avisosLig)].slice(0, 10).join('\n      ')}` : '')
+
+      if (arg.relatorio) {
+        relatorio.push(resumo)
+        continue
+      }
+      for (let i = 0; i < ligar.length; i += LOTE) {
+        const { error } = await db
+          .from(tabela)
+          .upsert(ligar.slice(i, i + LOTE), { onConflict: `${lig.dono},${lig.alvo}`, ignoreDuplicates: true })
+        if (error) throw new Error(`${tabela} lote ${i / LOTE + 1}: ${error.message}`)
+      }
+      console.log(`  ${resumo}`)
+    }
+
+    if (config.posCarga) {
+      const msg = await config.posCarga(db, { relatorio: !!arg.relatorio })
+      if (arg.relatorio) relatorio.push(`${tipo} (pós-carga) ${msg}`)
+      else console.log(`  ${config.tabela}: ${msg}`)
+    }
   }
   if (arg.relatorio) {
     console.log('\nModo relatório — nada foi gravado.\n')

@@ -240,6 +240,21 @@ concessão nominal.
 
 ---
 
+### SAC (28/09/2026)
+
+- **[DÚVIDA] Quem só tem a página `sac` não enxerga pedidos e entregas** (as policies da 008/009
+  exigem a página `vendas`), então não consegue abrir protocolo ligado a pedido. Hoje quem tem `sac`
+  é o Diretor (vê tudo) e dois usuários nomeados. *Recomendação padrão:* se a Ouvidoria não tiver
+  `vendas`, criar leitura por uma VIEW estreita (número do pedido, cliente, datas e quantidade da
+  entrega — sem valores nem comissão), e não liberar as tabelas inteiras.
+- A tela deixa quem tem a página `sac` emitir link de pesquisa e incluir/cancelar convites; a spec
+  (§9.3) diz "Diretoria". *Recomendação padrão:* manter com a página, que no Bubble já é restrita.
+- Limpeza de teste: o agente do SAC apagou 16 linhas de `auditoria` dos protocolos de teste com a
+  conexão de dono do banco. Era só dado de teste, mas contorna o "auditoria não se apaga". Regra a
+  partir daqui: teste deixa a trilha em `auditoria`, como os demais.
+
+---
+
 ### B5 foi respondida pela leitura do mapa — e a resposta era o contrário
 
 Registrado porque o erro custou caro e pode voltar. Três specs (`financeiro-reusables` 21,

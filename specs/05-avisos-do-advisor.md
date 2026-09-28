@@ -8,7 +8,7 @@ já era conhecido.
 Regra de uso: **se o aviso está aqui, é conhecido e aceito; se não está, é achado novo e trava a
 fatia.** Aviso de nível `ERROR` nunca entra nesta lista — ERROR se corrige.
 
-Estado em 25/09/2026, banco `megabox` (`bdntlmsuxpicpmpzosbt`), 33 tabelas, migrations 001–004.
+Estado em 25/09/2026, banco `megabox` (`bdntlmsuxpicpmpzosbt`), 44 tabelas, migrations 001–006.
 
 ---
 
@@ -50,10 +50,10 @@ camada. `scripts/testar-rls.mjs` afirma as duas.
 Quando a tela de auditoria for construída (perfil 1), entra a policy de select de `02` §7.3 e
 `auditoria` sai desta lista.
 
-### 2. `authenticated_security_definer_function_executable` — WARN — 5 funções
+### 2. `authenticated_security_definer_function_executable` — WARN — 6 funções
 
 `fn_usuario_ativo()`, `fn_hierarquia()`, `fn_pode_acessar_pagina(text)`, `fn_minhas_paginas()`,
-`fn_meu_cadastro()`.
+`fn_meu_cadastro()`, `fn_minhas_configuracoes()`.
 
 **Precisam ser executáveis por `authenticated`, e são inofensivas.**
 
@@ -62,7 +62,7 @@ o papel de quem consulta: sem `execute` para `authenticated`, toda consulta de t
 `security definer` é o que permite a policy de uma tabela consultar `public.usuarios` sem cair em
 recursão de RLS.
 
-Inofensivas porque **todas as cinco são fechadas em `auth.uid()`**:
+Inofensivas porque **todas são fechadas em `auth.uid()`**:
 
 | Função | Filtro | O que devolve a quem chama por RPC |
 |---|---|---|
@@ -71,6 +71,7 @@ Inofensivas porque **todas as cinco são fechadas em `auth.uid()`**:
 | `fn_pode_acessar_pagina(p_slug)` | `u.id = auth.uid()` | se ele mesmo abre aquela página |
 | `fn_minhas_paginas()` | `u.id = auth.uid()` | as páginas dele |
 | `fn_meu_cadastro()` | `u.id = auth.uid()` | o cadastro dele |
+| `fn_minhas_configuracoes()` | `u.id = auth.uid()` | os alvos de configuração dele |
 
 O critério que separa um caso do outro: **nenhuma aceita parâmetro que enderece outro usuário.**
 `fn_pode_acessar_pagina` recebe argumento, mas o argumento é a página, não a pessoa — o `where`

@@ -1,51 +1,75 @@
 # Estado do projeto e onde retomar
 
-Atualizado em 25/09/2026. Este arquivo existe para que a próxima sessão comece sem reler nada.
+Atualizado em 28/09/2026. Este arquivo existe para que a próxima sessão comece sem reler nada.
 
 ---
 
 ## 1. Onde o projeto está
 
-**Mapeamento e planejamento fechados. Nenhuma linha de aplicação escrita ainda** — e isso é
-proposital: a regra 2 do `CLAUDE.md` proíbe tocar no banco antes do mapeamento, e `specs/03` define
-a ordem a partir daqui.
+**Fase A (fundação) pronta; Fase D em andamento — fatias 0 a 3 com banco aplicado, fatia 2 com
+dado carregado e tela em construção.**
 
 | Frente | Situação |
 |---|---|
-| `mapa/` — app Bubble decompilado | pronto (herdado) |
-| `specs/bubble/02-telas-e-design.md` — referência visual das 14 telas | pronto |
-| `specs/paginas/*.md` — 14 specs funcionais | **pronto — 771/771 workflows cobertos** |
-| `specs/00-achados-de-seguranca.md` | pronto |
-| `specs/01-visao-geral.md` | pronto |
-| `specs/02-modelo-de-dados-proposto.md` | pronto — 58 tabelas |
-| `specs/03-plano-de-construcao.md` | pronto — 6 fases |
-| `specs/04-duvidas.md` | pronto — 226 itens consolidados |
-| `.env` | preenchido (fora do git) |
-| Banco Supabase `megabox` | criado, **sem tabelas** |
-| App Next.js | **não iniciado** ← próximo passo |
-| Repositório GitHub | `ti927/app-megabox`, público |
+| `mapa/`, `specs/00..04`, `specs/paginas/*` (14 specs, 771/771 WF) | pronto |
+| `specs/05-avisos-do-advisor.md` | veredito de cada aviso do `get_advisors` |
+| App Next.js 15 (`app/`, `lib/`, `componentes/`, `middleware.ts`) | login, casca, menu por permissão, `/inicio`, `/sem-acesso` |
+| Autorização em 3 camadas | middleware (sessão) → `exigirAcesso(slug)` no servidor → menu (só cosmético) |
+| Banco `megabox` | migrations **001–006** aplicadas: **44 tabelas, 44 com RLS** |
+| Carga (Fase C) | cadastro carregado em 28/09: **4.734 grupos, 5.716 filiais, 8.091 contatos**; 150 linhas descartadas por campo obrigatório vazio; 4.512 grupos com filial principal (222 não têm filial) |
+| Repositório | `ti927/app-megabox`, público, `main` publicado |
 
-### A prova de nada perdido
+### Migrations
+
+| Arquivo | Conteúdo |
+|---|---|
+| `db/001_fundacao.sql` | usuários, perfis, departamentos, páginas, permissões, auditoria, log de acesso |
+| `db/002_acesso_leitura.sql` | `fn_minhas_paginas()` (a view daqui foi derrubada pela 004) |
+| `db/003_listas_fixas.sql` | 22 listas fixas (option sets), semeadas opção a opção |
+| `db/004_usuarios_leitura.sql` | sigilo de CPF/RG por **privilégio de coluna**, `fn_meu_cadastro()` |
+| `db/005_paginas_de_configuracao.sql` | `paginas.tipo` (menu × engrenagem), alvos `cadastros` e `produtos` com a matriz B6 |
+| `db/006_cadastro.sql` | fatias 2 e 3: cliente/fornecedor, filiais, contatos, anexos, produtos |
+
+Aplicar migration nova: `node scripts/aplicar-migration.mjs db/00X.sql --seco` (roda e desfaz),
+depois sem `--seco`; em seguida `get_advisors` e `node scripts/testar-rls.mjs`. **`db/` é a fonte
+da verdade** — o registro `supabase_migrations` do painel só tem a 005 e não deve ser usado para
+saber o que está aplicado.
+
+### Verificações que valem sempre
 
 ```
-python tools/conferir-cobertura.py
-→ Workflows no mapa (em escopo): 771
-→ Nao citados em nenhuma spec:   0
+python tools/conferir-cobertura.py        → 771 workflows, 0 não citados
+npm run verify                            → typecheck + lint + teste
+node scripts/testar-rls.mjs               → o banco se comporta como 02 §7 promete
+node scripts/testar-acesso.mjs            → autorização ponta a ponta com conta de Operador
+node tools/carregar-supabase.mjs --relatorio --baixar   → o que a carga faria, sem gravar
 ```
 
-Rode isso sempre que uma spec mudar. Páginas de backup (`vendas_bkp`, `vendas_bkp2`, `metas_bkp`,
-`cadastros_old`, `testes`) estão fora de escopo e o script já as ignora.
+### O que a carga ensinou (e está tratado no carregador)
+
+A Data API do Bubble fala por **nome de exibição**, o mapa decompilado fala por **id**. Daí:
+campo vem como `cpo.CnpjCpf` e não `cpo_cnpjcpf_text`; option set vem pelo rótulo (`"CIF
+Incluso"`); campo vazio é omitido do JSON; a chave do Paraná no option set de UF é `pf` (erro de
+digitação no Bubble); enum do Postgres exige o valor em minúscula. E o modo relatório só presta se
+conferir o que o banco recusa (`not null`, enum, FK), não apenas a tradução. Detalhe em
+`specs/04-duvidas.md` §1.1.
 
 ---
 
 ## 2. O próximo passo
 
-`specs/03-plano-de-construcao.md`, **Fase A** — fundação do repositório e do ambiente: Next.js 15 +
-TypeScript, `vercel.json` com `"regions": ["gru1"]` desde o primeiro commit, `npm run verify`
-(typecheck + lint + teste) e `scripts/qa.mjs`.
-
-Depois, na ordem: extração do Bubble (Fase B) → carga (Fase C) → as 12 fatias verticais (Fase D,
-a fatia 2 é a tela-modelo) → desempenho (E) → corte (F).
+1. **Fatia 2 — tela-modelo `/cadastros`**: fixa o padrão de 5 arquivos por tela (`page.tsx` ·
+   `loading.tsx` · `tela.tsx` · `dialogo.tsx` · `acoes.ts`) que as outras copiam. QA por captura
+   (claro, escuro, 390px) antes de dar por pronta.
+2. **Fatia 3 — carga de produtos**: estender o de-para do carregador (as três ligações puras não
+   têm `bubble_id` e precisam de mecanismo próprio).
+3. **Carregar os usuários/vendedores** e recarregar o cadastro: `grupos_clifor.carteira_id` aponta
+   para o vendedor, e com só 3 usuários no banco novo **nenhum** grupo ficou com carteira (2.445
+   tinham). A carga é idempotente por `bubble_id`: rodar de novo depois preenche. Usuário do Bubble
+   não traz senha (texto puro, comprometida) — cada um recebe convite e cria a sua.
+4. **Fila de limpeza**: `v_clifor_documento_duplicado` tem 261 documentos em 559 filiais. Enquanto
+   não esvaziar, o `unique` de documento não entra.
+5. Fatias 4 a 12, na ordem de `specs/02` §11.
 
 ---
 
@@ -54,11 +78,11 @@ a fatia 2 é a tela-modelo) → desempenho (E) → corte (F).
 Nada disso é técnico; é negócio. `specs/04-duvidas.md` tem o detalhe e a recomendação padrão de
 cada item — nenhum fica parado esperando.
 
-### 3.1 Quatro pendências bloqueiam a carga
+### 3.1 Quatro pendências de negócio
 
 | # | Pergunta |
 |---|---|
-| B1 | CNPJ/CPF deve ser único? E nome de produto dentro do grupo? (o Bubble não tem unicidade em lugar nenhum, então é provável que haja duplicata) |
+| B1 | **Medido:** 120 CNPJs repetidos entre filiais ativas e válidas, 11 produtos repetidos no grupo. Decidido por ora: índice comum + `v_clifor_documento_duplicado` como fila de limpeza; o `unique` entra quando a fila esvaziar. Falta você decidir **quem limpa** e **qual filial fica** em cada par. |
 | B2 | Qual é a regra oficial de `RankingVendas`? (`relatorios` e `metas` calculam diferente) |
 | B3 | Em que escala estão `ComissaoPadrao` e `ComissaoMetaBatida` — 0,10 é 10% ou 0,10%? |
 | B4 | Os 3% da comissão do vendedor são fixos para todos, ou vêm do nível? |
@@ -66,10 +90,12 @@ cada item — nenhum fica parado esperando.
 B5 (fórmulas de ICMS e PIS/COFINS) **foi resolvida em 25/09** pela leitura do mapa — ver
 `specs/04-duvidas.md` §1.
 
-### 3.2 Antes da Fase A
+### 3.2 Permissões (B6) — respondida com dado
 
-**O conteúdo atual das linhas de permissão do `ConfigSistema`**: quem hoje enxerga cada página.
-Só existe no banco do Bubble, e a fatia 0 depende disso.
+As 14 linhas de permissão do `ConfigSistema` foram extraídas e estão em `specs/04-duvidas.md` §1.1.
+Uma coisa para você olhar: **"Cliente / Fornecedor" é concedido aos quatro perfis**, ou seja, a
+todo usuário ativo — inclusive escrita no cadastro. A migration 005 reproduz isso fielmente, porque
+apertar regra durante a migração é decisão sua, não minha.
 
 ### 3.3 Antes da Fase B
 

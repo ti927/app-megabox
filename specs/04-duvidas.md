@@ -122,6 +122,23 @@ leia o Bubble.
    Conferir o de-para contra o primeiro registro dá falso positivo em todo campo opcional —
    a conferência tem de olhar todas as linhas e só reclamar do que não aparece em nenhuma.
 
+4. **O id do próprio Bubble pode estar errado.** No option set de UF, a chave de **Paraná é
+   `pf`**, não `pr`. A API manda o rótulo `"PR"`, que não bate nem com `pf` nem com "Paraná", e
+   401 filiais ficavam sem UF. O carregador passou a indexar também a sigla, que é a identidade
+   real da linha.
+
+E duas que não são da Data API, mas do **modo relatório** — que dizia "0 avisos" e deixava a carga
+morrer no primeiro lote, porque só conferia a tradução:
+
+5. **Enum do Postgres não aceita o rótulo.** `"Cliente"` ≠ `'cliente'`. O de-para declara a lista
+   de valores do enum e confere antes de gravar.
+
+6. **O Bubble não tem campo obrigatório; o esquema novo tem.** 12 grupos sem nome foram achados só
+   quando o `insert` recusou. O de-para declara as colunas `not null`, e a linha que não as tem é
+   descartada e contada — inventar nome de cliente é pior que dizer quantos ficaram de fora. Pela
+   mesma razão a FK obrigatória (`grupo_id`) passou a ser resolvida **antes** do insert, e não numa
+   segunda passada.
+
 ---
 
 ### B5 foi respondida pela leitura do mapa — e a resposta era o contrário

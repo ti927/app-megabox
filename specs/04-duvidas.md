@@ -273,6 +273,34 @@ timeout em produção). Detalhe em D1..D9 no cabeçalho do arquivo.
 
 ---
 
+### Arquivos no Storage (28/09/2026) — decisões da 018
+
+Migration `018_arquivos`: 5 buckets privados (`anexos`, `produtos`, `entregas`, `usuarios`,
+`clifor`), caminho `<bucket>/<id da linha dona>/<uuid>.<ext>` com CHECK em toda coluna `*_path`,
+URL assinada de 60–300 s (`lib/arquivos.ts`). Medido: a Data API **anônima** devolve os 761 anexos
+com URL do CDN — o vazamento de `00` §2.2 está aberto hoje, para qualquer um.
+
+- **Filtro de departamento virou policy** de `anexos` (e, por ela, do bucket): vale para todo
+  perfil, Diretor incluído, como o `contains(CurrentUser:cpo.QualDepto)` do `pop.AnexosClifor`.
+  Consequência: "Comprovante de Endereço" não tem departamento nenhum (003 e Bubble) → ninguém o
+  lê. *Se a Diretoria quiser exceção por perfil, é uma linha na policy.*
+- **[DÚVIDA] Anexo de USUÁRIO** (RG, CPF, contracheque, exames): no Bubble qualquer logado vê.
+  *Adotado:* o dono ou hierarquia ≤ 2 (mesma regra do dado pessoal de `usuarios` na 001), somado
+  ao filtro de departamento.
+- **Anexo de cliente tem grupo E filial no Bubble**; `anexos.dono_unico` (006) aceita um só. A
+  cópia grava a **filial** (`endereco_id`), que é mais específica — o grupo se deduz dela. A tela
+  lista os anexos do grupo por `grupo_id = X or endereco_id in (filiais de X)`.
+- **Tipos recusados:** `.html` (2 anexos no Bubble) e SVG não entram — são página/imagem com
+  script servidas do domínio do Storage. Os 2 ficam no Bubble e estão no relatório da cópia.
+- Objeto é imutável e ninguém apaga pela sessão (sem policy de UPDATE/DELETE em
+  `storage.objects`): remover e trocar arquivo é server action com service_role, depois de
+  conferir a permissão (mesmo raciocínio do delete de `anexos` na 006). Ainda não existe — entra
+  com a tela.
+- Arquivos de entrega (5.261 no Bubble) esperam a carga das entregas; `tools/copiar-arquivos-bubble.mjs
+  --so entregas` roda depois dela.
+
+---
+
 ### B5 foi respondida pela leitura do mapa — e a resposta era o contrário
 
 Registrado porque o erro custou caro e pode voltar. Três specs (`financeiro-reusables` 21,

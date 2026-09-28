@@ -72,6 +72,10 @@ Inofensivas porque **todas são fechadas em `auth.uid()`**:
 | `fn_minhas_paginas()` | `u.id = auth.uid()` | as páginas dele |
 | `fn_meu_cadastro()` | `u.id = auth.uid()` | o cadastro dele |
 | `fn_minhas_configuracoes()` | `u.id = auth.uid()` | os alvos de configuração dele |
+| `fn_pode_ver_tipo_anexo(p_tipo)` (018) | `u.id = auth.uid()` | se o departamento dele vê aquele TIPO de anexo |
+
+A sétima entrou com a 018 (28/09/2026): é chamada pela policy de leitura de `anexos`. O argumento
+é o tipo de anexo, não uma pessoa — mesmo caso de `fn_pode_acessar_pagina`.
 
 O critério que separa um caso do outro: **nenhuma aceita parâmetro que enderece outro usuário.**
 `fn_pode_acessar_pagina` recebe argumento, mas o argumento é a página, não a pessoa — o `where`

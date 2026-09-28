@@ -14,6 +14,7 @@ import {
   podeTerCarteira,
 } from '@/lib/clifor'
 import { somenteDigitos } from '@/lib/documento'
+import { podeBloquearFilial } from '@/lib/filial-contato'
 import { clienteServidor } from '@/lib/supabase/servidor'
 
 import { TelaCadastros } from './tela'
@@ -98,7 +99,7 @@ async function contarAtivos(supabase: Supabase) {
 }
 
 async function buscarOpcoes(supabase: Supabase): Promise<Opcoes> {
-  const [ufs, captacoes, usuarios] = await Promise.all([
+  const [ufs, captacoes, usuarios, regimes, fretes] = await Promise.all([
     supabase.from('ufs').select('sigla, nome').order('sigla'),
     supabase.from('captacoes').select('id, nome').order('id'),
     supabase
@@ -106,10 +107,14 @@ async function buscarOpcoes(supabase: Supabase): Promise<Opcoes> {
       .select('id, nome, departamento_id')
       .eq('ativo', true)
       .order('nome'),
+    supabase.from('regimes_tributarios').select('id, nome').order('id'),
+    supabase.from('tipos_frete').select('id, nome').order('id'),
   ])
   return {
     ufs: ufs.data ?? [],
     captacoes: captacoes.data ?? [],
+    regimes: regimes.data ?? [],
+    fretes: fretes.data ?? [],
     carteiras: (usuarios.data ?? [])
       .filter((u) => podeTerCarteira(u.departamento_id))
       .map((u) => ({ id: u.id, nome: u.nome })),
@@ -133,7 +138,9 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
       .from('enderecos_clifor')
       .select(
         'id, nome_endereco, razao, fantasia, documento, tipo_pessoa, insc_estadual, ' +
-          'municipio, uf, ativo, liberado, liberado_motivo, principal, ' +
+          'insc_municipal, regime_tributario_id, cep, logradouro, numero, complemento, bairro, ' +
+          'municipio, uf, ativo, liberado, liberado_motivo, principal, corporativo, frete_id, ' +
+          'nome_comprador, capacidade_compra, demanda, observacoes, ' +
           'regime:regimes_tributarios(nome)',
       )
       .eq('grupo_id', id)
@@ -142,7 +149,10 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
       .order('nome_endereco'),
     supabase
       .from('contatos_clifor')
-      .select('id, nome, cargo, email, telefone, ativo, endereco_id, tipo_telefone:tipos_telefone(nome)')
+      .select(
+        'id, nome, cargo, email, telefone, ativo, endereco_id, tipo_telefone_id, ' +
+          'tipo_telefone:tipos_telefone(nome)',
+      )
       .eq('grupo_id', id)
       .order('ativo', { ascending: false })
       .order('nome'),
@@ -208,6 +218,7 @@ export default async function PaginaCadastros({
       permissoes={{
         escreverFornecedor: podeEscreverTipo(usuario, 'fornecedor'),
         alterarAtivoFornecedor: podeAlterarAtivo(usuario, 'fornecedor'),
+        bloquearFilial: podeBloquearFilial(usuario),
       }}
     />
   )

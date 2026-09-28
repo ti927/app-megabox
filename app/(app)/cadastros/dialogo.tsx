@@ -5,10 +5,11 @@ import { useFormStatus } from 'react-dom'
 
 import type { TipoClifor } from '@/lib/clifor'
 import { formatarData } from '@/lib/datas'
-import { documentoValido, formatarDocumento, somenteDigitos } from '@/lib/documento'
+import { somenteDigitos } from '@/lib/documento'
 
 import { definirAtivoGrupo, salvarGrupo } from './acoes'
-import type { Contato, Duplicado, EstadoAcao, Ficha, Filial, Opcoes, Permissoes } from './tipos'
+import { AbaContatos, AbaFiliais } from './filiais-contatos'
+import type { EstadoAcao, Ficha, Opcoes, Permissoes } from './tipos'
 
 type Aba = 'dados' | 'filiais' | 'contatos'
 
@@ -200,138 +201,14 @@ function FormularioGrupo({
   )
 }
 
-// --------------------------------------------------------------------- aba Filiais
-
-function AvisoDuplicado({ filial, outras }: { filial: Filial; outras: Duplicado[] }) {
-  return (
-    <div className="aviso" data-teste="aviso-duplicado">
-      <strong>Documento repetido.</strong> O {filial.tipo_pessoa === 'cpf' ? 'CPF' : 'CNPJ'}{' '}
-      {formatarDocumento(filial.documento)} também está em:
-      <ul>
-        {outras.map((o) => (
-          <li key={o.endereco_id}>
-            {o.grupo_nome} — {o.nome_endereco}
-            {o.grupo_tipo === 'fornecedor' ? ' (fornecedor)' : ''}
-            {o.ativo ? '' : ' (inativa)'}
-          </li>
-        ))}
-      </ul>
-      <small>
-        Está na fila de limpeza de documentos repetidos. Confira com o Comercial qual filial fica.
-      </small>
-    </div>
-  )
-}
-
-function ListaFiliais({ ficha }: { ficha: Ficha }) {
-  if (ficha.filiais.length === 0) {
-    return <p className="ficha-vazio">Nenhuma filial cadastrada.</p>
-  }
-  return (
-    <ul className="ficha-itens" data-teste="lista-filiais">
-      {ficha.filiais.map((f) => {
-        const documento = somenteDigitos(f.documento)
-        const outras = (ficha.duplicados[documento] ?? []).filter((d) => d.endereco_id !== f.id)
-        return (
-          <li key={f.id} className="ficha-item" data-inativo={!f.ativo || undefined}>
-            <div className="ficha-item-topo">
-              <strong>{f.nome_endereco}</strong>
-              {f.principal ? <span className="selo">Principal</span> : null}
-              <span className="selo" data-tom={f.ativo ? 'ok' : 'erro'}>
-                {f.ativo ? 'Ativa' : 'Inativa'}
-              </span>
-              <span className="selo" data-tom={f.liberado ? undefined : 'erro'}>
-                {f.liberado ? 'Liberada' : 'Bloqueada'}
-              </span>
-            </div>
-            {f.razao ? <div>{f.razao}</div> : null}
-            <dl className="ficha-dados">
-              <div>
-                <dt>{f.tipo_pessoa === 'cpf' ? 'CPF' : 'CNPJ'}</dt>
-                <dd className="numero">
-                  {formatarDocumento(f.documento)}
-                  {documento && !documentoValido(documento) ? (
-                    <span className="selo" data-tom="alerta">
-                      inválido
-                    </span>
-                  ) : null}
-                </dd>
-              </div>
-              <div>
-                <dt>Insc. estadual</dt>
-                <dd>{f.insc_estadual || '—'}</dd>
-              </div>
-              <div>
-                <dt>Regime</dt>
-                <dd>{f.regime?.nome ?? '—'}</dd>
-              </div>
-              <div>
-                <dt>Município/UF</dt>
-                <dd>
-                  {f.municipio ? `${f.municipio}/` : ''}
-                  {f.uf}
-                </dd>
-              </div>
-            </dl>
-            {!f.liberado && f.liberado_motivo ? (
-              <p className="ficha-motivo">Motivo do bloqueio: {f.liberado_motivo}</p>
-            ) : null}
-            {outras.length > 0 ? <AvisoDuplicado filial={f} outras={outras} /> : null}
-          </li>
-        )
-      })}
-    </ul>
-  )
-}
-
-// -------------------------------------------------------------------- aba Contatos
-
-function ListaContatos({ contatos, filiais }: { contatos: Contato[]; filiais: Filial[] }) {
-  if (contatos.length === 0) {
-    return <p className="ficha-vazio">Nenhum contato cadastrado.</p>
-  }
-  const nomeFilial = new Map(filiais.map((f) => [f.id, f.nome_endereco]))
-  return (
-    <ul className="ficha-itens" data-teste="lista-contatos">
-      {contatos.map((c) => (
-        <li key={c.id} className="ficha-item" data-inativo={!c.ativo || undefined}>
-          <div className="ficha-item-topo">
-            <strong>{c.nome}</strong>
-            {c.cargo ? <span className="ficha-cargo">{c.cargo}</span> : null}
-            {c.ativo ? null : (
-              <span className="selo" data-tom="erro">
-                Inativo
-              </span>
-            )}
-          </div>
-          <dl className="ficha-dados">
-            <div>
-              <dt>Telefone{c.tipo_telefone ? ` (${c.tipo_telefone.nome})` : ''}</dt>
-              <dd className="numero">{c.telefone || '—'}</dd>
-            </div>
-            <div>
-              <dt>E-mail</dt>
-              <dd className="quebra">{c.email || '—'}</dd>
-            </div>
-            <div>
-              <dt>Filial</dt>
-              <dd>{(c.endereco_id && nomeFilial.get(c.endereco_id)) || 'Do grupo'}</dd>
-            </div>
-          </dl>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 // ----------------------------------------------------------------------- o diálogo
 
 /**
  * Ficha do grupo (cliente ou fornecedor): dados, filiais e contatos.
  *
- * Substitui o painel `gp cadastros` (bUCYr0) da página do Bubble. Nesta primeira versão
- * filiais e contatos são só leitura; a edição deles é do módulo de endereços e contatos
- * (specs/paginas/enderecos-e-contatos.md).
+ * Substitui o painel `gp cadastros` (bUCYr0) da página do Bubble. Filiais e contatos são
+ * criados e editados nas próprias abas (filiais-contatos.tsx — porta de pop.AddEditaEndereço
+ * e pop.AddEditaContato, specs/paginas/enderecos-e-contatos.md).
  */
 export function FichaGrupo({
   ficha,
@@ -476,16 +353,15 @@ export function FichaGrupo({
             enviar={(form) => startTransition(() => salvar(form))}
           />
         </div>
-        {ficha && aba === 'filiais' ? <ListaFiliais ficha={ficha} /> : null}
-        {ficha && aba === 'contatos' ? (
-          <ListaContatos contatos={ficha.contatos} filiais={ficha.filiais} />
+        {ficha && aba === 'filiais' ? (
+          <AbaFiliais
+            ficha={ficha}
+            opcoes={opcoes}
+            escreve={escreve}
+            podeBloquear={permissoes.bloquearFilial}
+          />
         ) : null}
-        {ficha && aba !== 'dados' ? (
-          <p className="ficha-nota">
-            Nesta versão, filiais e contatos são só para consulta. Para incluir ou alterar, use o app
-            atual.
-          </p>
-        ) : null}
+        {ficha && aba === 'contatos' ? <AbaContatos ficha={ficha} /> : null}
 
         <Mensagem estado={estadoAtivo} />
       </div>

@@ -52,12 +52,25 @@ export type Filial = {
   documento: string | null
   tipo_pessoa: 'cpf' | 'cnpj'
   insc_estadual: string | null
+  insc_municipal: string | null
+  regime_tributario_id: number
+  cep: string | null
+  logradouro: string | null
+  numero: string | null
+  complemento: string | null
+  bairro: string | null
   municipio: string | null
   uf: string
   ativo: boolean
   liberado: boolean
   liberado_motivo: string | null
   principal: boolean
+  corporativo: boolean
+  frete_id: number | null
+  nome_comprador: string | null
+  capacidade_compra: string | null
+  demanda: string | null
+  observacoes: string | null
   regime: Nome
 }
 
@@ -69,6 +82,7 @@ export type Contato = {
   telefone: string | null
   ativo: boolean
   endereco_id: string | null
+  tipo_telefone_id: number | null
   tipo_telefone: Nome
 }
 
@@ -99,11 +113,15 @@ export type Opcoes = {
   captacoes: { id: number; nome: string }[]
   /** quem pode ser dono de carteira (clifor.podeTerCarteira) */
   carteiras: Opcao[]
+  regimes: { id: number; nome: string }[]
+  fretes: { id: number; nome: string }[]
 }
 
 export type Permissoes = {
   escreverFornecedor: boolean
   alterarAtivoFornecedor: boolean
+  /** bloquear/liberar filial (filial-contato.podeBloquearFilial) */
+  bloquearFilial: boolean
 }
 
 export type EstadoAcao = {
@@ -113,4 +131,22 @@ export type EstadoAcao = {
   id?: string
   /** nomes parecidos já cadastrados; a gravação espera confirmação */
   parecidos?: string[]
+}
+
+/** Retorno das actions de filial e contato. */
+export type EstadoItem = {
+  erro?: string
+  ok?: string
+  /** gravou, mas com ressalva (documento legado inválido, principal não trocado…) */
+  avisos?: string[]
+}
+
+/** Onde mais um documento aparece — aviso de §4.4, conferido antes de gravar. */
+export type OutraFilial = {
+  endereco_id: string
+  nome_endereco: string
+  grupo_id: string
+  grupo_nome: string
+  grupo_tipo: TipoClifor
+  ativo: boolean
 }

@@ -325,6 +325,86 @@
   margin-top: 0;
 }
 
+/* ------------------------------------------------ filiais e contatos (editáveis) */
+.ficha-secao-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e2) var(--e4);
+  margin-bottom: var(--e3);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--texto-2);
+}
+.ficha-secao-topo + .aviso,
+.ficha-dica + .aviso {
+  margin-bottom: var(--e3);
+}
+.ficha-item-acoes {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  margin-left: auto;
+  font-size: var(--t-sm);
+}
+.ficha-item-acoes form {
+  display: contents;
+}
+.ficha-subtitulo {
+  margin: 0;
+  font-size: var(--t-md, 1rem);
+  color: var(--azul);
+}
+.ficha-form fieldset.ficha-campos {
+  padding-top: var(--e3);
+  border-top: 1px solid var(--borda);
+}
+.ficha-form fieldset.ficha-campos > legend {
+  padding: 0 var(--e2) 0 0;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texto-2);
+}
+.ficha-dica {
+  margin: 0;
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.ficha-dica[data-tom='erro'] {
+  color: var(--vermelho);
+}
+.ficha-radios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e3);
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+.ficha-radios legend {
+  padding: 0;
+  margin-bottom: var(--e1);
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+.ficha-form .aviso ul {
+  margin: var(--e1) 0;
+  padding-left: var(--e5);
+}
+.ficha-form-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--e3);
+}
+@media (max-width: 40rem) {
+  .ficha-form-acoes > * {
+    flex: 1;
+  }
+}
+
 .link {
   padding: 0;
   font: inherit;

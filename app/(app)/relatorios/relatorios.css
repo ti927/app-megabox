@@ -1,0 +1,266 @@
+/* Tela de relatórios. Reconhecível para quem usa o Bubble (specs/bubble/02-telas-e-design.md
+ * §relatorios): três abas sublinhadas (ativa azul), KPIs em cartão com a cor do sentido
+ * (verde pedido, vermelho arquivado, roxo conversão), cabeçalho de tabela azul sólido.
+ * Só tokens de estilos/tokens.css — claro e escuro vêm de graça. */
+
+.relatorios {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+  max-width: 90rem;
+  min-width: 0;
+}
+
+.rel-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e3);
+}
+.rel-topo h1 {
+  margin: 0;
+}
+
+.rel-abas {
+  padding: 0;
+}
+
+/* ------------------------------------------------------------------ filtros */
+.rel-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--e3);
+  padding: var(--e4);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+}
+.rel-filtros .campo {
+  min-width: 9rem;
+}
+.rel-modelo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e3);
+  margin: 0;
+  padding: var(--e1) var(--e3) var(--e2);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+}
+.rel-modelo legend {
+  padding: 0 var(--e1);
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.rel-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2);
+  margin-left: auto;
+}
+
+.rel-nota {
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+
+.rel-conteudo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+  min-width: 0;
+}
+.rel-conteudo[aria-busy='true'] {
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.rel-bloco {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  min-width: 0;
+  padding: var(--e4);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+}
+.rel-bloco h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2);
+  margin: 0;
+  font-size: var(--t-md);
+}
+
+.rel-colunas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: var(--e4);
+}
+
+/* ---------------------------------------------------------------------- KPIs */
+.rel-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: var(--e3);
+}
+.rel-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e1);
+  padding: var(--e3) var(--e4);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-left: 4px solid var(--kpi, var(--azul));
+  border-radius: var(--raio-g);
+}
+.rel-kpi[data-tom='verde'] {
+  --kpi: var(--verde);
+}
+.rel-kpi[data-tom='vermelho'] {
+  --kpi: var(--vermelho);
+}
+.rel-kpi[data-tom='roxo'] {
+  --kpi: var(--roxo);
+}
+.rel-kpi[data-tom='laranja'] {
+  --kpi: var(--laranja);
+}
+.rel-kpi-rotulo {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.rel-kpi-valor {
+  font-family: var(--fonte-numero);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-lg);
+  color: var(--kpi, var(--azul));
+}
+.rel-kpi-detalhe {
+  font-size: var(--t-xs);
+  color: var(--texto-3);
+}
+
+/* -------------------------------------------------------------------- tabelas
+ * A rolagem horizontal é da TABELA, nunca da página (matriz com 24 meses cabe no celular). */
+.rel-rolagem {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+.rel-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-sm);
+}
+.rel-tabela th,
+.rel-tabela td {
+  padding: var(--e2) var(--e3);
+  text-align: left;
+  border-bottom: 1px solid var(--borda);
+  white-space: nowrap;
+}
+.rel-tabela .valor {
+  text-align: right;
+}
+.rel-tabela thead th {
+  position: sticky;
+  top: 0;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--sobre-azul);
+  background: var(--azul);
+}
+.rel-tabela tbody th {
+  font-weight: 600;
+}
+.rel-tabela tbody tr:hover {
+  background: var(--azul-claro);
+}
+.rel-tabela tr[data-nivel='subtotal'] {
+  background: var(--fundo-2);
+}
+.rel-tabela tr[data-nivel='subtotal'] th,
+.rel-tabela tr[data-nivel='subtotal'] td {
+  font-weight: 600;
+}
+.rel-tabela tfoot th,
+.rel-tabela tfoot td {
+  font-weight: 700;
+  background: var(--fundo-2);
+  border-top: 2px solid var(--borda-forte);
+  border-bottom: none;
+}
+.rel-total {
+  font-weight: 700;
+}
+
+/* Matriz: primeira coluna presa ao rolar para os meses. */
+.rel-matriz tbody th,
+.rel-matriz tfoot th,
+.rel-matriz thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+.rel-matriz tbody th {
+  background: var(--superficie);
+}
+.rel-matriz thead th:first-child {
+  z-index: 2;
+}
+
+.rel-roxo {
+  color: var(--roxo);
+}
+.rel-verde {
+  color: var(--verde);
+}
+
+.rel-vazio {
+  margin: 0;
+  padding: var(--e4);
+  text-align: center;
+  color: var(--texto-2);
+  background: var(--fundo-2);
+  border-radius: var(--raio);
+}
+
+/* ------------------------------------------------------------------- diálogo */
+.rel-dialogo {
+  width: min(40rem, calc(100vw - 2 * var(--e4)));
+}
+.rel-definicoes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  margin: 0;
+}
+.rel-definicoes dt {
+  font-weight: 600;
+}
+.rel-definicoes dd {
+  margin: 0;
+  color: var(--texto-2);
+}
+
+@media (max-width: 40rem) {
+  .rel-filtros .campo {
+    flex: 1 1 100%;
+  }
+  .rel-acoes {
+    width: 100%;
+    margin-left: 0;
+  }
+  .rel-acoes > button {
+    flex: 1;
+  }
+}

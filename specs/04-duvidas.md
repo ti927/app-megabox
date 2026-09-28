@@ -255,6 +255,24 @@ concessão nominal.
 
 ---
 
+### Relatórios (28/09/2026) — fórmulas a validar
+
+Migration `017_relatorios`: tudo agregado no banco (no Bubble era JavaScript no navegador, com
+timeout em produção). Detalhe em D1..D9 no cabeçalho do arquivo.
+
+- **[DÚVIDA] Qual status de entrega conta como venda.** Relatórios contam só "Financeiro" (5); as
+  metas (011) contam "Financeiro" e "Concluído" (5 e 6). Os números de relatório e de meta podem
+  divergir até a Diretoria decidir. *Recomendação padrão:* igualar ao das metas ({5, 6}), que é o
+  que paga comissão. Está em parâmetro (`p_status`), a troca é de uma linha.
+- **[DÚVIDA] Fórmulas das abas Cotação e Prospecção foram DEFINIDAS aqui**, porque o mapa não
+  contém o conteúdo dos blocos HTML embutidos do Bubble: "virou pedido" = etapa ≥ 2; conversão =
+  pedidos ÷ cotações do período; faturamento = soma dos orçamentos vencedores. Precisam ser
+  conferidas pela Diretoria contra o que ela vê hoje no Bubble.
+- Ranking: continua um só, o `v_ranking_metas` da 011 (o relatório não cria outro).
+- Período obrigatório e de no máximo 24 meses; vendedor comum vê no ranking só a própria linha.
+
+---
+
 ### B5 foi respondida pela leitura do mapa — e a resposta era o contrário
 
 Registrado porque o erro custou caro e pode voltar. Três specs (`financeiro-reusables` 21,

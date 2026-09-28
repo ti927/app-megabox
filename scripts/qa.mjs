@@ -35,7 +35,12 @@ const ROTAS = {
     autenticada: true,
   },
   '/produtos': { seletor: '[data-teste="lista-produtos"], [data-teste="lista-vazia"]', autenticada: true },
+  '/rotinas': { seletor: '[data-teste="catalogo"]', autenticada: true }, // exige concessão nominal: ver scripts/testar-tela-rotinas.mjs
+  '/sac': { seletor:'[data-teste="lista-chamados"], [data-teste="lista-vazia"]', autenticada: true },
+  '/relatorios': { seletor: '[data-teste="relatorio-conteudo"]:not([aria-busy="true"])', autenticada: true },
+  '/metas': { seletor: '[data-teste="painel-metas"], [data-teste="lista-vazia"]', autenticada: true },
   '/vendas': { seletor: '[data-teste="kanban"]:not([aria-busy="true"]) [data-teste="coluna-cot"]', autenticada: true },
+  '/financeiro': { seletor: '[data-teste="financeiro-conteudo"] [data-teste="tabela-receber"], [data-teste="financeiro-conteudo"] [data-teste="lista-vazia"]', autenticada: true },
 }
 
 const VARIANTES = [

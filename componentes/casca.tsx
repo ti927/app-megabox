@@ -16,12 +16,14 @@ const PERFIL: Record<number, string> = {
 }
 
 /**
- * Rota de cada alvo de configuração. Só vira link o que já tem tela: `produtos` é alvo de
- * permissão (db/005) mas a página ainda não existe, e link para 404 não ajuda ninguém.
- * No Bubble "Cliente / Fornecedor" abre a página `cadastros` (`tool.MenuConfig` WF bTgyl).
+ * Rota de cada alvo de configuração. Só vira link o que já tem tela — link para 404 não
+ * ajuda ninguém. No Bubble "Cliente / Fornecedor" abre a página `cadastros`
+ * (`tool.MenuConfig` WF bTgyl) e "Cadastro Produtos" abre o `pop.CadastroProdutos`
+ * (WF bTghQ), que aqui virou a página `/produtos`.
  */
 const ROTA_CONFIG: Record<string, Route> = {
   cadastros: '/cadastros',
+  produtos: '/produtos',
 }
 
 function Engrenagem({ configuracoes }: { configuracoes: Pagina[] }) {

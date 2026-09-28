@@ -1,0 +1,385 @@
+/* Tela de cadastro de produtos.
+ * Segue a tela-modelo (/cadastros): título, contador, filtros num cartão, itens em cartão
+ * azul-claro com borda à esquerda, ficha em <dialog>. Peças genéricas (campo, botão, selo,
+ * aviso, diálogo, abas, esqueleto) vêm de estilos/componentes.css; aqui só o que é de
+ * produto. Prefixos `produto(s)-` (lista) e `pf-` (ficha) para não colidir com /cadastros. */
+
+.produtos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+  max-width: 80rem;
+}
+
+.produtos-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--e2) var(--e4);
+}
+.produtos-topo h1 {
+  margin: 0;
+}
+.produtos-contador {
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--roxo);
+}
+
+/* ------------------------------------------------------------------ filtros */
+.produtos-filtros {
+  display: grid;
+  grid-template-columns: minmax(14rem, 2fr) repeat(3, minmax(8rem, 1fr)) auto;
+  align-items: end;
+  gap: var(--e3);
+  padding: var(--e4);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+}
+.produtos-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--e3);
+}
+
+/* -------------------------------------------------------------------- lista */
+.produtos-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+}
+.produtos-vazio {
+  margin: 0;
+  padding: var(--e6) var(--e4);
+  text-align: center;
+  color: var(--texto-2);
+  background: var(--fundo-2);
+  border: 1px dashed var(--borda-forte);
+  border-radius: var(--raio-g);
+}
+.produtos-rodape {
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+
+.produtos-lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  transition: opacity 0.15s;
+}
+.produtos-lista[data-pendente] {
+  opacity: 0.55;
+}
+
+.produto-linha {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 18rem) auto;
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e3) var(--e4);
+  font: inherit;
+  text-align: left;
+  color: var(--texto);
+  background: var(--azul-claro);
+  border: 1px solid transparent;
+  border-left: 4px solid var(--azul);
+  border-radius: var(--raio-g);
+  cursor: pointer;
+}
+.produto-linha:hover {
+  border-color: var(--borda-forte);
+}
+.produto-linha[aria-current='true'] {
+  background: var(--lilas);
+  border-color: var(--azul);
+}
+.produto-linha[data-inativo] {
+  border-left-color: var(--borda-forte);
+}
+.produto-linha[data-inativo] .produto-nome {
+  color: var(--texto-2);
+}
+
+.produto-principal {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.produto-classe {
+  font-size: var(--t-xs);
+  color: var(--roxo);
+  overflow-wrap: anywhere;
+}
+.produto-nome {
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.produto-meta {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.produto-etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e1);
+  min-width: 0;
+}
+.produto-selo-linha {
+  color: var(--azul);
+}
+.produto-estado {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--e1);
+}
+
+/* -------------------------------------------------------------------- ficha */
+.pf .dialogo-cabecalho h2 {
+  color: var(--azul);
+  text-transform: uppercase;
+}
+.pf-tipo {
+  margin: 0 0 var(--e1);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--roxo);
+}
+.pf-selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2);
+  margin: var(--e2) 0 0;
+}
+.pf-alerta {
+  color: var(--laranja);
+}
+.pf-aviso-topo {
+  margin-bottom: var(--e4);
+}
+.pf-link {
+  padding: 0;
+  font: inherit;
+  color: var(--azul);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.pf-form,
+.pf-secao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+}
+.pf-campos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--e3) var(--e4);
+  min-width: 0;
+}
+.pf-largo {
+  grid-column: 1 / -1;
+}
+.pf-dica {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.pf-marcas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2) var(--e4);
+  min-width: 0;
+  margin: 0;
+  padding: var(--e1) var(--e3) var(--e2);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+}
+.pf-marcas legend {
+  padding: 0 var(--e1);
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.pf-sem-margem {
+  margin: 0 0 var(--e2);
+}
+.pf-nota,
+.pf-vazio {
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+.pf-nota {
+  font-size: var(--t-xs);
+}
+
+.pf-rastro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2) var(--e5);
+  margin: 0;
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.pf-rastro dt {
+  display: inline;
+}
+.pf-rastro dt::after {
+  content: ': ';
+}
+.pf-rastro dd {
+  display: inline;
+  margin: 0;
+}
+
+/* itens (versões, filiais ligadas) */
+.pf-itens {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pf-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2) var(--e3);
+  padding: var(--e2) var(--e3);
+  background: var(--fundo-2);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+.pf-item[data-inativo] {
+  opacity: 0.75;
+}
+.pf-item > .aviso {
+  flex-basis: 100%;
+}
+
+.pf-versao {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--e2);
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+.pf-versao .campo {
+  flex: 1;
+}
+.pf-versao-ativo {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+}
+.pf-nova {
+  flex: none;
+}
+
+.pf-filial {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+.pf-filial strong {
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.pf-filial small {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+  overflow-wrap: anywhere;
+}
+.pf-filial .pf-selos {
+  margin: var(--e1) 0 0;
+}
+.pf-filial .pf-motivo {
+  color: var(--texto);
+}
+
+.pf-busca {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+}
+.pf-resultados {
+  display: flex;
+  flex-direction: column;
+  max-height: 16rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+.pf-resultados li {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e2) var(--e3);
+}
+.pf-resultados li + li {
+  border-top: 1px solid var(--borda);
+}
+
+/* ------------------------------------------------------------------ celular */
+@media (max-width: 64rem) {
+  .produtos-filtros {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .produtos-busca,
+  .produtos-acoes {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 40rem) {
+  .produtos-filtros {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .produtos-acoes > * {
+    flex: 1;
+  }
+  .produto-linha {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--e2);
+    padding: var(--e3);
+  }
+  .produto-estado {
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+  .pf-campos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Altura mínima na ficha, para o diálogo não pular de tamanho ao trocar de aba. */
+@media (min-width: 40.01rem) {
+  .pf .dialogo-corpo {
+    min-height: 24rem;
+  }
+}
+
+/* A barra de abas encolhia a zero no <dialog> em coluna quando o corpo é longo (produto com
+ * dezenas de filiais). Correção local; o lugar certo é .abas em estilos/componentes.css. */
+.pf .abas,
+.pf .dialogo-cabecalho,
+.pf .dialogo-rodape {
+  flex-shrink: 0;
+}

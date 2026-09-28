@@ -34,6 +34,7 @@ const ROTAS = {
     seletor: '[data-teste="lista-grupos"], [data-teste="lista-vazia"]',
     autenticada: true,
   },
+  '/produtos': { seletor: '[data-teste="lista-produtos"], [data-teste="lista-vazia"]', autenticada: true },
 }
 
 const VARIANTES = [

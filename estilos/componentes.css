@@ -183,6 +183,7 @@
   background: rgb(18 21 28 / 55%);
 }
 .dialogo-cabecalho {
+  flex-shrink: 0;
   display: flex;
   align-items: flex-start;
   gap: var(--e3);
@@ -216,6 +217,7 @@
   padding: var(--e4) var(--e5);
 }
 .dialogo-rodape {
+  flex-shrink: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -247,6 +249,8 @@
 
 /* -------------------------------------------------------------------- abas */
 .abas {
+  /* Numa ficha longa o corpo do <dialog> espreme o resto; sem isto as abas somem. */
+  flex-shrink: 0;
   display: flex;
   gap: var(--e1);
   padding: 0 var(--e5);

@@ -166,6 +166,41 @@ trigger `fn_set_alterado` sobrescreve com a hora da carga.
 
 ---
 
+### Carga das vendas (28/09/2026) — bloqueada pela chave da API
+
+Carregados: **5.948 cotações, 2.229 pedidos, 2.323 prazos de pedido.** Próximo número de cotação:
+5968 (`setval` feito). Sete números de cotação se repetiam no Bubble (corrida do "último + 1"): a
+mais antiga manteve o número, as outras receberam 5961–5967.
+
+**Bloqueio (ação do dono):** `BUBBLE_API_KEY` vazia no `.env`. Sem ela a Data API responde como
+"everyone", e a privacidade do Bubble devolve **0 linhas** em `tbl.cotacaoprodutos` e
+`tbl.propostas` — logo 0 itens, 0 orçamentos, 0 propostas e 0 entregas. Colocar a chave de admin no
+`.env` e rodar
+`node tools/carregar-supabase.mjs --baixar --tipos tbl.cotacao,tbl.cotacaoprodutos,tbl.orcfornecedorescotacao,tbl.propostas,tbl.pedido,tbl.entregas`
+(primeiro com `--relatorio`).
+
+Decisões do carregador que valem quando esses tipos entrarem — **[DÚVIDA]** para o negócio conferir:
+
+- **Valor de orçamento não é o do Bubble, é o recalculado.** Bruto, ICMS e PIS/COFINS são colunas
+  geradas; a carga grava as alíquotas históricas (para não usar a tabela de ICMS de hoje), mas o
+  bruto gerado soma 2.202.926.479,23 contra 2.201.429.443,05 no Bubble, com 220 linhas divergentes.
+- **Entrega preserva o TOTAL do Bubble** (é o que virou conta a receber): bruto idêntico ao centavo
+  na simulação; líquido −0,10 e comissão −15,94 no agregado, por arredondamento a 2 casas.
+- 30 entregas canceladas com quantidade 0 têm total no Bubble (470.871,40) e nenhuma conta a
+  receber: vão a 0.
+- 12.888 cópias de orçamento feitas pela proposta vinham todas como "vencedoras": entram como não
+  vencedoras. Em 488 itens com mais de um vencedor, fica o alterado por último.
+- 430 entregas cujo orçamento é de outra cotação que a do pedido são descartadas e contadas (o
+  trigger as recusaria).
+- 7 entregas canceladas sem motivo recebem "(sem motivo no Bubble)".
+- O substituto de férias histórico (68 entregas) é preservado por um passo em modo réplica.
+
+Efeito colateral já ocorrido: a segunda rodada (teste de idempotência) regravou `alterado_em` de
+cotações e pedidos com a hora da carga (o trigger `fn_set_alterado`). Restaurar a partir do Bubble
+exige desligar triggers, o que não foi feito sem autorização.
+
+---
+
 ### B5 foi respondida pela leitura do mapa — e a resposta era o contrário
 
 Registrado porque o erro custou caro e pode voltar. Três specs (`financeiro-reusables` 21,

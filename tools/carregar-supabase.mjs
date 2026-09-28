@@ -89,7 +89,9 @@ const MAPA = {
       frete_id: { de: 'cpo.Frete', tabela: 'tipos_frete' },
     },
     ref: {
-      carteira_id: { de: 'cpo.QualCarteira', tabela: 'usuarios' },
+      // Só cliente tem carteira: o check `carteira_so_cliente` (006) recusa em fornecedor, e o
+      // Bubble tem 5 fornecedores com vendedor. O ponteiro deles é ignorado, não traduzido.
+      carteira_id: { de: 'cpo.QualCarteira', tabela: 'usuarios', se: (linha) => linha.tipo === 'cliente' },
     },
   },
 
@@ -527,7 +529,7 @@ async function main() {
       // Guarda o ponteiro cru de cada FK para resolver em lote, logo abaixo.
       for (const [destino, d] of Object.entries(config.ref ?? {})) {
         const alvo = r[d.de]
-        if (alvo) (linha.__ref ??= {})[destino] = String(alvo)
+        if (alvo && (!d.se || d.se(linha))) (linha.__ref ??= {})[destino] = String(alvo)
       }
       registros.push(linha)
     }

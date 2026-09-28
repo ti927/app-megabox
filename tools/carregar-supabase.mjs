@@ -38,7 +38,7 @@ const LOTE = 500
 // ---------------------------------------------------------------------------------
 // De-para. Cresce a cada fatia; hoje cobre a fatia 2 (cadastro).
 // `col`  = colunas escalares, destino ← nome de exibição do Bubble (ou função)
-// `ref`  = colunas de FK, resolvidas na 2ª passada por bubble_id
+// `ref`  = colunas de FK, traduzidas de bubble_id para uuid ANTES do insert
 // `dom`  = colunas que apontam para lista fixa, resolvidas por chave_bubble
 // ---------------------------------------------------------------------------------
 const soDigitos = (v) => String(v ?? '').replace(/\D/g, '') || null
@@ -55,6 +55,7 @@ const normalizar = (v) =>
 const MAPA = {
   'tbl.grupoclifor': {
     tabela: 'grupos_clifor',
+    obrigatorias: ['nome', 'tipo'],
     col: {
       nome: (r) => texto(r['cpo.NomeCliFor']),
       ativo: (r) => r['cpo.Ativo'] !== false,
@@ -73,7 +74,7 @@ const MAPA = {
       codigo_legado: (r) => (r['cpo.IdCliforAntigo'] ?? null),
     },
     dom: {
-      tipo: { de: 'cpo.QualTipoCliFor', enum: true }, // tipo_clifor: cliente | fornecedor
+      tipo: { de: 'cpo.QualTipoCliFor', enum: ['cliente', 'fornecedor'] }, // public.tipo_clifor
       captacao_id: { de: 'cpo.Captacao', tabela: 'captacoes' },
       frete_id: { de: 'cpo.Frete', tabela: 'tipos_frete' },
     },
@@ -84,6 +85,7 @@ const MAPA = {
 
   'tbl.enderecosclifor': {
     tabela: 'enderecos_clifor',
+    obrigatorias: ['grupo_id', 'nome_endereco', 'tipo_pessoa', 'regime_tributario_id', 'uf'],
     col: {
       nome_endereco: (r) => texto(r['cpo.NomeEndereco']),
       razao: (r) => texto(r['cpo.Razao']),
@@ -126,6 +128,7 @@ const MAPA = {
 
   'tbl.contatoclifor': {
     tabela: 'contatos_clifor',
+    obrigatorias: ['grupo_id', 'nome'],
     col: {
       nome: (r) => texto(r['cpo.NomeContato']),
       cargo: (r) => texto(r['cpo.Cargo']),
@@ -259,7 +262,13 @@ async function main() {
     if (error) throw new Error(`lendo ${tabela}: ${error.message}`)
     const mapa = new Map()
     for (const l of data) {
-      for (const forma of [l.chave_bubble, l.nome]) {
+      // A PRÓPRIA CHAVE entra no índice quando ela é texto, e não é preciosismo: em `ufs` a
+      // chave_bubble de Paraná é `pf`, não `pr` — erro de digitação que está no option set do
+      // Bubble desde sempre. A Data API manda o rótulo "PR", que não bate nem com a chave `pf`
+      // nem com o nome "Paraná", e 401 endereços ficavam sem UF. A sigla é a identidade real da
+      // linha, então é ela que fecha o caso. Quarta variação da mesma armadilha: a API fala por
+      // nome, o mapa decompilado fala por id, e às vezes o id do Bubble está simplesmente errado.
+      for (const forma of [l.chave_bubble, l.nome, typeof l[chave] === 'string' ? l[chave] : null]) {
         if (forma) mapa.set(normalizar(forma), l[chave])
       }
     }
@@ -313,8 +322,19 @@ async function main() {
           linha[destino] = null
           continue
         }
+        // ENUM do Postgres. O valor NÃO pode passar cru: a Data API manda o rótulo ("Cliente")
+        // e o enum aceita só o rótulo em minúscula ('cliente'). Passando cru, o modo relatório
+        // dizia "0 avisos" e a carga de verdade morria no primeiro lote com
+        // `invalid input value for enum`. Por isso `enum` é a LISTA de valores válidos, e a
+        // conferência acontece aqui, onde o relatório enxerga.
         if (d.enum) {
-          linha[destino] = String(bruto)
+          const achado = d.enum.find((v) => normalizar(v) === normalizar(bruto))
+          if (achado === undefined) {
+            avisos.push(`${destino}: "${bruto}" não é valor do enum (${d.enum.join(' | ')})`)
+            linha[destino] = null
+          } else {
+            linha[destino] = achado
+          }
           continue
         }
         const mapa = await dominio(d.tabela)
@@ -326,22 +346,97 @@ async function main() {
           linha[destino] = traduzido
         }
       }
+      // Guarda o ponteiro cru de cada FK para resolver em lote, logo abaixo.
+      for (const [destino, d] of Object.entries(config.ref ?? {})) {
+        const alvo = r[d.de]
+        if (alvo) (linha.__ref ??= {})[destino] = String(alvo)
+      }
       registros.push(linha)
     }
 
+    // ------------------------------------------------------ FKs, resolvidas ANTES do insert
+    // Isto era uma 2ª passada, com um UPDATE por linha depois do insert — 14 mil idas ao banco
+    // só nas três tabelas desta fatia. Não dava para continuar assim por dois motivos, e o
+    // segundo é o que obriga: `enderecos_clifor.grupo_id` e `contatos_clifor.grupo_id` são
+    // `not null`, então a linha não ENTRA sem a FK resolvida. Resolver depois é impossível.
+    // A tradução lê o BANCO, não a memória, então a ordem dos tipos não importa: o pai pode ter
+    // sido carregado numa rodada anterior.
+    const alvos = {}
+    for (const linha of registros) {
+      for (const [destino, bubble] of Object.entries(linha.__ref ?? {})) {
+        ;(alvos[config.ref[destino].tabela] ??= new Set()).add(bubble)
+      }
+    }
+    const traducao = {}
+    for (const [tabela, conjunto] of Object.entries(alvos)) {
+      traducao[tabela] = new Map()
+      const ids = [...conjunto]
+      // 200 por vez, e não 1000: o `in` do PostgREST vai na URL, e 1000 bubble_id de 30
+      // caracteres estouram o limite do servidor — o erro que volta é só "Bad Request",
+      // sem dizer que o problema é tamanho.
+      for (let i = 0; i < ids.length; i += 200) {
+        const { data, error } = await db
+          .from(tabela)
+          .select('id, bubble_id')
+          .in('bubble_id', ids.slice(i, i + 200))
+        if (error) throw new Error(`traduzindo ${tabela}: ${error.message}`)
+        for (const l of data) traducao[tabela].set(l.bubble_id, l.id)
+      }
+    }
+
+    let orfas = 0
+    for (const linha of registros) {
+      for (const [destino, bubble] of Object.entries(linha.__ref ?? {})) {
+        const d = config.ref[destino]
+        const uuid = traducao[d.tabela].get(bubble)
+        if (uuid) {
+          linha[destino] = uuid
+        } else {
+          orfas++
+          avisos.push(`${destino}: ponteiro para ${d.tabela} sem linha correspondente`)
+        }
+      }
+      delete linha.__ref
+    }
+    if (orfas) console.warn(`  ${config.tabela}: ${orfas} referência(s) órfã(s).`)
+
+    // ------------------------------------------------- linhas que o `not null` recusaria
+    // O modo relatório existe para não descobrir problema com a carga rodando, e mesmo assim
+    // ele deixou passar DUAS vezes: primeiro o enum, depois o `not null`. Motivo comum — ele
+    // conferia a TRADUÇÃO e nada mais, então "0 avisos" só queria dizer "todo ponteiro achou
+    // destino". O Bubble não tem campo obrigatório, e o esquema novo tem; a diferença aparece
+    // aqui ou aparece no meio da gravação, com 500 linhas já dentro.
+    // Linha sem valor no que é `not null` é PULADA, não corrigida: inventar nome de cliente é
+    // pior do que deixar de fora e dizer quantos ficaram.
+    const descartados = []
+    const gravar = registros.filter((linha) => {
+      const faltando = (config.obrigatorias ?? []).filter((c) => linha[c] == null)
+      if (faltando.length === 0) return true
+      descartados.push(`${linha.bubble_id}: sem ${faltando.join(', ')}`)
+      return false
+    })
+
     const resumoAvisos = [...new Set(avisos)].slice(0, 10)
+    const resumoDescarte = descartados.length
+      ? `\n      ${descartados.length} linha(s) DESCARTADA(s) por coluna not null vazia` +
+        ` — ${(config.obrigatorias ?? []).join(', ')}`
+      : ''
 
     if (arg.relatorio) {
       relatorio.push(
-        `${tipo} → ${config.tabela}: ${registros.length} linha(s), ` +
-          `${avisos.length} aviso(s) de tradução` +
+        `${tipo} → ${config.tabela}: ${gravar.length} linha(s) grava, ` +
+          `${descartados.length} descarta, ${avisos.length} aviso(s) de tradução` +
+          resumoDescarte +
           (resumoAvisos.length ? `\n      ${resumoAvisos.join('\n      ')}` : ''),
       )
       continue
     }
+    if (descartados.length) {
+      console.warn(`  ${config.tabela}: ${descartados.length} linha(s) descartada(s) por not null vazio.`)
+    }
 
-    for (let i = 0; i < registros.length; i += LOTE) {
-      const fatia = registros.slice(i, i + LOTE)
+    for (let i = 0; i < gravar.length; i += LOTE) {
+      const fatia = gravar.slice(i, i + LOTE)
       const { error } = await db
         .from(config.tabela)
         .upsert(fatia, { onConflict: 'bubble_id', ignoreDuplicates: false })
@@ -351,63 +446,7 @@ async function main() {
     console.log(`\r  ${config.tabela}: ${registros.length} linha(s) gravada(s).           `)
     if (avisos.length) console.warn(`    ${avisos.length} aviso(s); primeiros: ${resumoAvisos.join('; ')}`)
 
-    // ----------------------------------------------------- 2ª passada: referências
-    if (config.ref) {
-      const paraAtualizar = []
-      for (const r of linhas) {
-        const patch = {}
-        let tem = false
-        for (const [destino, d] of Object.entries(config.ref)) {
-          const alvo = r[d.de]
-          if (!alvo) continue
-          patch[destino] = { bubble: String(alvo), tabela: d.tabela }
-          tem = true
-        }
-        if (tem) paraAtualizar.push({ bubble_id: r._id, patch })
-      }
-
-      // Traduz bubble_id → uuid, por tabela de destino, em lote.
-      const cache = {}
-      for (const { patch } of paraAtualizar) {
-        for (const { bubble, tabela } of Object.values(patch)) {
-          ;(cache[tabela] ??= new Set()).add(bubble)
-        }
-      }
-      const traducao = {}
-      for (const [tabela, conjunto] of Object.entries(cache)) {
-        traducao[tabela] = new Map()
-        const ids = [...conjunto]
-        for (let i = 0; i < ids.length; i += 1000) {
-          const { data, error } = await db
-            .from(tabela)
-            .select('id, bubble_id')
-            .in('bubble_id', ids.slice(i, i + 1000))
-          if (error) throw new Error(`traduzindo ${tabela}: ${error.message}`)
-          for (const l of data) traducao[tabela].set(l.bubble_id, l.id)
-        }
-      }
-
-      let ligadas = 0
-      let orfas = 0
-      for (let i = 0; i < paraAtualizar.length; i += LOTE) {
-        for (const { bubble_id, patch } of paraAtualizar.slice(i, i + LOTE)) {
-          const set = {}
-          for (const [destino, { bubble, tabela }] of Object.entries(patch)) {
-            const uuid = traducao[tabela].get(bubble)
-            if (uuid) set[destino] = uuid
-            else orfas++
-          }
-          if (Object.keys(set).length === 0) continue
-          const { error } = await db.from(config.tabela).update(set).eq('bubble_id', bubble_id)
-          if (error) throw new Error(`${config.tabela} ref: ${error.message}`)
-          ligadas++
-        }
-        process.stdout.write(`\r  ${config.tabela}: referências ${Math.min(i + LOTE, paraAtualizar.length)}/${paraAtualizar.length}`)
-      }
-      console.log(`\r  ${config.tabela}: ${ligadas} linha(s) ligada(s), ${orfas} referência(s) órfã(s).   `)
-    }
   }
-
   if (arg.relatorio) {
     console.log('\nModo relatório — nada foi gravado.\n')
     for (const l of relatorio) console.log(`  ${l}`)

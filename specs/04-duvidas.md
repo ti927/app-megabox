@@ -201,6 +201,45 @@ exige desligar triggers, o que não foi feito sem autorização.
 
 ---
 
+### Financeiro e metas no banco (28/09/2026) — decisões a conferir
+
+Migrations `010_financeiro`, `011_metas` e `016_financeiro_equipe`. O detalhe e a fonte no mapa de
+cada decisão estão nos cabeçalhos dos arquivos (D1..D14 na 010, D1..D11 na 011).
+
+**Como as quatro pendências de negócio ficaram isoladas — mudar é trocar UM lugar:**
+
+- **B4 (os 3% do vendedor):** só em `fn_percentual_comissao_vendedor(vendedor, data)`, que devolve
+  0,0300. Percentual por nível ou por vigência = trocar o corpo dessa função.
+- **B3 (escala de ComissaoPadrao/MetaBatida):** colunas guardam FRAÇÃO, com check 0..1. Se "0,10"
+  no Bubble for 0,10% e não 10%, muda só a conversão da carga — e o check recusa carga na escala
+  errada, então o erro não passa calado.
+- **B2 (ranking):** tudo em `v_ranking_metas`, seguindo a regra da página metas.
+- **Duas origens de conta a pagar** (entrega confirmada × fechamento de meta): o banco **impede a
+  duplicata** sem escolher a regra — toda CP declara em `conta_pagar_entregas` as entregas que paga,
+  único por (entrega, vendedor); a segunda origem recebe erro. Qual gera fica em parâmetro:
+  `fn_confirmar_entrega(..., p_gerar_conta_pagar)` e `fn_fechar_meta(..., p_gerar_conta_pagar)`.
+
+**Desvios conscientes de `02`:**
+
+- `metas_fechadas` é 1:1 com a meta mensal, não `unique(vendedor, competência)`: quem tem meta
+  Regular e de Substituição no mesmo mês não conseguiria fechar a segunda.
+- NF da MegaBox mora na **baixa**, não na conta; as 14 cópias de dados da entrega que o Bubble
+  replicava na conta saem e vêm por view.
+- Conta a pagar vence dia 5 do mês seguinte à entrega **real** (o Bubble usa a prevista).
+- Metas: leitura hierarquia ≤ 2 ou o próprio, não ≤ 3 como no mapa — com ≤ 3 um Analista veria a
+  meta dos outros com realizado zerado (as entregas dos outros não são visíveis a ele).
+
+**[DÚVIDA] Quem é a equipe financeira.** A regra padrão de `02` §7.3 (hierarquia ≤ 2 ou o próprio)
+deixava um Analista do departamento Financeiro sem ver conta de vendedor nenhum — a equipe não
+trabalharia. A 016 define equipe financeira = página `financeiro` **e** departamento Administrativo
+ou Financeiro (é o que a matriz B6 concede no Bubble), com acesso a entregas, contas a receber e a
+pagar de todos. **Não** reproduz o alargamento do Bubble em que "perfil Analista" (de qualquer
+departamento, inclusive Comercial) abre o financeiro e vê a comissão de todos. *Recomendação
+padrão:* manter assim; se algum Analista fora do Financeiro precisar operar contas, ele entra por
+concessão nominal.
+
+---
+
 ### B5 foi respondida pela leitura do mapa — e a resposta era o contrário
 
 Registrado porque o erro custou caro e pode voltar. Três specs (`financeiro-reusables` 21,

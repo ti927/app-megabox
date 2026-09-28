@@ -1,7 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const PUBLICAS = ['/entrar', '/recuperar-senha', '/formulario']
+// /api/fila-email não tem sessão (quem chama é o Vercel Cron): a rota exige o segredo
+// FILA_EMAIL_SEGREDO no cabeçalho e falha fechada sem ele (app/api/fila-email/route.ts).
+const PUBLICAS = ['/entrar', '/recuperar-senha', '/formulario', '/api/fila-email']
 
 /**
  * Renova a sessão a cada navegação e barra quem não tem sessão nenhuma.

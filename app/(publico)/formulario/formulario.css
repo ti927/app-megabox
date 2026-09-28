@@ -1,0 +1,174 @@
+/* Formulário público de pesquisa. Só tokens de estilos/tokens.css: claro e escuro de graça.
+ * Referência visual: specs/bubble/02-telas-e-design.md, formulariovenda/formularionps —
+ * cartão centralizado (~590 px) sobre fundo cinza-claro, círculos 0–10 com contorno, botão
+ * azul de largura total; no celular o cartão ocupa a largura e os círculos quebram linha. */
+
+.pesq {
+  min-height: 100dvh;
+  display: grid;
+  place-items: start center;
+  padding: var(--e6) var(--e4);
+  background: var(--fundo-2);
+}
+
+.pesq-cartao {
+  width: 100%;
+  max-width: 37rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e5);
+  padding: var(--e6) var(--e5) var(--e5);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  box-shadow: var(--sombra);
+}
+
+.pesq-marca {
+  margin: 0;
+  font-size: var(--t-lg);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--roxo);
+  text-align: center;
+}
+.pesq-marca span {
+  color: var(--texto);
+}
+
+.pesq-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e5);
+}
+
+.pesq-intro h1,
+.pesq-aviso h1 {
+  margin: 0 0 var(--e1);
+  font-size: var(--t-xl);
+}
+.pesq-intro p,
+.pesq-aviso p {
+  margin: 0;
+  color: var(--texto-2);
+}
+
+.pesq-aviso {
+  text-align: center;
+  padding: var(--e4) 0;
+}
+
+/* ------------------------------------------------------------------ pergunta */
+.pesq-pergunta {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.pesq-pergunta legend {
+  padding: 0;
+  margin-bottom: var(--e3);
+  font-weight: 600;
+}
+
+.pesq-escala {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2);
+}
+
+/* O rádio fica por cima do círculo, transparente: o clique/toque e o foco são dele. */
+.pesq-nota {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+}
+.pesq-nota input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.pesq-nota span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--azul);
+  background: var(--superficie);
+  border: 2px solid var(--azul);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.pesq-nota:hover span {
+  background: var(--azul-claro);
+}
+.pesq-nota input:checked + span {
+  color: var(--sobre-azul);
+  background: var(--azul);
+}
+.pesq-nota input:focus-visible + span {
+  outline: var(--foco);
+  outline-offset: var(--foco-offset);
+}
+
+.pesq-legenda {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--e3);
+  margin-top: var(--e2);
+  font-size: var(--t-xs);
+  color: var(--texto-3);
+}
+
+.pesq-pergunta[data-erro] .pesq-nota span {
+  border-color: var(--vermelho);
+}
+.pesq-erro-campo {
+  margin: var(--e2) 0 0;
+  font-size: var(--t-sm);
+  color: var(--vermelho);
+}
+
+/* ---------------------------------------------------------------- comentário */
+.pesq-comentario > span {
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--texto);
+}
+.pesq-contador {
+  margin: calc(-1 * var(--e4)) 0 0;
+  font-size: var(--t-xs);
+  color: var(--texto-3);
+  text-align: right;
+}
+
+.pesq-enviar {
+  width: 100%;
+  padding: var(--e3);
+}
+
+.pesq-lgpd {
+  margin: 0;
+  font-size: var(--t-xs);
+  color: var(--texto-3);
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  .pesq {
+    padding: var(--e4) var(--e3);
+  }
+  .pesq-cartao {
+    padding: var(--e5) var(--e4) var(--e4);
+  }
+  .pesq-escala {
+    gap: var(--e2) var(--e1);
+    justify-content: flex-start;
+  }
+}

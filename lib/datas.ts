@@ -19,8 +19,8 @@ const DATA = new Intl.DateTimeFormat('pt-BR', {
  */
 export function formatarData(valor: string | null | undefined): string {
   if (!valor) return '—'
-  const soData = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor)
-  if (soData) return `${soData[3]}/${soData[2]}/${soData[1].slice(2)}`
+  const soData = /^(\d{2})(\d{2})-(\d{2})-(\d{2})$/.exec(valor)
+  if (soData) return `${soData[4]}/${soData[3]}/${soData[2]}`
   const d = new Date(valor)
   return Number.isNaN(d.getTime()) ? '—' : DATA.format(d)
 }

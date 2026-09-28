@@ -1,0 +1,509 @@
+/* Tela do Fluxo Financeiro.
+ * Segue as telas-modelo (/cadastros, /produtos): título, filtros num cartão, lista, ficha em
+ * <dialog>. Peças genéricas (campo, botão, selo, aviso, diálogo, paginação, esqueleto) vêm de
+ * estilos/componentes.css; aqui só o que é do financeiro. Prefixo `fin-`.
+ * Cores com significado (tokens.css): roxo = vencidos, verde = receber, vermelho = pagar e
+ * vencida, laranja = rótulo da data usada no filtro (specs/bubble/02-telas-e-design.md). */
+
+.financeiro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+  min-width: 0;
+}
+.financeiro .numero {
+  font-family: var(--fonte-numero);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.fin-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e3) var(--e4);
+}
+.fin-topo h1 {
+  margin: 0;
+}
+.fin-abas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border: 1px solid var(--azul);
+  border-radius: var(--raio);
+  overflow: hidden;
+}
+.fin-abas button {
+  padding: var(--e2) var(--e4);
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--azul);
+  background: var(--superficie);
+  border: none;
+  border-left: 1px solid var(--azul);
+  cursor: pointer;
+}
+.fin-abas button:first-child {
+  border-left: none;
+}
+.fin-abas button[aria-current='page'] {
+  color: var(--sobre-azul);
+  background: var(--azul);
+}
+
+/* ------------------------------------------------------------------ filtros */
+.fin-filtros {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  align-items: end;
+  gap: var(--e3);
+  padding: var(--e4);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+}
+.fin-filtros-fim {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e3);
+  min-height: 2.4rem;
+}
+
+/* -------------------------------------------------------------------- cards */
+.fin-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--e3);
+}
+.fin-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--e3) var(--e4);
+  font: inherit;
+  text-align: left;
+  color: var(--texto);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-left: 4px solid var(--borda-forte);
+  border-radius: var(--raio-g);
+}
+button.fin-card {
+  cursor: pointer;
+}
+button.fin-card:hover {
+  border-color: var(--borda-forte);
+}
+.fin-card[data-tom='roxo'] {
+  border-left-color: var(--roxo);
+}
+.fin-card[data-tom='roxo'] .fin-card-titulo {
+  color: var(--roxo);
+}
+.fin-card[data-tom='verde'] {
+  border-left-color: var(--verde);
+}
+.fin-card[data-tom='verde'] .fin-card-titulo {
+  color: var(--verde);
+}
+.fin-card[data-tom='vermelho'] {
+  border-left-color: var(--vermelho);
+}
+.fin-card[data-tom='vermelho'] .fin-card-titulo {
+  color: var(--vermelho);
+}
+.fin-card[data-tom='azul'] {
+  border-left-color: var(--azul);
+}
+.fin-card[data-tom='azul'] .fin-card-titulo {
+  color: var(--azul);
+}
+.fin-card[data-ativo] {
+  background: var(--azul-claro);
+}
+.fin-card-titulo {
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+.fin-card-valor {
+  font-size: var(--t-lg);
+}
+.fin-card-detalhe {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+
+.fin-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e3);
+}
+.fin-dica {
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+.fin-nota {
+  margin: 0;
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+
+/* -------------------------------------------------------------------- tabela */
+.fin-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  min-width: 0;
+}
+.fin-vazio {
+  margin: 0;
+  padding: var(--e6) var(--e4);
+  text-align: center;
+  color: var(--texto-2);
+  background: var(--fundo-2);
+  border: 1px dashed var(--borda-forte);
+  border-radius: var(--raio-g);
+}
+.fin-rolagem {
+  overflow-x: auto;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  transition: opacity 0.15s;
+}
+.fin-rolagem[data-pendente] {
+  opacity: 0.55;
+}
+.fin-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-sm);
+}
+.fin-tabela th {
+  position: sticky;
+  top: 0;
+  padding: var(--e2) var(--e3);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  color: var(--texto-2);
+  background: var(--lilas);
+  border-bottom: 1px solid var(--borda-forte);
+}
+.fin-tabela td {
+  padding: var(--e2) var(--e3);
+  vertical-align: top;
+  border-bottom: 1px solid var(--borda);
+  overflow-wrap: anywhere;
+}
+.fin-tabela tbody tr {
+  background: var(--superficie);
+}
+.fin-tabela tbody tr:nth-child(even) {
+  background: var(--fundo-2);
+}
+.fin-tabela tbody tr:hover {
+  background: var(--azul-claro);
+}
+.fin-tabela tbody tr[data-marcada] {
+  background: var(--laranja-fundo);
+}
+.fin-tabela tbody tr[data-atual] {
+  outline: 2px solid var(--azul);
+  outline-offset: -2px;
+}
+.fin-col-sel {
+  width: 2.5rem;
+  text-align: center;
+}
+.fin-col-sel input {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--azul);
+}
+.fin-num {
+  text-align: right;
+}
+td.fin-num {
+  display: table-cell;
+}
+td.fin-num > * {
+  display: block;
+}
+.fin-datas span {
+  display: block;
+  white-space: nowrap;
+}
+/* A data usada no filtro fica marcada (no Bubble, rótulo laranja). Laranja em texto não tem
+ * contraste no fundo claro: vai no sublinhado. */
+.financeiro [data-destaque] {
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--laranja);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+.financeiro [data-vencida] {
+  font-weight: 700;
+  color: var(--vermelho);
+}
+.fin-rot {
+  color: var(--texto-2);
+}
+.fin-sub {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.fin-saldo {
+  font-weight: 600;
+  color: var(--vermelho);
+}
+.fin-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e1);
+}
+.fin-abrir {
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  color: var(--azul);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* No celular a tabela vira cartões: cada célula com o rótulo da coluna. */
+@media (max-width: 48rem) {
+  .fin-cards {
+    grid-template-columns: 1fr;
+  }
+  .fin-rolagem {
+    overflow: visible;
+    border: none;
+  }
+  .fin-tabela,
+  .fin-tabela tbody,
+  .fin-tabela tr,
+  .fin-tabela td {
+    display: block;
+    width: 100%;
+  }
+  .fin-tabela thead {
+    display: none;
+  }
+  .fin-tabela tbody {
+    display: flex;
+    flex-direction: column;
+    gap: var(--e3);
+  }
+  .fin-tabela tbody tr,
+  .fin-tabela tbody tr:nth-child(even) {
+    padding: var(--e2) var(--e3);
+    background: var(--azul-claro);
+    border: 1px solid var(--borda);
+    border-left: 4px solid var(--azul);
+    border-radius: var(--raio-g);
+  }
+  /* Rótulo em cima do valor. Grid aqui não serve: texto solto na célula vira item anônimo
+   * e cai na coluna do rótulo. */
+  .fin-tabela td {
+    padding: var(--e1) 0;
+    border-bottom: none;
+  }
+  .fin-tabela td + td {
+    border-top: 1px solid var(--borda);
+  }
+  .fin-tabela td::before {
+    content: attr(data-rotulo);
+    display: block;
+    font-family: var(--fonte);
+    font-size: var(--t-xs);
+    color: var(--texto-2);
+  }
+  td.fin-num {
+    text-align: left;
+  }
+  .fin-col-sel {
+    width: auto;
+    text-align: left;
+  }
+  .fin-col-sel::before {
+    display: inline !important;
+    margin-right: var(--e2);
+  }
+}
+
+/* ------------------------------------------------------------------ diálogos */
+.fin-dialogo .dialogo-cabecalho h2 {
+  color: var(--azul);
+}
+.fin-dialogo-tipo {
+  margin: 0 0 var(--e1);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--roxo);
+}
+.fin-selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2);
+  margin: var(--e2) 0 0;
+}
+.fin-form,
+.fin-secao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+}
+.fin-secao {
+  padding-top: var(--e3);
+  border-top: 1px solid var(--borda);
+}
+.fin-secao h3 {
+  margin: 0;
+  font-size: var(--t-md);
+}
+.fin-campos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--e3) var(--e4);
+  min-width: 0;
+}
+.fin-largo {
+  grid-column: 1 / -1;
+}
+.fin-campo-curto {
+  max-width: 14rem;
+}
+.fin-linha-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e3);
+}
+.fin-dados {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--e2) var(--e4);
+  margin: 0;
+}
+.fin-dados div {
+  min-width: 0;
+}
+.fin-dados dt {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.fin-dados dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.fin-lote {
+  padding: var(--e3);
+  background: var(--fundo-2);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+.fin-lote-titulo {
+  margin: 0 0 var(--e2);
+  font-size: var(--t-sm);
+}
+.fin-lote ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e1);
+  max-height: 14rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  font-size: var(--t-sm);
+}
+.fin-lote li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--e3);
+}
+.fin-baixas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fin-baixa {
+  padding: var(--e2) var(--e3);
+  background: var(--fundo-2);
+  border: 1px solid var(--borda);
+  border-left: 4px solid var(--verde);
+  border-radius: var(--raio);
+}
+.fin-baixa[data-estornada] {
+  border-left-color: var(--vermelho);
+}
+.fin-baixa[data-estornada] .fin-baixa-linha > strong {
+  text-decoration: line-through;
+}
+.fin-baixa p {
+  margin: var(--e1) 0 0;
+}
+.fin-baixa-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e1) var(--e3);
+  font-size: var(--t-sm);
+}
+.fin-botao-mini {
+  margin-left: auto;
+  padding: 2px var(--e3);
+  font-size: var(--t-xs);
+}
+.fin-estorno {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--e3);
+  margin-top: var(--e2);
+}
+.fin-estorno .campo {
+  flex: 1 1 14rem;
+}
+.fin-prazos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2) var(--e4);
+  margin: 0;
+  padding: var(--e2) var(--e3);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+}
+.fin-prazos legend {
+  padding: 0 var(--e1);
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+
+@media (max-width: 40rem) {
+  .fin-campos {
+    grid-template-columns: 1fr;
+  }
+  .fin-abas {
+    width: 100%;
+  }
+  .fin-abas button {
+    flex: 1 1 auto;
+  }
+}

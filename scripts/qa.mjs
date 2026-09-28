@@ -30,6 +30,10 @@ const SAIDA = resolve('qa')
 const ROTAS = {
   '/entrar': { seletor: 'form.entrar-cartao input[name="senha"]', autenticada: false },
   '/inicio': { seletor: '[data-teste="inicio-conteudo"]', autenticada: true },
+  '/cadastros': {
+    seletor: '[data-teste="lista-grupos"], [data-teste="lista-vazia"]',
+    autenticada: true,
+  },
 }
 
 const VARIANTES = [

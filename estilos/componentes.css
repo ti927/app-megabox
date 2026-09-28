@@ -1,0 +1,317 @@
+/* Peças compartilhadas pelas telas: campo, botões, selo, aviso, diálogo, abas,
+ * paginação e esqueleto. Nasceram com a tela de cadastros, que é a tela-modelo;
+ * as outras telas usam estas classes em vez de redefinir as suas.
+ * Só tokens de estilos/tokens.css — claro e escuro vêm de graça. */
+
+/* ------------------------------------------------------------------- campo */
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e1);
+  min-width: 0;
+}
+.campo > span {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.campo > input,
+.campo > select,
+.campo > textarea {
+  width: 100%;
+  min-width: 0;
+  padding: var(--e2) var(--e3);
+  font: inherit;
+  color: var(--texto);
+  background: var(--fundo);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+}
+.campo > textarea {
+  resize: vertical;
+}
+.campo > input:focus-visible,
+.campo > select:focus-visible,
+.campo > textarea:focus-visible {
+  border-color: var(--azul);
+}
+.campo > input:read-only,
+.campo > input:disabled,
+.campo > select:disabled,
+.campo > textarea:read-only {
+  color: var(--texto-2);
+  background: var(--fundo-2);
+}
+
+.caixa {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e2);
+  font-size: var(--t-sm);
+  cursor: pointer;
+}
+.caixa > input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--azul);
+}
+
+/* ------------------------------------------------------------------ botões */
+.botao-primario,
+.botao-secundario,
+.botao-perigo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e2);
+  padding: var(--e2) var(--e4);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.botao-primario {
+  color: var(--sobre-azul);
+  background: var(--azul);
+}
+.botao-primario:hover:not(:disabled) {
+  background: var(--azul-escuro);
+}
+.botao-secundario {
+  color: var(--azul);
+  background: var(--superficie);
+  border-color: var(--azul);
+}
+.botao-secundario:hover:not(:disabled) {
+  background: var(--azul-claro);
+}
+.botao-perigo {
+  color: var(--vermelho);
+  background: var(--superficie);
+  border-color: var(--vermelho);
+}
+.botao-perigo:hover:not(:disabled) {
+  background: var(--vermelho-fundo);
+}
+.botao-primario:disabled,
+.botao-secundario:disabled,
+.botao-perigo:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.botao-primario[aria-busy='true'],
+.botao-secundario[aria-busy='true'],
+.botao-perigo[aria-busy='true'] {
+  cursor: progress;
+}
+
+/* -------------------------------------------------------------------- selo
+ * Estado em uma palavra. A cor carrega significado (tokens.css): verde ok,
+ * vermelho bloqueio/inativo, laranja atenção. Sempre com texto, nunca só cor. */
+.selo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e1);
+  padding: 1px var(--e2);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+  border-radius: 999px;
+  color: var(--texto-2);
+  background: var(--fundo-2);
+  border: 1px solid var(--borda);
+}
+.selo[data-tom='ok'] {
+  color: var(--verde);
+  background: var(--verde-fundo);
+  border-color: transparent;
+}
+.selo[data-tom='erro'] {
+  color: var(--vermelho);
+  background: var(--vermelho-fundo);
+  border-color: transparent;
+}
+.selo[data-tom='alerta'] {
+  color: var(--texto);
+  background: var(--laranja-fundo);
+  border-color: var(--laranja);
+}
+
+/* ------------------------------------------------------------------- aviso */
+.aviso {
+  margin: 0;
+  padding: var(--e2) var(--e3);
+  font-size: var(--t-sm);
+  color: var(--texto);
+  background: var(--laranja-fundo);
+  border: 1px solid var(--laranja);
+  border-left-width: 4px;
+  border-radius: var(--raio);
+}
+.aviso[data-tom='erro'] {
+  color: var(--vermelho);
+  background: var(--vermelho-fundo);
+  border-color: var(--vermelho);
+}
+.aviso[data-tom='ok'] {
+  color: var(--verde);
+  background: var(--verde-fundo);
+  border-color: var(--verde);
+}
+
+/* ----------------------------------------------------------------- diálogo
+ * <dialog> nativo com showModal(): foco preso, Esc fecha e o fundo fica inerte
+ * sem biblioteca. No celular ocupa a tela inteira. */
+.dialogo {
+  width: min(56rem, calc(100vw - 2 * var(--e4)));
+  max-height: calc(100dvh - 2 * var(--e5));
+  padding: 0;
+  color: var(--texto);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  box-shadow: var(--sombra-alta);
+}
+.dialogo[open] {
+  display: flex;
+  flex-direction: column;
+}
+.dialogo::backdrop {
+  background: rgb(18 21 28 / 55%);
+}
+.dialogo-cabecalho {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--e3);
+  padding: var(--e4) var(--e5);
+  border-bottom: 1px solid var(--borda);
+}
+.dialogo-cabecalho h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.dialogo-fechar {
+  margin-left: auto;
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: var(--t-lg);
+  line-height: 1;
+  color: var(--laranja);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  cursor: pointer;
+}
+.dialogo-fechar:hover {
+  background: var(--laranja-fundo);
+}
+.dialogo-corpo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--e4) var(--e5);
+}
+.dialogo-rodape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e3) var(--e5);
+  border-top: 1px solid var(--borda);
+}
+.dialogo-rodape .empurra {
+  margin-left: auto;
+}
+
+@media (max-width: 40rem) {
+  .dialogo {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+  }
+  .dialogo-cabecalho,
+  .dialogo-corpo,
+  .dialogo-rodape {
+    padding-left: var(--e4);
+    padding-right: var(--e4);
+  }
+}
+
+/* -------------------------------------------------------------------- abas */
+.abas {
+  display: flex;
+  gap: var(--e1);
+  padding: 0 var(--e5);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--borda);
+}
+.abas button {
+  padding: var(--e2) var(--e3);
+  font: inherit;
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+  white-space: nowrap;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+}
+.abas button[aria-selected='true'] {
+  font-weight: 600;
+  color: var(--azul);
+  border-bottom-color: var(--azul);
+}
+@media (max-width: 40rem) {
+  .abas {
+    padding: 0 var(--e4);
+  }
+}
+
+/* --------------------------------------------------------------- paginação */
+.paginacao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e3);
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+.paginacao nav {
+  display: flex;
+  gap: var(--e2);
+}
+
+/* --------------------------------------------------------------- esqueleto */
+.esqueleto {
+  background: linear-gradient(90deg, var(--fundo-2), var(--borda), var(--fundo-2));
+  background-size: 200% 100%;
+  border-radius: var(--raio);
+  animation: esqueleto 1.4s ease-in-out infinite;
+}
+@keyframes esqueleto {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* Só para leitor de tela. */
+.so-leitor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

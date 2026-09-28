@@ -13,6 +13,8 @@
   --azul: #3d78f3;
   --azul-escuro: #2b5ed4;
   --azul-claro: #eef3fb;
+  /* Texto sobre --azul. Branco no claro; no escuro o azul clareia e branco cai para ~2,7:1. */
+  --sobre-azul: #ffffff;
   --lilas: #ded9f7;
   --roxo: #7030a0;
 
@@ -69,6 +71,7 @@
   --azul: #6b9bff;
   --azul-escuro: #8db3ff;
   --azul-claro: #1b2436;
+  --sobre-azul: #0b1220;
   --lilas: #2e2a44;
   --roxo: #b183d6;
 
@@ -97,6 +100,8 @@
     --azul: #6b9bff;
     --azul-escuro: #8db3ff;
     --azul-claro: #1b2436;
+    --sobre-azul: #0b1220;
+  --sobre-azul: #0b1220;
     --lilas: #2e2a44;
     --roxo: #b183d6;
 

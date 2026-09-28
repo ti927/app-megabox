@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 
 import { Casca } from '@/componentes/casca'
-import { minhasPaginas, usuarioAtual } from '@/lib/autorizacao'
+import { minhasConfiguracoes, minhasPaginas, usuarioAtual } from '@/lib/autorizacao'
 
 import './casca.css'
 
@@ -18,10 +18,10 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
   const usuario = await usuarioAtual()
   if (!usuario) redirect('/entrar')
 
-  const paginas = await minhasPaginas()
+  const [paginas, configuracoes] = await Promise.all([minhasPaginas(), minhasConfiguracoes()])
 
   return (
-    <Casca usuario={usuario} paginas={paginas}>
+    <Casca usuario={usuario} paginas={paginas} configuracoes={configuracoes}>
       {children}
     </Casca>
   )

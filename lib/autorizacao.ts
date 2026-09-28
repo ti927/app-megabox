@@ -59,6 +59,17 @@ export async function minhasPaginas(): Promise<Pagina[]> {
 }
 
 /**
+ * Os alvos de configuração que o usuário pode abrir — o conteúdo da engrenagem do
+ * cabeçalho (db/005, `fn_minhas_configuracoes`). Cosmético: a trava é `exigirAcesso`.
+ */
+export async function minhasConfiguracoes(): Promise<Pagina[]> {
+  const supabase = await clienteServidor()
+  const { data, error } = await supabase.rpc('fn_minhas_configuracoes')
+  if (error || !data) return []
+  return data as Pagina[]
+}
+
+/**
  * Trava de página. Chame no `page.tsx` de toda rota protegida.
  *
  * O middleware só renova a sessão e barra quem não tem sessão nenhuma — ele roda

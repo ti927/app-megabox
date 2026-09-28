@@ -36,44 +36,10 @@
   font-size: var(--t-sm);
 }
 
-.campo {
-  display: flex;
-  flex-direction: column;
-  gap: var(--e1);
-}
-.campo > span {
-  font-size: var(--t-xs);
-  color: var(--texto-2);
-}
-.campo > input {
-  padding: var(--e2) var(--e3);
-  font: inherit;
-  color: var(--texto);
-  background: var(--fundo);
-  border: 1px solid var(--borda-forte);
-  border-radius: var(--raio);
-}
-.campo > input:focus-visible {
-  border-color: var(--azul);
-}
-
-.botao-primario {
+/* .campo e .botao-primario são compartilhados: estilos/componentes.css */
+.entrar-cartao .botao-primario {
   margin-top: var(--e2);
   padding: var(--e3);
-  font: inherit;
-  font-weight: 600;
-  color: #fff;
-  background: var(--azul);
-  border: 1px solid transparent;
-  border-radius: var(--raio);
-  cursor: pointer;
-}
-.botao-primario:hover:not(:disabled) {
-  background: var(--azul-escuro);
-}
-.botao-primario:disabled {
-  opacity: 0.6;
-  cursor: progress;
 }
 
 .entrar-erro {

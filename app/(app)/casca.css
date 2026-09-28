@@ -81,6 +81,55 @@
   background: var(--azul-claro);
 }
 
+/* -------------------------------------------------------------- engrenagem
+ * Menu de configuração (Bubble: engrenagem azul com caret, dropdown branco com sombra). */
+.engrenagem {
+  position: relative;
+}
+.engrenagem-botao {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: var(--e2);
+  color: var(--azul);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  cursor: pointer;
+}
+.engrenagem-botao:hover,
+.engrenagem-botao[aria-expanded='true'] {
+  background: var(--azul-claro);
+}
+.engrenagem-caret {
+  font-size: var(--t-xs);
+}
+.engrenagem-menu {
+  position: absolute;
+  top: calc(100% + var(--e1));
+  right: 0;
+  z-index: 30;
+  min-width: 14rem;
+  margin: 0;
+  padding: var(--e1);
+  list-style: none;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra-alta);
+}
+.engrenagem-menu a {
+  display: block;
+  padding: var(--e2) var(--e3);
+  color: var(--azul);
+  text-decoration: none;
+  border-radius: var(--raio);
+}
+.engrenagem-menu a:hover {
+  color: var(--azul-escuro);
+  background: var(--azul-claro);
+}
+
 /* -------------------------------------------------------------------- corpo */
 .corpo {
   flex: 1;

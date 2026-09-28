@@ -1,0 +1,394 @@
+/* Tela de cadastros (clientes e fornecedores).
+ * Reconhecível para quem usa o Bubble (design/capturas/cadastros-*): título
+ * "Cadastros de Cliente", contadores em roxo/azul, itens em cartão azul-claro com
+ * índice, avatar, NOME em caixa alta, "Contém: N | M", carteira e estado.
+ * Peças genéricas (campo, botão, selo, diálogo) ficam em estilos/componentes.css. */
+
+.cadastros {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+  max-width: 80rem;
+}
+
+.cadastros-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--e2) var(--e4);
+}
+.cadastros-topo h1 {
+  margin: 0;
+}
+.cadastros-contadores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e1) var(--e4);
+  margin: 0;
+  font-size: var(--t-sm);
+}
+.cadastros-contadores span:first-child {
+  color: var(--roxo);
+}
+.cadastros-contadores span:last-child {
+  color: var(--azul);
+}
+
+/* ------------------------------------------------------------------ filtros */
+.cadastros-filtros {
+  display: grid;
+  grid-template-columns: auto minmax(14rem, 2fr) repeat(4, minmax(7rem, 1fr));
+  align-items: end;
+  gap: var(--e3);
+  padding: var(--e4);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+}
+.cadastros-tipo {
+  display: flex;
+  gap: var(--e3);
+  margin: 0;
+  padding: var(--e1) var(--e3) var(--e2);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+}
+.cadastros-tipo legend {
+  padding: 0 var(--e1);
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.cadastros-sem-carteira {
+  grid-column: 1 / 3;
+}
+.cadastros-acoes {
+  grid-column: 3 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--e3);
+}
+
+/* -------------------------------------------------------------------- lista */
+.cadastros-lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+}
+.cadastros-vazio {
+  margin: 0;
+  padding: var(--e6) var(--e4);
+  text-align: center;
+  color: var(--texto-2);
+  background: var(--fundo-2);
+  border: 1px dashed var(--borda-forte);
+  border-radius: var(--raio-g);
+}
+
+.clifor-lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  transition: opacity 0.15s;
+}
+.clifor-lista[data-pendente] {
+  opacity: 0.55;
+}
+
+.clifor-linha {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 2.5rem 2.75rem minmax(0, 1fr) minmax(0, 14rem) auto;
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e3) var(--e4);
+  font: inherit;
+  text-align: left;
+  color: var(--texto);
+  background: var(--azul-claro);
+  border: 1px solid transparent;
+  border-left: 4px solid var(--azul);
+  border-radius: var(--raio-g);
+  cursor: pointer;
+}
+.clifor-linha[data-tipo='fornecedor'] {
+  border-left-color: var(--laranja);
+}
+.clifor-linha:hover {
+  border-color: var(--borda-forte);
+}
+.clifor-linha[aria-current='true'] {
+  background: var(--lilas);
+  border-color: var(--azul);
+}
+
+.clifor-indice {
+  font-family: var(--fonte-numero);
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+  text-align: center;
+}
+.clifor-avatar {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  font-size: var(--t-sm);
+  font-weight: 700;
+  color: var(--texto-2);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 50%;
+}
+.clifor-principal {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.clifor-nome {
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.clifor-meta {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.clifor-carteira {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: var(--t-sm);
+}
+.clifor-carteira small {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.clifor-carteira span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--azul);
+  text-transform: uppercase;
+}
+.clifor-selos {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--e1);
+}
+/* fornecedor não tem coluna de carteira */
+.clifor-linha[data-tipo='fornecedor'] .clifor-selos {
+  grid-column: 4 / -1;
+}
+
+/* -------------------------------------------------------------------- ficha */
+.ficha-tipo {
+  margin: 0 0 var(--e1);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texto-2);
+}
+.ficha[data-tipo='cliente'] .ficha-tipo {
+  color: var(--roxo);
+}
+.ficha .dialogo-cabecalho h2 {
+  color: var(--azul);
+  text-transform: uppercase;
+}
+.ficha-selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2);
+  margin: var(--e2) 0 0;
+}
+.ficha-alerta {
+  color: var(--laranja);
+}
+.ficha-aviso-topo {
+  margin-bottom: var(--e4);
+}
+
+.ficha-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+}
+.ficha-campos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--e3) var(--e4);
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+.ficha-largo {
+  grid-column: 1 / -1;
+}
+
+.ficha-rastro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2) var(--e5);
+  margin: 0;
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.ficha-rastro dt {
+  display: inline;
+}
+.ficha-rastro dt::after {
+  content: ': ';
+}
+.ficha-rastro dd {
+  display: inline;
+  margin: 0;
+}
+
+.ficha-itens {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ficha-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  padding: var(--e3) var(--e4);
+  background: var(--fundo-2);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+.ficha-item[data-inativo] {
+  opacity: 0.75;
+}
+.ficha-item-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2);
+}
+.ficha-cargo {
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+.ficha-dados {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--e2) var(--e4);
+  margin: 0;
+}
+.ficha-dados dt {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.ficha-dados dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2);
+  margin: 0;
+  font-size: var(--t-sm);
+  min-width: 0;
+}
+.ficha-dados .numero {
+  font-family: var(--fonte-numero);
+  font-variant-numeric: tabular-nums;
+}
+.ficha-dados .quebra {
+  overflow-wrap: anywhere;
+}
+.ficha-motivo {
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--vermelho);
+}
+.ficha-item .aviso ul {
+  margin: var(--e1) 0;
+  padding-left: var(--e5);
+}
+.ficha-vazio,
+.ficha-nota {
+  margin: var(--e4) 0 0;
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+.ficha-vazio {
+  margin-top: 0;
+}
+
+.link {
+  padding: 0;
+  font: inherit;
+  color: var(--azul);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------------ celular
+ * No Bubble a tabela espreme o texto até ficar vertical (cadastros-08-mobile-390).
+ * Aqui o cartão reorganiza: avatar e nome em cima, carteira e selos embaixo. */
+@media (max-width: 64rem) {
+  .cadastros-filtros {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cadastros-tipo,
+  .cadastros-busca {
+    grid-column: 1 / -1;
+  }
+  .cadastros-sem-carteira {
+    grid-column: 1 / -1;
+  }
+  .cadastros-acoes {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 40rem) {
+  .clifor-linha {
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+    gap: var(--e2) var(--e3);
+    padding: var(--e3);
+  }
+  .clifor-indice {
+    display: none;
+  }
+  .clifor-carteira {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    gap: var(--e2);
+    align-items: baseline;
+  }
+  .clifor-selos,
+  .clifor-linha[data-tipo='fornecedor'] .clifor-selos {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+  .ficha-campos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cadastros-acoes {
+    justify-content: stretch;
+  }
+  .cadastros-acoes > * {
+    flex: 1;
+  }
+}
+
+/* Altura mínima na ficha, para o diálogo não pular de tamanho ao trocar de aba. */
+@media (min-width: 40.01rem) {
+  .ficha .dialogo-corpo {
+    min-height: 24rem;
+  }
+}

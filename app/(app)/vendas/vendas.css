@@ -1,0 +1,750 @@
+/* Tela do fluxo de vendas (kanban cotação → pedido → entregas).
+ * Reconhecível para quem usa o Bubble (design/capturas/vendas-01, -02, -04): barra de
+ * filtros com pílulas de contorno azul, "+ Cotação" azul sólido à direita, quatro colunas
+ * iguais com cabeçalho cinza-claro e contador, cada uma rolando sozinha, e cartões brancos
+ * com avatar, título em CAIXA ALTA "CLIENTE - Nº 5760", Vendedor/Dt em negrito e lápis azul.
+ * Peças genéricas (campo, botão, selo, diálogo, abas) vêm de estilos/componentes.css. */
+
+.vendas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------------ filtros */
+.vendas-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--e3);
+}
+.vendas-filtros .campo {
+  width: 11rem;
+}
+.vendas-periodo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e1) var(--e2);
+  margin: 0;
+  padding: var(--e1) var(--e2) var(--e2);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+}
+.vendas-periodo legend {
+  padding: 0 var(--e1);
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.vendas-periodo input {
+  padding: var(--e1) var(--e2);
+  font: inherit;
+  font-size: var(--t-sm);
+  color: var(--azul);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  color-scheme: light dark;
+}
+.vendas-pilulas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2);
+}
+.pilula-filtro {
+  padding: var(--e1) var(--e3);
+  font: inherit;
+  font-size: var(--t-sm);
+  color: var(--azul);
+  background: var(--superficie);
+  border: 1px solid var(--azul);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.pilula-filtro:hover {
+  background: var(--azul-claro);
+}
+/* Ligado = azul sólido com texto claro (vendas-01). */
+.pilula-filtro[aria-pressed='true'] {
+  color: var(--sobre-azul);
+  background: var(--azul);
+}
+.vendas-nova {
+  margin-left: auto;
+}
+
+/* ------------------------------------------------------------------- quadro */
+.kanban {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--e3);
+  transition: opacity 0.15s;
+}
+.kanban[data-pendente] {
+  opacity: 0.55;
+}
+
+.coluna {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--fundo-2);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+}
+.coluna-cabecalho {
+  padding: var(--e2) var(--e3);
+  text-align: center;
+  border-bottom: 1px solid var(--borda);
+}
+.coluna-cabecalho h2 {
+  margin: 0;
+  font-size: var(--t-lg);
+  font-weight: 600;
+}
+.coluna-cabecalho p {
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+/* Cada coluna rola sozinha, como no Bubble — a página não cresce com 134 cartões. */
+.coluna-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  max-height: calc(100dvh - 15rem);
+  min-height: 12rem;
+  padding: var(--e3);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.coluna-cartoes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.coluna-vazia {
+  margin: var(--e4) 0;
+  font-size: var(--t-sm);
+  text-align: center;
+  color: var(--texto-2);
+}
+.coluna-mais {
+  align-self: center;
+  font-size: var(--t-sm);
+}
+
+/* ------------------------------------------------------------------ cartões */
+.cartao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  padding: var(--e3);
+  font-size: var(--t-sm);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  box-shadow: var(--sombra);
+}
+/* Arquivada: fundo cinza (vendas-09). */
+.cartao[data-arquivado] {
+  background: var(--fundo-2);
+  border-style: dashed;
+}
+/* Todas as entregas concluídas: verde-claro (vendas-10). Cancelado: rosa (vendas-11). */
+.cartao[data-concluido] {
+  background: var(--verde-fundo);
+  border-color: var(--verde);
+}
+.cartao[data-cancelado] {
+  background: var(--vermelho-fundo);
+  border-color: var(--vermelho);
+}
+/* Entrega em Financeiro: azul (bTHHW). */
+.cartao[data-financeiro] {
+  background: var(--azul-claro);
+  border-color: var(--azul);
+}
+.cartao-topo {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  gap: var(--e2);
+  align-items: start;
+}
+.cartao-avatar {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-top: var(--e1);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  color: var(--texto-2);
+  background: var(--fundo-2);
+  border: 1px solid var(--borda);
+  border-radius: 50%;
+}
+.cartao-principal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.cartao-principal b {
+  font-weight: 600;
+}
+.cartao-titulo {
+  font-size: var(--t-md);
+  line-height: 1.25;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.cartao-valor {
+  font-family: var(--fonte-numero);
+  font-variant-numeric: tabular-nums;
+}
+.cartao-valor b {
+  font-family: var(--fonte);
+}
+.cartao-cancelado {
+  color: var(--vermelho);
+}
+.cartao-concluido {
+  font-weight: 600;
+  color: var(--verde);
+}
+.cartao-icones {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--e1);
+}
+.cartao-abrir,
+.cartao-propostas {
+  display: grid;
+  place-items: center;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: var(--e1);
+  color: var(--azul);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  cursor: pointer;
+}
+.cartao-abrir:hover,
+.cartao-propostas:hover {
+  background: var(--azul-claro);
+}
+.cartao-propostas small {
+  font-size: var(--t-xs);
+  line-height: 1;
+}
+.cartao-motivo {
+  align-self: flex-start;
+  background: var(--lilas);
+}
+.cartao-detalhe-botao {
+  align-self: flex-start;
+  padding: 0;
+  font: inherit;
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.cartao-detalhe-botao:hover {
+  color: var(--azul);
+}
+.cartao-resumo,
+.cartao-entregas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e1);
+  margin: 0;
+  padding: var(--e2) 0 0;
+  list-style: none;
+  border-top: 1px solid var(--borda);
+}
+.cartao-resumo li::before {
+  display: inline-grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-right: var(--e2);
+  font-size: 0.7rem;
+  border-radius: 50%;
+}
+.cartao-resumo li[data-icone='carrinho']::before {
+  content: '🛒';
+  background: var(--lilas);
+}
+.cartao-resumo li[data-icone='trofeu']::before {
+  content: '🏆';
+  background: var(--verde-fundo);
+}
+.cartao-resumo li[data-icone='proposta']::before {
+  content: '📄';
+  background: var(--azul-claro);
+}
+.cartao-entregas li {
+  overflow-wrap: anywhere;
+}
+/* Azul/negrito se Em Entrega e saiu; vermelho se Cancelado (spec §2.3). */
+.cartao-entregas li[data-status='4'][data-saiu] {
+  font-weight: 600;
+  color: var(--azul);
+}
+.cartao-entregas li[data-status='7'] {
+  color: var(--vermelho);
+  text-decoration: line-through;
+}
+.pilula {
+  display: inline-block;
+  margin-right: var(--e2);
+  padding: 0 var(--e2);
+  font-family: var(--fonte-numero);
+  font-size: var(--t-xs);
+  color: var(--azul);
+  border: 1px solid var(--azul);
+  border-radius: 999px;
+}
+.cartao-vazio {
+  margin: 0;
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+
+.vendas-aviso {
+  position: fixed;
+  right: var(--e4);
+  bottom: var(--e4);
+  z-index: 10;
+  max-width: 24rem;
+  box-shadow: var(--sombra-alta);
+}
+
+.vendas-link {
+  padding: 0;
+  font: inherit;
+  color: var(--azul);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------- nova cotação */
+.vendas-nova-dialogo {
+  width: min(40rem, calc(100vw - 2 * var(--e4)));
+}
+.vendas-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--e3) var(--e4);
+  align-content: start;
+}
+.vendas-largo {
+  grid-column: 1 / -1;
+}
+.vendas-form .campo > label {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.vendas-resultados {
+  max-height: 14rem;
+  margin: var(--e1) 0 0;
+  padding: var(--e1);
+  overflow-y: auto;
+  list-style: none;
+  background: var(--superficie);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+}
+.vendas-resultados button {
+  width: 100%;
+  padding: var(--e2);
+  font: inherit;
+  font-size: var(--t-sm);
+  text-align: left;
+  text-transform: uppercase;
+  color: var(--texto);
+  background: none;
+  border: none;
+  border-radius: var(--raio);
+  cursor: pointer;
+}
+.vendas-resultados button:hover,
+.vendas-resultados button:focus-visible {
+  color: var(--azul);
+  background: var(--azul-claro);
+}
+.vendas-resultado-vazio {
+  padding: var(--e2);
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+.vendas-empresa {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e3);
+  margin: 0;
+  padding: var(--e1) var(--e3) var(--e2);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+}
+.vendas-empresa legend {
+  padding: 0 var(--e1);
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+
+/* -------------------------------------------------------------------- ficha */
+.ficha-vendas {
+  width: min(84rem, calc(100vw - 2 * var(--e4)));
+}
+.ficha-vendas-tipo {
+  margin: 0 0 var(--e1);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--roxo);
+}
+.ficha-vendas .dialogo-cabecalho h2 {
+  color: var(--azul);
+  text-transform: uppercase;
+}
+.ficha-vendas-num {
+  display: inline-block;
+  margin-left: var(--e2);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  text-transform: none;
+  color: var(--texto-2);
+}
+.ficha-vendas-selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2);
+  margin: var(--e2) 0 0;
+}
+.vendas-aviso-topo {
+  margin: 0 0 var(--e4);
+}
+.vendas-dados {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--e2) var(--e4);
+  margin: 0 0 var(--e4);
+}
+.vendas-dados dt {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.vendas-dados dd {
+  margin: 0;
+  font-size: var(--t-sm);
+  overflow-wrap: anywhere;
+}
+.vendas-data {
+  color: var(--azul);
+}
+.itens-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e3);
+  margin: var(--e4) 0 var(--e3);
+}
+.itens-topo h3 {
+  margin: 0;
+  font-size: var(--t-md);
+}
+.itens {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* Linha de produto com fundo azul-claro (vendas-04). */
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  min-width: 0;
+  padding: var(--e3);
+  background: var(--azul-claro);
+  border-radius: var(--raio);
+}
+.item-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2) var(--e3);
+}
+.item-qtd {
+  min-width: 4.5rem;
+  padding: var(--e1) var(--e2);
+  font-family: var(--fonte-numero);
+  text-align: center;
+  background: var(--superficie);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+}
+.item-nome {
+  display: flex;
+  flex: 1 1 14rem;
+  flex-direction: column;
+  min-width: 0;
+}
+.item-nome strong {
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.item-nome small {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+/* círculo lilás com o nº de fornecedores */
+.item-contador {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: var(--t-xs);
+  color: var(--roxo);
+  background: var(--lilas);
+  border-radius: 50%;
+}
+.item-vencedor {
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--verde);
+}
+
+/* A sub-tabela tem 12 colunas: rola DENTRO de si, nunca a página (no celular também). */
+.orc-rolagem {
+  max-width: 100%;
+  overflow-x: auto;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+.orc-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-sm);
+}
+.orc-tabela th,
+.orc-tabela td {
+  padding: var(--e2);
+  white-space: nowrap;
+  text-align: right;
+  border-bottom: 1px solid var(--borda);
+}
+.orc-tabela thead th {
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--texto-2);
+  background: var(--lilas);
+}
+.orc-tabela th[scope='row'],
+.orc-tabela thead th:first-child {
+  text-align: left;
+}
+.orc-tabela th[scope='row'] {
+  display: flex;
+  flex-direction: column;
+  min-width: 12rem;
+  max-width: 22rem;
+  font-weight: 400;
+  white-space: normal;
+}
+.orc-tabela th[scope='row'] strong {
+  text-transform: uppercase;
+}
+.orc-tabela th[scope='row'] small {
+  font-size: var(--t-xs);
+  color: var(--texto-3);
+}
+.orc-tabela td {
+  font-family: var(--fonte-numero);
+  font-variant-numeric: tabular-nums;
+}
+.orc-tabela tbody tr:last-child > * {
+  border-bottom: none;
+}
+/* Linha do vencedor com fundo verde-azulado; tributos em vermelho, líquido em verde. */
+.orc-tabela tr[data-vencedor] > * {
+  background: var(--verde-fundo);
+}
+.orc-tributos {
+  color: var(--vermelho);
+}
+.orc-liquido[data-menor] {
+  font-weight: 700;
+  color: var(--verde);
+}
+.trofeu {
+  padding: var(--e1);
+  font-size: var(--t-md);
+  line-height: 1;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+button.trofeu {
+  cursor: pointer;
+}
+button.trofeu:hover:not(:disabled) {
+  opacity: 0.8;
+  border-color: var(--verde);
+}
+button.trofeu:disabled {
+  cursor: not-allowed;
+  opacity: 0.2;
+}
+.trofeu[data-vencedor] {
+  filter: none;
+  opacity: 1;
+}
+.vendas-propostas td {
+  font-family: var(--fonte);
+}
+
+.vendas-subform {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  padding: var(--e3) var(--e4);
+  background: var(--superficie);
+  border: 1px solid var(--azul);
+  border-radius: var(--raio);
+}
+.vendas-subform h4 {
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--azul);
+}
+.vendas-subform-campos {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--e3);
+}
+.vendas-subform-campos .vendas-largo {
+  grid-column: span 2;
+}
+.vendas-subform-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--e3);
+}
+.vendas-nota {
+  margin: 0;
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.vendas-vazio {
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+
+.vendas-arquivo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--e3);
+}
+.vendas-arquivo-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--e2);
+}
+/* "Arquivar" amarelo sólido (vendas-12). Sem botão amarelo global: fica na rota. */
+.botao-alerta {
+  padding: var(--e2) var(--e4);
+  font: inherit;
+  font-weight: 600;
+  color: #1f2430;
+  background: var(--laranja);
+  border: 1px solid var(--laranja);
+  border-radius: var(--raio);
+  cursor: pointer;
+}
+.botao-alerta:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* ------------------------------------------------------------------ celular
+ * No Bubble as 4 colunas ficam com ~45 px e os cartões viram texto vertical
+ * (vendas-17-mobile-390). Aqui o quadro rola na horizontal DENTRO de si, uma coluna
+ * por vez com encaixe, e a página nunca rola de lado. */
+@media (max-width: 64rem) {
+  .kanban {
+    display: flex;
+    gap: var(--e3);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: var(--e2);
+  }
+  .coluna {
+    flex: 0 0 min(22rem, 85%);
+    scroll-snap-align: start;
+  }
+  .vendas-subform-campos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 40rem) {
+  /* A largura própria dos diálogos desta rota não pode vencer a tela cheia do celular
+     (estilos/componentes.css). */
+  .ficha-vendas,
+  .vendas-nova-dialogo {
+    width: 100vw;
+  }
+  .vendas-arquivo,
+  .vendas-arquivo-form {
+    flex: 1 1 100%;
+  }
+  .vendas-filtros .campo {
+    width: calc(50% - var(--e3) / 2);
+  }
+  .vendas-periodo {
+    width: 100%;
+  }
+  .vendas-periodo input {
+    flex: 1;
+    min-width: 0;
+  }
+  .vendas-nova {
+    width: 100%;
+    margin-left: 0;
+  }
+  .coluna-corpo {
+    max-height: calc(100dvh - 18rem);
+  }
+  .vendas-form,
+  .vendas-subform-campos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .vendas-subform-campos .vendas-largo {
+    grid-column: auto;
+  }
+  .vendas-subform {
+    padding: var(--e3);
+  }
+}

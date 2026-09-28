@@ -35,6 +35,7 @@ const ROTAS = {
     autenticada: true,
   },
   '/produtos': { seletor: '[data-teste="lista-produtos"], [data-teste="lista-vazia"]', autenticada: true },
+  '/vendas': { seletor: '[data-teste="kanban"]:not([aria-busy="true"]) [data-teste="coluna-cot"]', autenticada: true },
 }
 
 const VARIANTES = [

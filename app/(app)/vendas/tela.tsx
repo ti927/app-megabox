@@ -17,8 +17,6 @@ import {
   paraQuery,
   POR_COLUNA,
   primeiroNome,
-  somarReais,
-  todasEntregasConcluidas,
 } from '@/lib/vendas'
 
 import { FichaCotacao, NovaCotacao } from './dialogo'
@@ -79,25 +77,25 @@ function CartaoDeCotacao({
   aoAbrir: (aba: Aba) => void
 }) {
   const [aberto, setAberto] = useState(false)
-  const itens = c.itens[0]?.count ?? 0
-  const vencedores = c.vencedores.length
-  const propostas = c.propostas[0]?.count ?? 0
+  const itens = c.qtd_itens
+  const vencedores = c.qtd_vencedores
+  const propostas = c.qtd_propostas
   const detalhe = expandir || aberto
-  // Soma exata (BigInt) dos brutos que o banco calculou; não existe v_kanban_cotacoes ainda.
-  const total = vencedores > 0 ? somarReais(c.vencedores.map((v) => v.valor_venda_bruto)) : null
+  // Soma do banco (v_kanban_cotacoes, db/015); nula sem vencedor.
+  const total = c.total_bruto_vencedores
 
   return (
     <li className="cartao" data-tipo="cotacao" data-arquivado={c.arquivado || undefined}>
       <div className="cartao-topo">
         <span className="cartao-avatar" aria-hidden="true">
-          {iniciais(c.cliente?.nome)}
+          {iniciais(c.cliente_nome)}
         </span>
         <div className="cartao-principal">
           <strong className="cartao-titulo">
-            {c.cliente?.nome ?? '—'} - Nº {c.numero}
+            {c.cliente_nome ?? '—'} - Nº {c.numero}
           </strong>
           <span>
-            <b>Vendedor:</b> {primeiroNome(c.vendedor?.nome)}
+            <b>Vendedor:</b> {primeiroNome(c.vendedor_nome)}
           </span>
           <span>
             <b>Dt Cotação:</b> {formatarData(c.criado_em)}
@@ -111,7 +109,7 @@ function CartaoDeCotacao({
         <div className="cartao-icones">
           <BotaoAbrir rotulo={`Abrir cotação nº ${c.numero}`} aoAbrir={() => aoAbrir('cotacao')} />
           {/* Ícone de proposta: só com ≥1 produto e ≥1 vencedor (ipt contaproduto/contavencedor). */}
-          {itens > 0 && vencedores > 0 ? (
+          {c.pode_propor ? (
             <button
               type="button"
               className="cartao-propostas"
@@ -128,7 +126,7 @@ function CartaoDeCotacao({
         </div>
       </div>
       {c.arquivado ? (
-        <span className="selo cartao-motivo">{c.motivo?.nome ?? 'Motivo não disponível'}</span>
+        <span className="selo cartao-motivo">{c.motivo_nome ?? 'Motivo não disponível'}</span>
       ) : null}
       {expandir ? null : <BotaoDetalhe aberto={aberto} aoAlternar={() => setAberto((v) => !v)} />}
       {detalhe ? (
@@ -158,7 +156,7 @@ function CartaoDePedido({
   aoAbrir: () => void
 }) {
   const [aberto, setAberto] = useState(false)
-  const concluido = todasEntregasConcluidas(p.entregas.map((e) => e.status_id))
+  const concluido = p.todas_concluidas
   const cancelado = p.etapa_id === ETAPA.CANCELADO
   const detalhe = expandir || aberto
   const entregas = [...p.entregas].sort((a, b) =>
@@ -169,18 +167,23 @@ function CartaoDePedido({
     <li className="cartao" data-tipo="pedido" data-concluido={concluido || undefined} data-cancelado={cancelado || undefined}>
       <div className="cartao-topo">
         <span className="cartao-avatar" aria-hidden="true">
-          {iniciais(p.cliente?.nome)}
+          {iniciais(p.cliente_nome)}
         </span>
         <div className="cartao-principal">
           <strong className="cartao-titulo">
-            {p.cliente?.nome ?? '—'} - Nº {p.numero}
+            {p.cliente_nome ?? '—'} - Nº {p.numero}
           </strong>
           <span>
-            <b>Vendedor:</b> {primeiroNome(p.cotacao?.vendedor?.nome)}
+            <b>Vendedor:</b> {primeiroNome(p.vendedor_nome)}
           </span>
           <span>
             <b>Dt Pedido:</b> {formatarData(p.criado_em)}
           </span>
+          {p.valor_total ? (
+            <span className="cartao-valor" title="Soma dos itens da proposta do pedido">
+              <b>Valor:</b> {formatarReais(p.valor_total)}
+            </span>
+          ) : null}
           {cancelado ? (
             <span className="cartao-cancelado">
               <b>Cancelado:</b> {p.motivo_cancelamento || '—'}
@@ -214,13 +217,11 @@ function CartaoDePedido({
 
 function CartaoDeEntrega({
   e,
-  nomeVendedor,
   concluidos,
   expandir,
   aoAbrir,
 }: {
   e: CartaoEntrega
-  nomeVendedor: string | undefined
   concluidos: boolean
   expandir: boolean
   aoAbrir: () => void
@@ -243,7 +244,7 @@ function CartaoDeEntrega({
             {e.cliente_nome} - Nº {e.numero_entrega ?? '—'} - NF: {e.nf_fornecedor_numero ?? ''}
           </strong>
           <span>
-            <b>Vendedor:</b> {primeiroNome(nomeVendedor)}
+            <b>Vendedor:</b> {primeiroNome(e.vendedor_nome)}
           </span>
           {/* No Bubble o rótulo é "Dt Pedido" e o valor é a data PREVISTA (spec §2.3). */}
           {concluidos && e.dt_entrega ? (
@@ -530,7 +531,6 @@ export function TelaVendas({
             <CartaoDeEntrega
               key={e.id}
               e={e}
-              nomeVendedor={kanban.nomes[e.vendedor_id]}
               concluidos={filtros.concluidos}
               expandir={filtros.expandir}
               aoAbrir={() => abrir(e.cotacao_id, 'pedidos')}
@@ -555,7 +555,6 @@ export function TelaVendas({
             <CartaoDeEntrega
               key={e.id}
               e={e}
-              nomeVendedor={kanban.nomes[e.vendedor_id]}
               concluidos={false}
               expandir={filtros.expandir}
               aoAbrir={() => abrir(e.cotacao_id, 'pedidos')}

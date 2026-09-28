@@ -39,7 +39,7 @@ type Supabase = Awaited<ReturnType<typeof clienteServidor>>
 const COLUNAS_ENTREGA =
   'id, pedido_id, cotacao_id, numero_entrega, status_id, qtd::text, dt_pedido, dt_prev_entrega, ' +
   'dt_entrega, saiu_entrega, nf_fornecedor_numero, valor_venda_bruto::text, cliente_nome, ' +
-  'produto_nome, vendedor_id, vendedor_substituto_id, papel'
+  'produto_nome, vendedor_id, vendedor_substituto_id, papel, vendedor_nome'
 
 function coluna<T>(
   nome: string,
@@ -69,16 +69,14 @@ async function buscarKanban(supabase: Supabase, f: FiltrosVendas, u: UsuarioAtua
   const cliente = f.cliente ? `%${escaparLike(f.cliente)}%` : null
 
   // ------------------------------------------------------------------- Cotação
+  // v_kanban_cotacoes (db/015): contadores e total dos vencedores já somados no banco.
   let cot = supabase
-    .from('cotacoes')
+    .from('v_kanban_cotacoes')
     .select(
-      'id, numero, criado_em, arquivado, etapa_id, cliente:grupos_clifor!inner(nome), ' +
-        'vendedor:usuarios!vendedor_id(nome), motivo:motivos_arquivamento(nome), ' +
-        'itens:cotacao_itens(count), propostas(count), ' +
-        'vencedores:orcamentos_fornecedor(valor_venda_bruto::text)',
+      'id, numero, criado_em, arquivado, etapa_id, cliente_nome, vendedor_nome, motivo_nome, ' +
+        'qtd_itens, qtd_vencedores, qtd_propostas, total_bruto_vencedores::text, pode_propor',
       { count: 'exact' },
     )
-    .eq('vencedores.vencedor', true)
     .eq('rascunho', false)
     .eq('arquivado', r.cotacao.arquivado)
     .gte('criado_em', desde)
@@ -86,14 +84,17 @@ async function buscarKanban(supabase: Supabase, f: FiltrosVendas, u: UsuarioAtua
   cot = 'eq' in r.cotacao.etapa ? cot.eq('etapa_id', r.cotacao.etapa.eq) : cot.neq('etapa_id', r.cotacao.etapa.neq)
   if (r.vendedor) cot = cot.eq('vendedor_id', r.vendedor)
   if (f.numero) cot = cot.eq('numero', Number(f.numero))
-  if (cliente) cot = cot.ilike('cliente.nome', cliente)
+  if (cliente) cot = cot.ilike('cliente_nome', cliente)
 
   // -------------------------------------------------------------------- Pedido
+  // v_kanban_pedidos (db/015): valor do pedido (snapshot da proposta) e "todas concluídas". As
+  // entregas vêm por embed (o PostgREST segue a FK de entregas.pedido_id até a view) só para
+  // o detalhe do cartão.
   let ped = supabase
-    .from('pedidos')
+    .from('v_kanban_pedidos')
     .select(
-      'id, numero, cotacao_id, criado_em, etapa_id, finalizado, motivo_cancelamento, ' +
-        'cliente:grupos_clifor!inner(nome), cotacao:cotacoes(numero, vendedor:usuarios!vendedor_id(nome)), ' +
+      'id, numero, cotacao_id, criado_em, etapa_id, finalizado, motivo_cancelamento, cliente_nome, ' +
+        'vendedor_nome, valor_total::text, todas_concluidas, ' +
         'entregas(id, qtd::text, dt_prev_entrega, status_id, nf_fornecedor_numero, saiu_entrega, ' +
           'orcamento:orcamentos_fornecedor(produto:produtos(nome)))',
       { count: 'exact' },
@@ -104,7 +105,7 @@ async function buscarKanban(supabase: Supabase, f: FiltrosVendas, u: UsuarioAtua
     .lt('criado_em', antes)
   if (r.vendedor) ped = ped.eq('vendedor_id', r.vendedor)
   if (f.numero) ped = ped.eq('numero', f.numero)
-  if (cliente) ped = ped.ilike('cliente.nome', cliente)
+  if (cliente) ped = ped.ilike('cliente_nome', cliente)
 
   // ------------------------------------------------------- Entregas Próprias
   let ent = supabase
@@ -140,23 +141,11 @@ async function buscarKanban(supabase: Supabase, f: FiltrosVendas, u: UsuarioAtua
     sub.order('criado_em', { ascending: false }).order('id').range(0, ate(f.lim.sub)),
   ])
 
-  const entregas = coluna<CartaoEntrega>('entregas', e)
-  const substituto = coluna<CartaoEntrega>('substituto', s)
-
-  // v_kanban_entregas traz o id do vendedor, não o nome: uma busca só para os cartões da tela.
-  const ids = [...new Set([...entregas.cartoes, ...substituto.cartoes].map((x) => x.vendedor_id))]
-  const nomes: Record<string, string> = {}
-  if (ids.length > 0) {
-    const { data } = await supabase.from('usuarios').select('id, nome').in('id', ids)
-    for (const n of data ?? []) nomes[n.id as string] = n.nome as string
-  }
-
   return {
     cotacoes: coluna<CartaoCotacao>('cotação', c),
     pedidos: coluna<CartaoPedido>('pedido', p),
-    entregas,
-    substituto,
-    nomes,
+    entregas: coluna<CartaoEntrega>('entregas', e),
+    substituto: coluna<CartaoEntrega>('substituto', s),
   }
 }
 

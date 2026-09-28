@@ -7,19 +7,23 @@
 
 type Nome = { nome: string } | null
 
+/** Uma linha de `v_kanban_cotacoes` (db/015): contadores e total já calculados no banco. */
 export type CartaoCotacao = {
   id: string
   numero: number
   criado_em: string
   arquivado: boolean
   etapa_id: number
-  cliente: Nome
-  vendedor: Nome
-  motivo: Nome
-  itens: [{ count: number }]
-  propostas: [{ count: number }]
-  /** um orçamento vencedor por item (índice um_vencedor_por_item) */
-  vencedores: { valor_venda_bruto: string }[]
+  cliente_nome: string | null
+  vendedor_nome: string | null
+  motivo_nome: string | null
+  qtd_itens: number
+  /** itens com vencedor (um por item, índice um_vencedor_por_item) */
+  qtd_vencedores: number
+  qtd_propostas: number
+  /** soma do bruto dos vencedores; null sem vencedor (015 D3) */
+  total_bruto_vencedores: string | null
+  pode_propor: boolean
 }
 
 export type EntregaResumo = {
@@ -32,6 +36,7 @@ export type EntregaResumo = {
   orcamento: { produto: Nome } | null
 }
 
+/** Uma linha de `v_kanban_pedidos` (db/015) + as entregas para o detalhe do cartão. */
 export type CartaoPedido = {
   id: string
   numero: string
@@ -40,8 +45,12 @@ export type CartaoPedido = {
   etapa_id: number
   finalizado: boolean
   motivo_cancelamento: string | null
-  cliente: Nome
-  cotacao: { numero: number; vendedor: Nome } | null
+  cliente_nome: string | null
+  vendedor_nome: string | null
+  /** soma do snapshot de proposta_itens; null em pedido sem proposta (015 D4) */
+  valor_total: string | null
+  /** há entrega e todas em etapa concluída (015 D5) — o cartão verde */
+  todas_concluidas: boolean
   entregas: EntregaResumo[]
 }
 
@@ -64,6 +73,7 @@ export type CartaoEntrega = {
   vendedor_id: string
   vendedor_substituto_id: string | null
   papel: 'proprio' | 'substituto' | 'equipe'
+  vendedor_nome: string | null
 }
 
 export type ColunaDados<T> = { cartoes: T[]; total: number; falhou: boolean }
@@ -73,8 +83,6 @@ export type Kanban = {
   pedidos: ColunaDados<CartaoPedido>
   entregas: ColunaDados<CartaoEntrega>
   substituto: ColunaDados<CartaoEntrega>
-  /** id → nome dos vendedores dos cartões de entrega */
-  nomes: Record<string, string>
 }
 
 // ------------------------------------------------------------------------- ficha

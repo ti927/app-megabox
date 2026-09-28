@@ -56,7 +56,7 @@ const TABELAS = [
   'entregas',
   'entrega_arquivos',
 ]
-const VIEWS = ['v_orcamento_valores', 'v_kanban_entregas']
+const VIEWS = ['v_orcamento_valores', 'v_kanban_entregas', 'v_kanban_cotacoes', 'v_kanban_pedidos']
 
 const NOME = '__teste_rls_vendas__'
 const NOME_CLIENTE = `${NOME}cliente`
@@ -284,6 +284,8 @@ async function main() {
   for (const t of [...TABELAS, ...VIEWS]) caso(`anon lê ${t}`, 'negado', await ler(anonimo, t))
   const rpcAnon = await anonimo.rpc('fn_aliquota_icms', { p_uf_origem: 'SP', p_uf_destino: 'GO' })
   caso('anon executa fn_aliquota_icms', 'negado', rpcAnon.error?.code === RECUSADO ? 'negado' : 'permitido')
+  const vencAnon = await anonimo.rpc('fn_definir_vencedor', { p_orcamento: '00000000-0000-0000-0000-000000000000' })
+  caso('anon executa fn_definir_vencedor', 'negado', vencAnon.error?.code === RECUSADO ? 'negado' : 'permitido')
 
   const dir = await entrar(env.QA_EMAIL, env.QA_SENHA)
   const op = await entrar(env.QA_OPERADOR_EMAIL, env.QA_OPERADOR_SENHA)
@@ -330,7 +332,7 @@ async function main() {
       qtd_venda: 3,
       valor_venda_unit: '10.00',
     })
-    .select('aliquota_icms, aliquota_pis_cofins')
+    .select('id, aliquota_icms, aliquota_pis_cofins')
   caso(
     'origem fora do Lucro Real: alíquotas nascem 0 e 0',
     '0/0',
@@ -338,7 +340,9 @@ async function main() {
   )
 
   // Par sem alíquota: erro explícito, não zero silencioso (vendas-reusables §5.5 item 3).
-  const semPar = await dir.cliente.rpc('fn_aliquota_icms', { p_uf_origem: 'AC', p_uf_destino: 'RR' })
+  // Com `icms_aliquotas` carregada, os 27 × 27 pares REAIS existem; a ausência é provocada com
+  // uma sigla que não é UF ('XX'), sem apagar nem mexer em dado real.
+  const semPar = await dir.cliente.rpc('fn_aliquota_icms', { p_uf_origem: 'XX', p_uf_destino: 'XX' })
   caso('fn_aliquota_icms de par inexistente dá erro P0002', 'P0002', semPar.error?.code ?? 'sem erro')
 
   // Proposta enviada é snapshot imutável (008 D2) e não acompanha o orçamento (D1).
@@ -349,6 +353,75 @@ async function main() {
 
   // Entrega: snapshot e substituto de férias (009 D5, D7).
   caso('entrega recebe o substituto de férias', op.id, d.ent.vendedor_substituto_id)
+
+  // Views do kanban (015). Cadeia do perfil 1: 1 item, 1 vencedor (80,00), 1 proposta; o
+  // orçamento sem alíquota acima é do mesmo item e NÃO é vencedor.
+  const { data: kc } = await dir.cliente
+    .from('v_kanban_cotacoes')
+    .select('qtd_itens, qtd_vencedores, qtd_propostas, total_bruto_vencedores::text, pode_propor')
+    .eq('id', d.cot)
+    .maybeSingle()
+  caso(
+    'v_kanban_cotacoes: itens/vencedores/propostas/total/pode_propor',
+    '1/1/1/80.00/true',
+    kc ? `${kc.qtd_itens}/${kc.qtd_vencedores}/${kc.qtd_propostas}/${kc.total_bruto_vencedores}/${kc.pode_propor}` : null,
+  )
+  // Snapshot da proposta: 3 × 10,00 + frete CIF 50,00 = 80,00. Entrega em "Pedir": não concluída.
+  const { data: kp } = await dir.cliente
+    .from('v_kanban_pedidos')
+    .select('valor_total::text, qtd_entregas, qtd_concluidas, todas_concluidas')
+    .eq('id', d.ped)
+    .maybeSingle()
+  caso(
+    'v_kanban_pedidos: valor do snapshot, entregas, todas_concluidas',
+    '80.00/1/0/false',
+    kp ? `${kp.valor_total}/${kp.qtd_entregas}/${kp.qtd_concluidas}/${kp.todas_concluidas}` : null,
+  )
+  const { data: ke } = await dir.cliente.from('v_kanban_entregas').select('vendedor_nome').eq('id', d.ent.id).maybeSingle()
+  caso('v_kanban_entregas traz o nome do vendedor', 'sim', ke?.vendedor_nome ? 'sim' : 'não')
+
+  // fn_definir_vencedor (015): troca atômica e regra bTOUP0.
+  const [orc2] = await exigir(
+    admin
+      .from('orcamentos_fornecedor')
+      .insert({
+        cotacao_item_id: d.item,
+        cotacao_id: d.cot,
+        fornecedor_id: d.fornecedor,
+        endereco_origem_id: d.origem,
+        endereco_destino_id: d.destino,
+        produto_id: d.produto,
+        vendedor_id: dir.id,
+        qtd_venda: 3,
+        valor_venda_unit: '12.00',
+        valor_comissao_unit: '1.00',
+        aliquota_icms: '0',
+        aliquota_pis_cofins: '0',
+      })
+      .select('id'),
+    'segundo orçamento',
+  )
+  d.orc2 = orc2.id
+  d.orcSemComissao = semAliq.data?.[0]?.id
+  const vencedores = async () => {
+    const { data } = await admin
+      .from('orcamentos_fornecedor')
+      .select('id')
+      .eq('cotacao_item_id', d.item)
+      .eq('vencedor', true)
+    return (data ?? []).map((x) => (x.id === d.orc ? 'orc1' : x.id === d.orc2 ? 'orc2' : 'outro')).join(',')
+  }
+  const troca = await dir.cliente.rpc('fn_definir_vencedor', { p_orcamento: d.orc2 })
+  caso('fn_definir_vencedor troca o vencedor do item', 'orc2', troca.error ? `erro ${troca.error.code}` : await vencedores())
+  const semComissao = await dir.cliente.rpc('fn_definir_vencedor', { p_orcamento: d.orcSemComissao })
+  caso('bTOUP0: comissão 0 não vence (23514)', '23514', semComissao.error?.code ?? 'sem erro')
+  caso('bTOUP0: recusa não mexe no vencedor atual', 'orc2', await vencedores())
+  await exigir(admin.from('cotacoes').update({ amostra: true }).eq('id', d.cot).select('id'), 'amostra on')
+  const amostra = await dir.cliente.rpc('fn_definir_vencedor', { p_orcamento: d.orcSemComissao })
+  caso('bTOUP0: em amostra, comissão 0 vence', 'outro', amostra.error ? `erro ${amostra.error.code}` : await vencedores())
+  await exigir(admin.from('cotacoes').update({ amostra: false }).eq('id', d.cot).select('id'), 'amostra off')
+  const volta = await dir.cliente.rpc('fn_definir_vencedor', { p_orcamento: d.orc })
+  caso('fn_definir_vencedor devolve o troféu ao original', 'orc1', volta.error ? `erro ${volta.error.code}` : await vencedores())
 
   // Hierarquia ≤ 2 grava em nome de outro vendedor.
   const cotParaOp = await dir.cliente
@@ -438,6 +511,16 @@ async function main() {
   caso('substituto altera a cotação do titular', 'negado', escrita(mexeCot), mexeCot.error?.message)
   const mexeOrc = await o.from('orcamentos_fornecedor').update({ valor_comissao_unit: '9.99' }).eq('id', d.orc).select('id')
   caso('substituto altera a comissão do orçamento', 'negado', escrita(mexeOrc), mexeOrc.error?.message)
+
+  // 015: views e troca de vencedor pelo Operador.
+  caso('SIGILO: Operador lê o total da cotação de outro (v_kanban_cotacoes)', 'negado', await enxerga(o, 'v_kanban_cotacoes', cotSigilo.id))
+  const vencAlheio = await o.rpc('fn_definir_vencedor', { p_orcamento: orcSigilo.id })
+  caso('SIGILO: Operador define vencedor em cotação de outro (P0002)', 'P0002', vencAlheio.error?.code ?? 'sem erro')
+  // O substituto LÊ o orçamento da entrega que cobre, mas não grava: a troca recusa inteira.
+  const vencSub = await o.rpc('fn_definir_vencedor', { p_orcamento: d.orc2 })
+  caso('substituto define vencedor (42501)', RECUSADO, vencSub.error?.code ?? 'sem erro')
+  const { data: aindaOrc1 } = await admin.from('orcamentos_fornecedor').select('vencedor').eq('id', d.orc).single()
+  caso('recusa do substituto é atômica (o vencedor não foi desmarcado)', true, aindaOrc1?.vencedor)
 
   // Perfil 1 enxerga o que é do Operador (hierarquia ≤ 2).
   caso('perfil 1 lê a cotação do Operador', 'permitido', await enxerga(dir.cliente, 'cotacoes', minha.data?.[0]?.id))

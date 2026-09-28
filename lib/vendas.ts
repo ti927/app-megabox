@@ -4,9 +4,10 @@
  * Sem acesso a banco, para serem testadas e reusadas pela tela e pelas server actions.
  * Fonte de cada regra: specs/paginas/vendas.md, citada por seção e por WF do Bubble.
  *
- * DINHEIRO (CLAUDE.md regra 10): o cálculo é do banco (colunas geradas e
- * v_orcamento_valores, db/007). Aqui o dinheiro chega como STRING (o select usa `::text`)
- * e só é somado ou comparado em inteiro (BigInt), nunca em float.
+ * DINHEIRO (CLAUDE.md regra 10): o cálculo é do banco (colunas geradas, v_orcamento_valores
+ * da 007; totais dos cartões em v_kanban_cotacoes/v_kanban_pedidos da 015). Aqui o dinheiro
+ * chega como STRING (o select usa `::text`) e só é comparado ou validado em inteiro (BigInt),
+ * nunca em float.
  */
 
 import type { UsuarioAtual } from '@/lib/autorizacao'
@@ -27,9 +28,6 @@ export const ETAPA = {
   CONCLUIDO: 6,
   CANCELADO: 7,
 } as const
-
-/** `etapas.concluida` (Financeiro, Concluído, Cancelado) — o que tira o cartão do fluxo. */
-export const ETAPAS_CONCLUIDAS: readonly number[] = [ETAPA.FINANCEIRO, ETAPA.CONCLUIDO, ETAPA.CANCELADO]
 
 /** `perfis.id` do Diretor (hierarquia 1). */
 const DIRETOR = 1
@@ -244,14 +242,6 @@ export function regrasColunas(f: FiltrosVendas, u: UsuarioAtual): RegrasColunas 
   }
 }
 
-/**
- * Cartão de pedido verde: há entrega e todas estão em etapa concluída (spec §2.3 e §3.8:
- * "≥1 entrega concluída e total de entregas = total concluídas").
- */
-export function todasEntregasConcluidas(statusIds: number[]): boolean {
-  return statusIds.length > 0 && statusIds.every((s) => ETAPAS_CONCLUIDAS.includes(s))
-}
-
 // ------------------------------------------------------------------------- datas
 
 /**
@@ -303,17 +293,6 @@ function deInteiro(n: bigint, casas: number): string {
   const inteiro = s.slice(0, s.length - casas)
   const fracao = s.slice(s.length - casas)
   return `${negativo ? '-' : ''}${inteiro}${casas > 0 ? `.${fracao}` : ''}`
-}
-
-/**
- * Soma exata de valores `numeric(14,2)` vindos do banco como texto. Serve ao total dos
- * vencedores no cartão de cotação enquanto não existe `v_kanban_cotacoes` com a soma
- * pronta (spec §9.4) — o PostgREST do projeto não tem agregados ligados.
- */
-export function somarReais(valores: (string | null | undefined)[]): string {
-  let total = 0n
-  for (const v of valores) if (v !== null && v !== undefined && v !== '') total += paraInteiro(v, 2)
-  return deInteiro(total, 2)
 }
 
 /** Compara dois decimais exatos (até 6 casas): -1, 0 ou 1. */

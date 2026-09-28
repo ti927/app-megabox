@@ -266,6 +266,28 @@ const MAPA = {
     },
   },
 
+  // ------------------------------------------------------ alíquotas de ICMS (§3.8 de 02)
+  // Privacidade aberta a "everyone" (mapa/data-types.md), então a Data API anônima devolve tudo.
+  // ESCALA conferida na origem: `cpo.AliquotaIcms` já é FRAÇÃO (valores 0.12, 0.18, 0.19, 0.2),
+  // a mesma unidade da coluna — NÃO dividir por 100. O check `aliquota_e_fracao` (003) recusaria
+  // 12 no lugar de 0.12. Origem/Destino chegam pelo RÓTULO ("PR"), resolvido pela sigla (a chave
+  // `pf` de Paraná não é usada). O par (origem, destino) é a pk: repetição sai por `unicos`.
+  'tbl.icmsestados': {
+    tabela: 'icms_aliquotas',
+    obrigatorias: ['uf_origem', 'uf_destino', 'aliquota'],
+    unicos: [['uf_origem', 'uf_destino']],
+    col: {
+      aliquota: (r) => {
+        const v = num(r['cpo.AliquotaIcms'])
+        return v !== null && v >= 0 && v < 1 ? v : null // fora da escala: descartada e contada
+      },
+    },
+    dom: {
+      uf_origem: { de: 'cpo.Origem', tabela: 'ufs' },
+      uf_destino: { de: 'cpo.Destino', tabela: 'ufs' },
+    },
+  },
+
   // ------------------------------------------------------ fatias 4–6: ciclo comercial
   // A ORDEM das chaves é a ordem da carga sem `--tipos`: cada tipo aponta só para os anteriores
   // (item → cotação; orçamento → item; proposta_itens → orçamento; entrega → pedido e orçamento).

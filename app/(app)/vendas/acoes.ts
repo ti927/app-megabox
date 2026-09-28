@@ -432,9 +432,8 @@ export async function adicionarOrcamento(_anterior: EstadoAcao, form: FormData):
  * Troféu: marcar (WF bTOUP0 — desmarca o vencedor atual bTOUa0 e marca este bTOUU0) ou
  * desmarcar (bTOUI0). Um vencedor por item é garantido pelo índice um_vencedor_por_item.
  *
- * LIMITE CONHECIDO: desmarcar o atual e marcar o novo são duas gravações sem transação
- * (o PostgREST não abre transação entre chamadas). Se a segunda falhar, o item fica sem
- * vencedor — a mensagem diz isso. A correção é uma função SQL `fn_definir_vencedor`.
+ * Marcar é a RPC `fn_definir_vencedor` (db/015): troca atômica, com a regra bTOUP0 no banco.
+ * Etapa e arquivamento (cotacaoEditavel) continuam aqui.
  */
 export async function definirVencedor(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
   const usuario = await exigirAcesso('vendas')
@@ -447,13 +446,12 @@ export async function definirVencedor(_anterior: EstadoAcao, form: FormData): Pr
   const supabase = await clienteServidor()
   const { data: orc } = await supabase
     .from('orcamentos_fornecedor')
-    .select('id, cotacao_id, cotacao_item_id, valor_venda_unit::text, valor_comissao_unit::text')
+    .select('id, cotacao_id, valor_venda_unit::text, valor_comissao_unit::text')
     .eq('id', id)
     .maybeSingle()
   if (!orc) return { erro: 'Este orçamento não existe mais. Recarregue a página.' }
   const o = orc as unknown as {
     cotacao_id: string
-    cotacao_item_id: string
     valor_venda_unit: string
     valor_comissao_unit: string
   }
@@ -468,27 +466,25 @@ export async function definirVencedor(_anterior: EstadoAcao, form: FormData): Pr
     return { ok: 'Vencedor desmarcado.', id: o.cotacao_id }
   }
 
+  // Pré-checagem para a mensagem sair sem ida ao banco; a regra que vale é a da função.
   if (!podeSerVencedor(o, r.cotacao.amostra)) {
     return { erro: 'Para ser vencedor, informe valor unitário e comissão unitária (mínimo R$ 0,01).' }
   }
 
-  const { error: erroDesmarcar } = await supabase
-    .from('orcamentos_fornecedor')
-    .update({ vencedor: false })
-    .eq('cotacao_item_id', o.cotacao_item_id)
-    .eq('vencedor', true)
-    .neq('id', id)
-  if (erroDesmarcar) return { erro: traduzirErro('desmarcar vencedor anterior', erroDesmarcar) }
-
-  const { data, error } = await supabase
-    .from('orcamentos_fornecedor')
-    .update({ vencedor: true })
-    .eq('id', id)
-    .select('id')
+  // Desmarca o vencedor atual do item e marca este NUMA transação (db/015 fn_definir_vencedor,
+  // security invoker: a RLS decide). No Bubble eram dois passos (bTOUa0/bTOUU0), e falhar no
+  // meio deixava o item sem vencedor.
+  const { error } = await supabase.rpc('fn_definir_vencedor', { p_orcamento: id })
   revalidatePath('/vendas')
-  if (error || !data || data.length === 0) {
-    if (error) traduzirErro('marcar vencedor', error, 'Outro orçamento deste produto já é o vencedor.')
-    return { erro: 'O vencedor anterior foi desmarcado, mas este não foi marcado. Tente de novo.', id: o.cotacao_id }
+  if (error) {
+    if (error.code === '23514') {
+      return { erro: 'Para ser vencedor, informe valor unitário e comissão unitária (mínimo R$ 0,01).', id: o.cotacao_id }
+    }
+    if (error.code === 'P0002') return { erro: 'Este orçamento não existe mais. Recarregue a página.' }
+    return {
+      erro: traduzirErro('definir vencedor', error, 'Outro orçamento deste produto já é o vencedor.'),
+      id: o.cotacao_id,
+    }
   }
   return { ok: 'Vencedor definido.', id: o.cotacao_id }
 }

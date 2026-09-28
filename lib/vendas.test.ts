@@ -18,8 +18,6 @@ import {
   podeSerVencedor,
   primeiroNome,
   regrasColunas,
-  somarReais,
-  todasEntregasConcluidas,
   validadePadrao,
   validarCotacao,
   validarItem,
@@ -136,28 +134,14 @@ describe('regras das colunas (spec §3.1–3.4)', () => {
     expect(r.entrega.status).toBe(ETAPA.CANCELADO)
   })
 
-  it('pedido verde só com entrega e todas concluídas', () => {
-    expect(todasEntregasConcluidas([])).toBe(false)
-    expect(todasEntregasConcluidas([5, 7, 6])).toBe(true)
-    expect(todasEntregasConcluidas([5, 4])).toBe(false)
-  })
 })
 
 describe('dinheiro exato', () => {
-  it('soma sem float: 0,1 + 0,2 = 0,30', () => {
-    expect(somarReais(['0.10', '0.20'])).toBe('0.30')
-    expect(somarReais(['445000.00', '125712.55', '0.01'])).toBe('570712.56')
-    expect(somarReais([])).toBe('0.00')
-    expect(somarReais(['-1.50', '1', null])).toBe('-0.50')
-  })
-
-  it('soma valores grandes do numeric(14,2) sem perder centavo', () => {
-    expect(somarReais(['999999999999.99', '0.01'])).toBe('1000000000000.00')
-  })
-
+  // A soma do cartão (total dos vencedores, valor do pedido) é do banco: v_kanban_cotacoes e
+  // v_kanban_pedidos (db/015), com numeric. Aqui só a comparação exata.
   it('recusa texto que não é decimal', () => {
-    expect(() => somarReais(['1e3'])).toThrow()
-    expect(() => somarReais(['1.234'])).toThrow()
+    expect(() => compararDecimal('1e3', '0')).toThrow()
+    expect(() => compararDecimal('1.2345678', '0')).toThrow()
   })
 
   it('compara até 6 casas', () => {

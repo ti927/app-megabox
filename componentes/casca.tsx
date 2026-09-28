@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
 import { sair } from '@/app/(publico)/entrar/acoes'
+import { Marca } from '@/componentes/marca'
 import type { Pagina, UsuarioAtual } from '@/lib/autorizacao'
 
 const PERFIL: Record<number, string> = {
@@ -115,11 +116,21 @@ export function Casca({
           aria-label={menuAberto ? 'Fechar menu' : 'Abrir menu'}
           onClick={() => setMenuAberto((v) => !v)}
         >
-          <span aria-hidden="true">{menuAberto ? '✕' : '☰'}</span>
+          {/* Bubble: ícone Material "menu"; com o menu aberto, "menu_open". */}
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+            {menuAberto ? (
+              <path
+                fill="currentColor"
+                d="M3 18h13v-2H3v2Zm0-5h10v-2H3v2Zm0-7v2h13V6H3Zm18 9.59L17.42 12 21 8.41 19.59 7l-5 5 5 5L21 15.59Z"
+              />
+            ) : (
+              <path fill="currentColor" d="M3 18h18v-2H3v2Zm0-5h18v-2H3v2Zm0-7v2h18V6H3Z" />
+            )}
+          </svg>
         </button>
 
         <span className="cabecalho-marca">
-          Mega<span>Box</span>
+          <Marca />
         </span>
 
         <div className="cabecalho-usuario">
@@ -131,11 +142,6 @@ export function Casca({
             <small>{PERFIL[usuario.perfilId] ?? `Perfil ${usuario.perfilId}`}</small>
           </span>
           <Engrenagem configuracoes={configuracoes} />
-          <form action={sair}>
-            <button type="submit" className="botao-texto">
-              Sair
-            </button>
-          </form>
         </div>
       </header>
 
@@ -159,6 +165,18 @@ export function Casca({
               Nenhuma página liberada para você ainda. Procure a administração.
             </p>
           ) : null}
+          {/* Bubble: "Logout" fica no rodapé do menu lateral. */}
+          <form action={sair} className="menu-rodape">
+            <button type="submit" className="menu-sair">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M10.09 15.59 11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59ZM19 3H5a2 2 0 0 0-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2Z"
+                />
+              </svg>
+              Sair
+            </button>
+          </form>
         </nav>
 
         <main className="conteudo">{children}</main>

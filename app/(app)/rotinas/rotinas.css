@@ -53,6 +53,7 @@
   border: 1px solid transparent;
   border-left: 4px solid var(--azul);
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
 }
 .rotina-cartao[aria-current='true'] {
   background: var(--lilas);

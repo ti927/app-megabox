@@ -42,6 +42,7 @@
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
 }
 .metas-meses {
   display: flex;
@@ -57,7 +58,7 @@
   display: grid;
   grid-template-columns: minmax(16rem, 1fr) minmax(0, 2fr);
   gap: var(--e4);
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-2) var(--curva);
 }
 .metas-painel-topo[data-pendente] {
   opacity: 0.55;
@@ -75,6 +76,7 @@
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
 }
 .mt-cartao h2 {
   margin: 0;
@@ -209,13 +211,13 @@
   overflow: hidden;
   background: var(--fundo-2);
   border: 1px solid var(--borda);
-  border-radius: 999px;
+  border-radius: var(--raio-pilula);
 }
 .mt-barra-cheio {
   position: absolute;
   inset: 0 auto 0 0;
   background: var(--texto-3);
-  border-radius: 999px;
+  border-radius: var(--raio-pilula);
 }
 /* faixas do Progress-Bar A (bTvpx): < 50% padrão, 50–100% primária, ≥ 100% destaque */
 .mt-barra[data-faixa='media'] .mt-barra-cheio {
@@ -259,7 +261,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-2) var(--curva);
 }
 .mt-painel[data-pendente] {
   opacity: 0.55;
@@ -332,8 +334,6 @@
   margin: 0 0 var(--e1);
   font-size: var(--t-xs);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--roxo);
 }
 .mt-form,

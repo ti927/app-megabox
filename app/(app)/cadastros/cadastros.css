@@ -45,6 +45,7 @@
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
 }
 .cadastros-tipo {
   display: flex;
@@ -92,7 +93,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-2) var(--curva);
 }
 .clifor-lista[data-pendente] {
   opacity: 0.55;

@@ -36,6 +36,7 @@
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
 }
 .rel-filtros .campo {
   min-width: 9rem;
@@ -87,6 +88,7 @@
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
 }
 .rel-bloco h2 {
   display: flex;
@@ -117,7 +119,9 @@
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-left: 4px solid var(--kpi, var(--azul));
+  min-width: 0;
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
 }
 .rel-kpi[data-tom='verde'] {
   --kpi: var(--verde);
@@ -132,16 +136,20 @@
   --kpi: var(--laranja);
 }
 .rel-kpi-rotulo {
-  font-size: var(--t-xs);
+  font-size: var(--t-sm);
+  font-weight: var(--peso-medio);
   color: var(--texto-2);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
 }
 .rel-kpi-valor {
   font-family: var(--fonte-numero);
   font-variant-numeric: tabular-nums;
-  font-size: var(--t-lg);
+  font-size: 1.625rem;
+  font-weight: var(--peso-forte);
+  line-height: 1.15;
   color: var(--kpi, var(--azul));
+}
+.rel-kpi[data-tom='laranja'] .rel-kpi-valor {
+  color: var(--laranja-texto);
 }
 .rel-kpi-detalhe {
   font-size: var(--t-xs);

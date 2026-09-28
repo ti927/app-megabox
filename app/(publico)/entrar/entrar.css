@@ -1,45 +1,52 @@
+/* Login. Bubble (index-02/03): página clara, logo grande centralizado e, abaixo,
+ * cartão branco com sombra leve, "Bem-vindo de volta", campos e botão azul de largura total. */
 .entrar {
   min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: var(--e4);
-  background: var(--fundo-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e5);
+  padding: var(--e6) var(--e4);
+  background:
+    radial-gradient(60rem 30rem at 50% -10%, var(--azul-claro), transparent 70%),
+    var(--fundo-2);
+}
+
+.entrar-marca .marca-nome {
+  font-size: 2.25rem;
 }
 
 .entrar-cartao {
   width: 100%;
-  max-width: 22rem;
+  max-width: 24rem;
   display: flex;
   flex-direction: column;
-  gap: var(--e3);
-  padding: var(--e6) var(--e5) var(--e5);
+  gap: var(--e4);
+  padding: var(--e6) var(--e6) var(--e5);
   background: var(--superficie);
   border: 1px solid var(--borda);
-  border-radius: var(--raio-g);
-  box-shadow: var(--sombra);
+  border-radius: 14px;
+  box-shadow: var(--sombra-2);
 }
 
-.entrar-marca {
+.entrar-titulo {
   margin: 0;
-  font-size: var(--t-xl);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--roxo);
-}
-.entrar-marca span {
-  color: var(--texto);
+  font-size: var(--t-lg);
 }
 
 .entrar-sub {
-  margin: 0 0 var(--e2);
+  margin: calc(-1 * var(--e3)) 0 var(--e1);
   color: var(--texto-2);
   font-size: var(--t-sm);
 }
 
 /* .campo e .botao-primario são compartilhados: estilos/componentes.css */
 .entrar-cartao .botao-primario {
-  margin-top: var(--e2);
-  padding: var(--e3);
+  width: 100%;
+  min-height: 2.75rem;
+  margin-top: var(--e1);
+  font-size: var(--t-md);
 }
 
 .entrar-erro {
@@ -48,6 +55,17 @@
   font-size: var(--t-sm);
   color: var(--vermelho);
   background: var(--vermelho-fundo);
-  border: 1px solid var(--vermelho);
+  border: 1px solid color-mix(in srgb, var(--vermelho) 30%, transparent);
+  border-left: 4px solid var(--vermelho);
   border-radius: var(--raio);
+}
+
+@media (max-width: 30rem) {
+  .entrar {
+    justify-content: flex-start;
+    padding-top: var(--e7);
+  }
+  .entrar-cartao {
+    padding: var(--e5) var(--e4) var(--e4);
+  }
 }

@@ -36,7 +36,9 @@
   overflow: hidden;
 }
 .fin-abas button {
+  min-height: 2.5rem;
   padding: var(--e2) var(--e4);
+  transition: background-color var(--dur-1) var(--curva);
   font: inherit;
   font-size: var(--t-sm);
   font-weight: 600;
@@ -49,6 +51,9 @@
 .fin-abas button:first-child {
   border-left: none;
 }
+.fin-abas button:hover:not([aria-current='page']) {
+  background: var(--azul-claro);
+}
 .fin-abas button[aria-current='page'] {
   color: var(--sobre-azul);
   background: var(--azul);
@@ -57,13 +62,14 @@
 /* ------------------------------------------------------------------ filtros */
 .fin-filtros {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.25rem), 1fr));
   align-items: end;
   gap: var(--e3);
   padding: var(--e4);
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
 }
 .fin-filtros-fim {
   display: flex;
@@ -91,12 +97,18 @@
   border: 1px solid var(--borda);
   border-left: 4px solid var(--borda-forte);
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
 }
 button.fin-card {
   cursor: pointer;
 }
+button.fin-card {
+  transition:
+    background-color var(--dur-1) var(--curva),
+    box-shadow var(--dur-1) var(--curva);
+}
 button.fin-card:hover {
-  border-color: var(--borda-forte);
+  box-shadow: var(--sombra-2);
 }
 .fin-card[data-tom='roxo'] {
   border-left-color: var(--roxo);
@@ -130,7 +142,10 @@ button.fin-card:hover {
   font-weight: 600;
 }
 .fin-card-valor {
-  font-size: var(--t-lg);
+  font-size: 1.5rem;
+  font-weight: var(--peso-forte);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
 }
 .fin-card-detalhe {
   font-size: var(--t-xs);
@@ -174,7 +189,7 @@ button.fin-card:hover {
   overflow-x: auto;
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-2) var(--curva);
 }
 .fin-rolagem[data-pendente] {
   opacity: 0.55;
@@ -188,12 +203,13 @@ button.fin-card:hover {
   position: sticky;
   top: 0;
   padding: var(--e2) var(--e3);
+  z-index: 1;
   font-size: var(--t-xs);
-  font-weight: 600;
+  font-weight: var(--peso-forte);
   text-align: left;
   white-space: nowrap;
   color: var(--texto-2);
-  background: var(--lilas);
+  background: var(--lilas-cabeca);
   border-bottom: 1px solid var(--borda-forte);
 }
 .fin-tabela td {
@@ -207,6 +223,9 @@ button.fin-card:hover {
 }
 .fin-tabela tbody tr:nth-child(even) {
   background: var(--fundo-2);
+}
+.fin-tabela tbody tr {
+  transition: background-color var(--dur-1) var(--curva);
 }
 .fin-tabela tbody tr:hover {
   background: var(--azul-claro);
@@ -240,10 +259,11 @@ td.fin-num > * {
   display: block;
   white-space: nowrap;
 }
-/* A data usada no filtro fica marcada (no Bubble, rótulo laranja). Laranja em texto não tem
- * contraste no fundo claro: vai no sublinhado. */
+/* A data usada no filtro fica marcada (no Bubble, rótulo laranja). O laranja de texto
+ * (--laranja-texto, 5,7:1) passa AA; o sublinhado laranja reforça sem depender só da cor. */
 .financeiro [data-destaque] {
   font-weight: 600;
+  color: var(--laranja-texto);
   text-decoration: underline;
   text-decoration-color: var(--laranja);
   text-decoration-thickness: 2px;
@@ -268,6 +288,12 @@ td.fin-num > * {
   display: flex;
   flex-wrap: wrap;
   gap: var(--e1);
+}
+/* Bubble: situação em aberto é a pílula lilás ("A receber" / "A pagar"). */
+.fin-status .selo:not([data-tom]) {
+  color: var(--roxo);
+  background: var(--lilas);
+  border-color: transparent;
 }
 .fin-abrir {
   padding: 0;
@@ -350,8 +376,6 @@ td.fin-num > * {
   margin: 0 0 var(--e1);
   font-size: var(--t-xs);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--roxo);
 }
 .fin-selos {

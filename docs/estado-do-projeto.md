@@ -1,75 +1,67 @@
 # Estado do projeto e onde retomar
 
-Atualizado em 28/09/2026. Este arquivo existe para que a próxima sessão comece sem reler nada.
+Atualizado em 28/09/2026, fim da sessão. Este arquivo existe para que a próxima sessão comece sem reler nada.
 
 ---
 
-## 1. Onde o projeto está
+## 0. RETOMAR AQUI (fim da sessão de 28/09/2026)
 
-**Fase A (fundação) pronta; Fase D em andamento — fatias 0 a 3 com banco aplicado, fatia 2 com
-dado carregado e tela em construção.**
+**O banco caiu às 19:47 de 28/09 e estava fora quando a sessão acabou.** A instância Micro do
+Supabase saturou com vários agentes testando ao mesmo tempo (a causa principal foi o QA repetido de
+`/vendas`, cujas views de kanban fazem subconsulta por linha + `count: exact`). O painel diz
+"saudável", mas nenhuma conexão entra. **Primeiro passo:** Supabase → projeto `megabox` → Settings →
+General → *Restart project*. Recomendado subir de **Micro para Small**.
+
+Depois que o banco voltar, nesta ordem:
+1. `alter function public.fn_pode_ver_tipo_anexo(smallint) security invoker;` (o arquivo 018 já
+   diz invoker; o banco ainda está definer) e `node scripts/testar-rls-arquivos.mjs`.
+2. Limpar sobras de QA interrompido: `node scripts/cenario-qa-metas.mjs limpar`; e dados com os
+   marcadores exatos `__qa_vendas__` (grupos, filiais, produto, cotação, orçamentos).
+3. Apagar duas concessões de teste que ficaram no Operador de QA (`financeiro`, `metas`) —
+   ids `b9d66a5e-3279-437f-8360-b31b1c2ff5d1` e `e29b57d3-4177-4395-9aa8-d8bcf6895138` em
+   `permissoes_pagina`. Sem isso `testar-rls-financeiro` falha no preparo.
+4. Rodar todas as suítes: `testar-rls`, `-vendas`, `-financeiro`, `-historico-sac`, `-rotinas`,
+   `-relatorios`, `-arquivos`, `testar-fila-email`, `testar-formulario-publico`.
+5. `EXPLAIN ANALYZE` nas 4 consultas do kanban (`v_kanban_cotacoes`, `v_kanban_pedidos`,
+   `v_kanban_entregas`) e otimizar antes de produção (trocar subconsulta por linha por join
+   agregado; `count: 'planned'` ou contagem em função).
+6. **Redesenho visual**: trabalho em andamento está no branch `wip/redesenho-visual` (não no
+   main). Retomar com o agente de design; `/vendas` ainda não foi redesenhada.
+7. **Deploy:** o conector da Vercel funciona (conta pessoal, 7 projetos; ainda não há projeto
+   `app-megabox`). Criar o projeto a partir do repositório, região `gru1`, variáveis de ambiente.
+   O cron da fila de e-mail a cada 5 min exige plano **Pro** (senão trocar por `pg_cron`).
+
+## 1. Onde o projeto está (~80%)
 
 | Frente | Situação |
 |---|---|
-| `mapa/`, `specs/00..04`, `specs/paginas/*` (14 specs, 771/771 WF) | pronto |
-| `specs/05-avisos-do-advisor.md` | veredito de cada aviso do `get_advisors` |
-| App Next.js 15 (`app/`, `lib/`, `componentes/`, `middleware.ts`) | login, casca, menu por permissão, `/inicio`, `/sem-acesso` |
-| Autorização em 3 camadas | middleware (sessão) → `exigirAcesso(slug)` no servidor → menu (só cosmético) |
-| Banco `megabox` | migrations **001–006** aplicadas: **44 tabelas, 44 com RLS** |
-| Carga (Fase C) | cadastro carregado em 28/09: **4.734 grupos, 5.716 filiais, 8.091 contatos**; 150 linhas descartadas por campo obrigatório vazio; 4.512 grupos com filial principal (222 não têm filial) |
-| Repositório | `ti927/app-megabox`, público, `main` publicado |
+| Mapeamento e specs (771 WF) | pronto |
+| Banco | migrations **001–019** — as 12 fatias do plano + ajustes (016 equipe financeira, 015 views de vendas, 018 arquivos, 019 e-mail). Cada fatia com suíte de RLS |
+| Carga do Bubble | clientes (4.734), filiais (5.716), contatos (8.091), produtos (133), usuários (31, sem senha; 21 inativos bloqueados), cotações (5.948), pedidos (2.229), ICMS (729). **Bloqueados** sem `BUBBLE_API_KEY`: itens de cotação, orçamentos, propostas, entregas |
+| Telas | entrar, início, cadastros (com filial/contato), produtos, vendas (kanban), SAC, financeiro, metas, relatórios, rotinas, formulário público |
+| Arquivos | buckets privados + URL assinada; cópia do CDN do Bubble pronta |
+| E-mail | fila + Resend, **desligado** (`EMAIL_MODO=registro`) |
+| Revisão de segurança | feita; 1 achado médio (redirect pós-login) corrigido |
+| Visual | redesenho em andamento no branch `wip/redesenho-visual` |
+| Deploy / corte | não iniciado |
 
-### Migrations
+Verificações: `npm run verify`; as suítes `scripts/testar-rls*.mjs`; `python tools/conferir-cobertura.py`.
+Aplicar migration: `node scripts/aplicar-migration.mjs db/0XX.sql --seco`, depois sem `--seco`,
+`get_advisors` contra `specs/05`. `db/` é a fonte da verdade.
 
-| Arquivo | Conteúdo |
-|---|---|
-| `db/001_fundacao.sql` | usuários, perfis, departamentos, páginas, permissões, auditoria, log de acesso |
-| `db/002_acesso_leitura.sql` | `fn_minhas_paginas()` (a view daqui foi derrubada pela 004) |
-| `db/003_listas_fixas.sql` | 22 listas fixas (option sets), semeadas opção a opção |
-| `db/004_usuarios_leitura.sql` | sigilo de CPF/RG por **privilégio de coluna**, `fn_meu_cadastro()` |
-| `db/005_paginas_de_configuracao.sql` | `paginas.tipo` (menu × engrenagem), alvos `cadastros` e `produtos` com a matriz B6 |
-| `db/006_cadastro.sql` | fatias 2 e 3: cliente/fornecedor, filiais, contatos, anexos, produtos |
+**Coordenação de agentes (aprendido na marra):** um único `next dev` na porta 3000; nenhum agente
+mata processo alheio; nenhum agente roda QA em repetição contra a instância Micro; teste nunca apaga
+`auditoria`.
 
-Aplicar migration nova: `node scripts/aplicar-migration.mjs db/00X.sql --seco` (roda e desfaz),
-depois sem `--seco`; em seguida `get_advisors` e `node scripts/testar-rls.mjs`. **`db/` é a fonte
-da verdade** — o registro `supabase_migrations` do painel só tem a 005 e não deve ser usado para
-saber o que está aplicado.
+## 2. O que depende do dono
 
-### Verificações que valem sempre
-
-```
-python tools/conferir-cobertura.py        → 771 workflows, 0 não citados
-npm run verify                            → typecheck + lint + teste
-node scripts/testar-rls.mjs               → o banco se comporta como 02 §7 promete
-node scripts/testar-acesso.mjs            → autorização ponta a ponta com conta de Operador
-node tools/carregar-supabase.mjs --relatorio --baixar   → o que a carga faria, sem gravar
-```
-
-### O que a carga ensinou (e está tratado no carregador)
-
-A Data API do Bubble fala por **nome de exibição**, o mapa decompilado fala por **id**. Daí:
-campo vem como `cpo.CnpjCpf` e não `cpo_cnpjcpf_text`; option set vem pelo rótulo (`"CIF
-Incluso"`); campo vazio é omitido do JSON; a chave do Paraná no option set de UF é `pf` (erro de
-digitação no Bubble); enum do Postgres exige o valor em minúscula. E o modo relatório só presta se
-conferir o que o banco recusa (`not null`, enum, FK), não apenas a tradução. Detalhe em
-`specs/04-duvidas.md` §1.1.
-
----
-
-## 2. O próximo passo
-
-1. **Fatia 2 — tela-modelo `/cadastros`**: fixa o padrão de 5 arquivos por tela (`page.tsx` ·
-   `loading.tsx` · `tela.tsx` · `dialogo.tsx` · `acoes.ts`) que as outras copiam. QA por captura
-   (claro, escuro, 390px) antes de dar por pronta.
-2. **Fatia 3 — carga de produtos**: estender o de-para do carregador (as três ligações puras não
-   têm `bubble_id` e precisam de mecanismo próprio).
-3. **Carregar os usuários/vendedores** e recarregar o cadastro: `grupos_clifor.carteira_id` aponta
-   para o vendedor, e com só 3 usuários no banco novo **nenhum** grupo ficou com carteira (2.445
-   tinham). A carga é idempotente por `bubble_id`: rodar de novo depois preenche. Usuário do Bubble
-   não traz senha (texto puro, comprometida) — cada um recebe convite e cria a sua.
-4. **Fila de limpeza**: `v_clifor_documento_duplicado` tem 261 documentos em 559 filiais. Enquanto
-   não esvaziar, o `unique` de documento não entra.
-5. Fatias 4 a 12, na ordem de `specs/02` §11.
+1. **`BUBBLE_API_KEY` no `.env`** (chave de admin) — destrava orçamentos, propostas e entregas.
+2. **Reiniciar o Supabase** (e, de preferência, subir para Small).
+3. **Plano da Vercel** (Pro para o cron de e-mail) e **Resend** (domínio verificado,
+   `RESEND_API_KEY`, `EMAIL_REMETENTE`) para ligar o envio.
+4. As dúvidas de negócio em `specs/04-duvidas.md` (B1–B4, equipe financeira, status que conta como
+   venda, fórmulas de Cotação/Prospecção, leitura do SAC).
+5. Rotação de credenciais (seção 4 abaixo).
 
 ---
 

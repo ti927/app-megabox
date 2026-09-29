@@ -1,35 +1,48 @@
 # Estado do projeto e onde retomar
 
-Atualizado em 28/09/2026, fim da sessão. Este arquivo existe para que a próxima sessão comece sem reler nada.
+Atualizado em 29/09/2026, fim da sessão. Este arquivo existe para que a próxima sessão comece sem reler nada.
 
 ---
 
-## 0. RETOMAR AQUI (fim da sessão de 28/09/2026)
+## 0. RETOMAR AQUI (fim da sessão de 29/09/2026)
 
-**O banco caiu às 19:47 de 28/09 e estava fora quando a sessão acabou.** A instância Micro do
-Supabase saturou com vários agentes testando ao mesmo tempo (a causa principal foi o QA repetido de
-`/vendas`, cujas views de kanban fazem subconsulta por linha + `count: exact`). O painel diz
-"saudável", mas nenhuma conexão entra. **Primeiro passo:** Supabase → projeto `megabox` → Settings →
-General → *Restart project*. Recomendado subir de **Micro para Small**.
+**No ar:** https://app-megabox-1qwe.vercel.app (Vercel, Lure TI's projects; push no `main` = deploy).
+Login do dono: `fabiomirandago@gmail.com` com senha provisória (trocar). Versão nova publicada:
+tema claro/escuro (escuro preto + roxo da logo), logos oficiais em `public/marca/`, escala de 75% como
+padrão no desktop, cotação em tela cheia, cadastros e produtos em painel lateral, metas com pódio,
+relatórios refeitos do HTML original do Bubble com gráficos. `main` verificado: 461 testes, RLS
+49 + 77 + 120 + 105, build de produção ok.
 
-Depois que o banco voltar, nesta ordem:
-1. `alter function public.fn_pode_ver_tipo_anexo(smallint) security invoker;` (o arquivo 018 já
-   diz invoker; o banco ainda está definer) e `node scripts/testar-rls-arquivos.mjs`.
-2. Limpar sobras de QA interrompido: `node scripts/cenario-qa-metas.mjs limpar`; e dados com os
-   marcadores exatos `__qa_vendas__` (grupos, filiais, produto, cotação, orçamentos).
-3. Apagar duas concessões de teste que ficaram no Operador de QA (`financeiro`, `metas`) —
-   ids `b9d66a5e-3279-437f-8360-b31b1c2ff5d1` e `e29b57d3-4177-4395-9aa8-d8bcf6895138` em
-   `permissoes_pagina`. Sem isso `testar-rls-financeiro` falha no preparo.
-4. Rodar todas as suítes: `testar-rls`, `-vendas`, `-financeiro`, `-historico-sac`, `-rotinas`,
-   `-relatorios`, `-arquivos`, `testar-fila-email`, `testar-formulario-publico`.
-5. `EXPLAIN ANALYZE` nas 4 consultas do kanban (`v_kanban_cotacoes`, `v_kanban_pedidos`,
-   `v_kanban_entregas`) e otimizar antes de produção (trocar subconsulta por linha por join
-   agregado; `count: 'planned'` ou contagem em função).
-6. **Redesenho visual**: trabalho em andamento está no branch `wip/redesenho-visual` (não no
-   main). Retomar com o agente de design; `/vendas` ainda não foi redesenhada.
-7. **Deploy:** o conector da Vercel funciona (conta pessoal, 7 projetos; ainda não há projeto
-   `app-megabox`). Criar o projeto a partir do repositório, região `gru1`, variáveis de ambiente.
-   O cron da fila de e-mail a cada 5 min exige plano **Pro** (senão trocar por `pg_cron`).
+**Cargas em andamento, interrompidas no fim da sessão** — carregadores no branch
+`wip/cargas-financeiro-historico` (NÃO revisados; revisar e fazer merge no `main`). As cargas são
+idempotentes por `bubble_id`: rodar de novo continua de onde parou. Estado no banco agora:
+
+| Tabela | No banco | No Bubble |
+|---|---:|---:|
+| niveis_vendedor | 10 | 10 |
+| metas_mensais | 105 | 112 |
+| metas_fechadas | 93 | 119 |
+| contas_receber | 1.400 | 3.032 (+372 importadas) |
+| contas_pagar / baixas / cobrancas | 0 | 3.457 / — / 565 |
+| historicos | 9.401 | 44.612 |
+| sac_protocolos / pesquisas / respostas | 2 / 4 / 20 | 2 / 3 / 463 |
+
+Próximos passos, nesta ordem:
+1. Revisar os dois carregadores do branch WIP (decisões: baixas implícitas nas contas pagas, escala da
+   comissão, colisão das duas origens de conta a pagar, contas importadas, preservação de autor/data
+   do histórico em modo réplica) e terminar as cargas **uma por vez**; depois `testar-rls-financeiro`
+   e `testar-rls-historico-sac`.
+2. Retomar a cópia dos arquivos de entrega (~4.800 faltando):
+   `node tools/copiar-arquivos-bubble.mjs --so entregas --paralelo 1 --lote 200 --pausa-lote 60`.
+3. **Supabase Micro → Small** (dono). Ainda há rajadas de timeout sob carga.
+4. Pendências de tela registradas em `specs/04-duvidas.md`: limpeza de cotação em rascunho abandonada;
+   clique fora do painel de produto novo descarta o digitado; contorno de foco no painel lateral.
+5. Conferências da Diretoria em `specs/04`: meta diária, pódio só Regular, números de Cotação/Prospecção
+   e o frete somado no orçamento.
+6. `app-megabox.vercel.app` ainda 404: adicionar o domínio em Settings → Domains do projeto.
+
+Worktrees locais que podem ser removidos: `../app-megabox-v2` (branch `v2`, já no `main`) e os de
+`.claude/worktrees/` (branches `vis/*`, já no `main`).
 
 ## 1. Onde o projeto está (~80%)
 

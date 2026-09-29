@@ -1,21 +1,21 @@
-# Redesenho visual — onde parou (28/09/2026)
+# Redesenho visual — estado (29/09/2026)
 
-Branch `wip/redesenho-visual`. Não fazer merge no `main` antes de `npm run verify` e QA por captura.
+Branch `wip/redesenho-visual`, com `origin/main` mesclado (merge sem conflito: o main só trouxe
+`vercel.json`). Sistema documentado em `design/sistema-visual.md` (tokens, escala, paleta com
+contrastes AA medidos, estados).
 
-**Pronto (capturas conferidas):** sistema visual — `estilos/tokens.css` v2 (razões de contraste AA
-nos comentários), fonte Source Sans 3 via `next/font` em `app/layout.tsx`, `base.css`,
-`componentes.css` com estados, `.botao-alerta`, `.botao-texto`, `.marca`; casca (logo ao centro,
-"Sair" no rodapé do menu, cabeçalho fixo) em `componentes/marca.tsx`, `componentes/casca.tsx`,
-`app/(app)/casca.css`; rotas `/entrar`, `/formulario`, `/produtos`, `/sac`, `/relatorios`.
+**Revisado e capturado (claro, escuro, 390 px):** casca, `/entrar`, `/inicio`, `/sem-acesso`,
+`/cadastros`, `/produtos`, `/sac`, `/relatorios`, `/metas`, `/vendas`, `/financeiro`.
 
-**Pela metade:** `/financeiro` (CSS pronto e capturado); `/metas`, `/rotinas`, `/cadastros` só com o
-ajuste geral, sem revisão própria; `/inicio` e `/sem-acesso` só herdam o sistema. **`/vendas` não foi
-tocada.** `design/sistema-visual.md` ainda não foi escrito.
+**Não capturado:** `/rotinas` — a conta de QA não tem a página de propósito (db/014 D4) e cai em
+`/sem-acesso`; a captura com dado exige `scripts/testar-tela-rotinas.mjs`, que grava no banco e
+não foi rodado para poupar a instância Micro. O CSS de rotinas só recebeu os ajustes mecânicos
+(tokens de peso, `flex-end`).
 
-**Não verificado depois das mudanças:** `npx tsc --noEmit`, eslint e vitest. Markup alterado:
-`casca.tsx` ("Sair" para o rodapé; ícone SVG no lugar de ☰), `entrar/tela.tsx` (título "Bem-vindo de
-volta"), `formulario/layout.tsx` (logo numa faixa), `app/layout.tsx` (fonte). Nenhuma mudança em
-`data-teste`, nomes de campo ou server actions.
+**Limites conhecidos:** a conta de QA não tem contas a receber no período, então a tabela do
+`/financeiro` não aparece nas capturas desta rodada (o CSS dela foi capturado em 28/09); `/inicio`
+é só a saudação — a matriz Fornecedor × meses do Bubble é funcionalidade, não visual.
 
-Referências: plugins UI/UX Pro Max e frontend-design (Anthropic) instalados em 28/09; capturas do
-Bubble em `design/capturas/` (fora do git).
+**Verificado:** `npx tsc --noEmit`, `npx eslint . --max-warnings 0`, `npx vitest run`.
+Markup alterado em toda a frente: `casca.tsx`, `entrar/tela.tsx`, `formulario/layout.tsx`,
+`app/layout.tsx`. Nenhuma mudança em `data-teste`, nomes de campo, rotas ou server actions.

@@ -3,7 +3,9 @@
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 
+import { Icone } from '@/componentes/icone'
 import { formatarData } from '@/lib/datas'
 import {
   type Aba,
@@ -183,6 +185,7 @@ function Filtros({ filtros, opcoes, navegar }: { filtros: FiltrosFinanceiro; opc
               filtrar({ cliente: '', fornecedor: '', pedido: '', vendedor: null, situacao: '', arquivados: false })
             }}
           >
+            <Icone icone={X} tamanho={16} />
             Limpar filtros
           </button>
         ) : null}
@@ -250,7 +253,8 @@ function Paginacao({ filtros, total, navegar }: { filtros: FiltrosFinanceiro; to
             disabled={filtros.pagina <= 1}
             onClick={() => navegar({ pagina: filtros.pagina - 1, sel: null })}
           >
-            ‹ Anterior
+            <Icone icone={ChevronLeft} tamanho={16} />
+            Anterior
           </button>
           <button
             type="button"
@@ -258,7 +262,8 @@ function Paginacao({ filtros, total, navegar }: { filtros: FiltrosFinanceiro; to
             disabled={filtros.pagina >= paginas}
             onClick={() => navegar({ pagina: filtros.pagina + 1, sel: null })}
           >
-            Próxima ›
+            Próxima
+            <Icone icone={ChevronRight} tamanho={16} />
           </button>
         </nav>
       ) : null}

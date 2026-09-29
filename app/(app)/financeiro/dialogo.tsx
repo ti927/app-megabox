@@ -1,7 +1,9 @@
 'use client'
 
 import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
+import { X } from 'lucide-react'
 
+import { Icone } from '@/componentes/icone'
 import { formatarData } from '@/lib/datas'
 import {
   formatarPercentualExato,
@@ -142,7 +144,7 @@ export function DialogoBaixaLote({
           <h2 id="bl-titulo">{tipo === 'receber' ? 'Baixar recebíveis' : 'Pagar comissões'}</h2>
         </div>
         <button type="button" className="dialogo-fechar" aria-label="Fechar" onClick={() => ref.current?.close()}>
-          ✕
+          <Icone icone={X} tamanho={20} />
         </button>
       </header>
       <form id="form-baixa-lote" className="dialogo-corpo fin-form" noValidate onSubmit={enviarCom(acao)}>
@@ -273,7 +275,7 @@ export function DialogoCobranca({
           <h2 id="cb-titulo">Cobrança de fornecedor</h2>
         </div>
         <button type="button" className="dialogo-fechar" aria-label="Fechar" onClick={() => ref.current?.close()}>
-          ✕
+          <Icone icone={X} tamanho={20} />
         </button>
       </header>
       <form id="form-cobranca" className="dialogo-corpo fin-form" noValidate onSubmit={enviarCom(acao)}>
@@ -441,7 +443,7 @@ export function FichaContaDialogo({
           </p>
         </div>
         <button type="button" className="dialogo-fechar" aria-label="Fechar" onClick={() => ref.current?.close()}>
-          ✕
+          <Icone icone={X} tamanho={20} />
         </button>
       </header>
 
@@ -643,7 +645,7 @@ export function DialogoConfirmarEntrega({
           </h2>
         </div>
         <button type="button" className="dialogo-fechar" aria-label="Fechar" onClick={() => ref.current?.close()}>
-          ✕
+          <Icone icone={X} tamanho={20} />
         </button>
       </header>
       <form id="form-confirmar" className="dialogo-corpo fin-form" noValidate onSubmit={enviarCom(acao)}>

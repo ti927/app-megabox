@@ -1,5 +1,6 @@
 'use client'
 
+import { X } from 'lucide-react'
 import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
 
 import { formatarData } from '@/lib/datas'
@@ -118,7 +119,7 @@ function Cabecalho({ titulo, sub, id, fechar }: { titulo: string; sub?: string; 
         <h2 id={id}>{titulo}</h2>
       </div>
       <button type="button" className="dialogo-fechar" aria-label="Fechar" onClick={fechar}>
-        ✕
+        <X size={22} aria-hidden="true" />
       </button>
     </header>
   )

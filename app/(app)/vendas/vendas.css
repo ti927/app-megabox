@@ -677,50 +677,6 @@
   font-weight: var(--peso-forte);
   color: var(--verde);
 }
-/* Troféu: contorno cinza quando não vence, círculo verde quando vence (vendas-04).
-   O emoji do markup some (font-size 0) e dá lugar a um SVG por máscara na cor do
-   token; o aria-label do elemento continua sendo o nome acessível. */
-.trofeu {
-  --icone: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M19 5h-2V3H7v2H5a2 2 0 0 0-2 2v1a5 5 0 0 0 4.39 4.94A5 5 0 0 0 11 15.9V19H7v2h10v-2h-4v-3.1a5 5 0 0 0 3.61-2.96A5 5 0 0 0 21 8V7a2 2 0 0 0-2-2ZM5 8V7h2v3.82A3 3 0 0 1 5 8Zm14 0a3 3 0 0 1-2 2.82V7h2v1Z'/%3E%3C/svg%3E");
-  display: inline-grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  font-size: 0;
-  line-height: 0;
-  color: var(--texto-3);
-  background: none;
-  border: 1px solid var(--borda-forte);
-  border-radius: 50%;
-  transition:
-    background-color var(--dur-1) var(--curva),
-    border-color var(--dur-1) var(--curva);
-}
-.trofeu::before {
-  content: '';
-  width: 1rem;
-  height: 1rem;
-  background: currentColor;
-  mask: var(--icone) center / contain no-repeat;
-}
-button.trofeu {
-  cursor: pointer;
-}
-button.trofeu:hover:not(:disabled) {
-  color: var(--verde);
-  border-color: var(--verde);
-  background: var(--verde-fundo);
-}
-button.trofeu:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
-}
-.trofeu[data-vencedor] {
-  color: var(--verde);
-  background: var(--verde-fundo);
-  border-color: var(--verde);
-}
 .vendas-propostas td {
   font-family: var(--fonte);
 }
@@ -945,5 +901,819 @@ button.trofeu:disabled {
   }
   .vendas-subform {
     padding: var(--e3);
+  }
+}
+
+/* ===================================================================
+ * Cotação em TELA CHEIA (cotacao.tsx) — `pop add edita cotacao` do Bubble
+ * (capturas vendas-03/04): cartão do cabeçalho à esquerda, carrinho à direita
+ * e a tabela do carrinho na largura toda. É um app de mesa: os cartões
+ * crescem com a tela; só no celular empilham.
+ * =================================================================== */
+.cot-tela {
+  width: calc(100vw - 2 * var(--e4));
+  max-width: none;
+  height: calc(100dvh - 2 * var(--e4));
+  max-height: none;
+  background: var(--fundo-2);
+}
+.cot-barra {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2) var(--e5);
+  padding: var(--e3) var(--e5);
+  background: var(--superficie);
+  border-bottom: 1px solid var(--borda);
+  border-radius: var(--raio-g) var(--raio-g) 0 0;
+}
+.cot-barra-titulo {
+  min-width: 0;
+}
+.cot-barra h1 {
+  margin: 0;
+  font-size: var(--t-lg);
+  color: var(--azul);
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.cot-abas {
+  margin: 0 0 0 auto;
+  border-bottom: none;
+}
+.cot-barra .dialogo-fechar {
+  margin: 0;
+}
+.cot-barra-titulo + .dialogo-fechar {
+  margin-left: auto;
+}
+.cot-corpo {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+  padding: var(--e4) var(--e5);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.cot-topo {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: var(--e4);
+  align-items: stretch;
+}
+.cot-cartao {
+  min-width: 0;
+  padding: var(--e4) var(--e5);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
+}
+
+/* ---------------------------------------------------------- ícone-botão */
+.cot-icone {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e1);
+  min-width: 2.25rem;
+  height: 2.25rem;
+  padding: 0 var(--e1);
+  font: inherit;
+  color: var(--azul);
+  text-decoration: none;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-1) var(--curva),
+    color var(--dur-1) var(--curva);
+}
+a.cot-icone:hover,
+button.cot-icone:hover:not(:disabled) {
+  background: var(--azul-medio);
+}
+.cot-icone[aria-pressed='true'],
+.cot-icone[aria-expanded='true'] {
+  color: var(--sobre-azul);
+  background: var(--azul);
+}
+.cot-icone[data-tom='ok'] {
+  color: var(--verde);
+  cursor: default;
+}
+.cot-icone[data-tom='perigo'] {
+  color: var(--vermelho);
+}
+button.cot-icone[data-tom='perigo']:hover:not(:disabled),
+.cot-icone[data-armado] {
+  background: var(--vermelho-fundo);
+}
+/* Lixeira armada (1º toque): vermelho cheio; o 2º toque apaga. */
+.cot-icone[data-armado],
+button.cot-icone[data-armado]:hover:not(:disabled) {
+  color: var(--fundo);
+  background: var(--vermelho);
+  border-color: var(--vermelho);
+}
+.cot-acoes .cot-icone {
+  min-width: 2rem;
+}
+.cot-icone[data-inativo] {
+  color: var(--texto-3);
+  opacity: 0.45;
+  cursor: default;
+}
+.cot-icone:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ------------------------------------------------------------ cabeçalho */
+.cot-cabecalho {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+}
+.cot-cabecalho-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2) var(--e5);
+}
+.cot-cabecalho-topo h2 {
+  margin: 0;
+  font-size: var(--t-lg);
+  font-weight: var(--peso-medio);
+  color: var(--texto-2);
+}
+.cot-amostra {
+  font-size: var(--t-md);
+  font-weight: var(--peso-medio);
+  color: var(--texto-2);
+}
+.cot-numero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin: 0 0 0 auto;
+  line-height: 1.1;
+}
+.cot-numero span {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.cot-numero strong {
+  font-size: var(--t-lg);
+  font-variant-numeric: tabular-nums;
+  color: var(--texto);
+}
+.cot-linha-cliente {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1.2fr) auto minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--e3);
+}
+.cot-avatar {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  font-weight: var(--peso-forte);
+  color: var(--roxo);
+  background: var(--lilas);
+  border-radius: 50%;
+}
+.cot-avatar[data-vazio] {
+  background: var(--borda);
+}
+.cot-campo-cliente,
+.cot-campo-destino {
+  min-width: 0;
+}
+.cot-campo-cliente > label,
+.cot-campo-destino > span {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.cot-busca {
+  position: relative;
+}
+.cot-busca input {
+  width: 100%;
+  font-size: var(--t-md);
+  color: var(--azul);
+}
+.cot-resultados {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  box-shadow: var(--sombra-2);
+}
+.cot-cliente-escolhido {
+  display: flex;
+  align-items: center;
+  gap: var(--e1);
+  min-height: 2.5rem;
+  border-bottom: 1px solid var(--borda-forte);
+}
+.cot-cliente-escolhido strong {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-md);
+  color: var(--azul);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cot-linha-dados {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e3) var(--e5);
+}
+.cot-logo {
+  display: grid;
+  place-items: center;
+  color: var(--roxo);
+}
+.cot-empresa {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e1);
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+.cot-dado {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e1);
+}
+.cot-dado > span {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.cot-dado > strong {
+  font-size: var(--t-md);
+  font-weight: var(--peso-medio);
+}
+.cot-validade input {
+  padding: var(--e1) var(--e2);
+  font: inherit;
+  font-weight: var(--peso-medio);
+  color: var(--azul);
+  background: var(--superficie);
+  border: 1px solid var(--borda-campo);
+  border-radius: var(--raio);
+}
+
+/* ------------------------------------------------------------- carrinho */
+.cot-carrinho {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+}
+.cot-carrinho[data-editando] {
+  border-color: var(--laranja);
+  box-shadow: 0 0 0 1px var(--laranja);
+}
+.cot-carrinho-topo {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+}
+.cot-carrinho-marca {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  color: var(--azul);
+  background: var(--azul-claro);
+  border-radius: var(--raio);
+}
+.cot-carrinho-topo h3 {
+  margin: 0;
+  font-size: var(--t-md);
+}
+.cot-dica {
+  margin: 0;
+  padding: var(--e2) var(--e3);
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+  background: var(--azul-claro);
+  border-left: 3px solid var(--azul);
+  border-radius: var(--raio-p);
+}
+.cot-carrinho-form {
+  margin: 0;
+}
+.cot-carrinho-campos {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--e3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+.cot-carrinho-campos > .campo {
+  grid-column: span 2;
+  min-width: 0;
+}
+.cot-carrinho-campos > .cot-campo-produto,
+.cot-carrinho-campos > .cot-campo-medida {
+  grid-column: span 4;
+}
+.cot-carrinho-campos .campo > span,
+.cot-carrinho-campos .campo > label {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.cot-com-icone {
+  display: flex;
+  align-items: center;
+  gap: var(--e1);
+}
+.cot-com-icone select {
+  flex: 1;
+  min-width: 0;
+}
+/* Campos que não são filho direto de .campo: mesmo visual de estilos/componentes.css. */
+.cot-com-icone select,
+.cot-busca input,
+.cot-validade input {
+  min-height: 2.5rem;
+  padding: 0.4375rem var(--e3);
+  font: inherit;
+  font-size: var(--t-sm);
+  line-height: 1.5;
+  color: var(--texto);
+  background-color: var(--superficie);
+  border: 1px solid var(--borda-campo);
+  border-radius: var(--raio);
+}
+.cot-com-icone select {
+  appearance: none;
+  padding-right: 2rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--texto-2) 50%),
+    linear-gradient(135deg, var(--texto-2) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.05rem) 55%,
+    calc(100% - 0.75rem) 55%;
+  background-size:
+    0.3rem 0.3rem,
+    0.3rem 0.3rem;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+/* "Buscar cliente" e "Data Validade" em azul, como no Bubble. */
+.cot-busca input,
+.cot-validade input {
+  font-size: var(--t-md);
+  font-weight: var(--peso-medio);
+  color: var(--azul);
+}
+.cot-com-icone select:disabled,
+.cot-validade input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.cot-carrinho-acoes {
+  grid-column: span 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: var(--e2);
+}
+.cot-botao-carrinho {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e2);
+  min-height: 2.5rem;
+  padding: 0 var(--e4);
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: var(--peso-medio);
+  color: var(--sobre-azul);
+  background: var(--azul);
+  border: none;
+  border-radius: var(--raio);
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--curva);
+}
+.cot-botao-carrinho:hover:not(:disabled) {
+  background: var(--azul-escuro);
+}
+.cot-botao-carrinho:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.cot-carrinho[data-editando] .cot-botao-carrinho {
+  color: var(--sobre-laranja);
+  background: var(--laranja);
+}
+.cot-mais {
+  margin: -0.75rem 0 0 -0.6rem;
+}
+
+/* --------------------------------------------------------------- tabela */
+.cot-tabela-cartao {
+  padding: 0;
+  overflow: hidden;
+}
+.cot-rolagem {
+  overflow-x: auto;
+}
+/* Colunas fixas somando 84rem (cabe na 1440 sem rolar); o que sobra da tela vai para o
+   produto/fornecedor — na 1920 ele cresce. Abaixo disso a tabela rola dentro do cartão. */
+.cot-tabela {
+  width: 100%;
+  min-width: 84rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--t-sm);
+  table-layout: fixed;
+}
+.cot-c-acoes {
+  width: 6.5rem;
+}
+.cot-c-qtd {
+  width: 5.25rem;
+}
+.cot-c-valor {
+  width: 6rem;
+}
+.cot-c-fim {
+  width: 2.75rem;
+}
+.cot-tabela th,
+.cot-tabela td {
+  padding: var(--e2) 0.375rem;
+  text-align: right;
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+}
+/* Valores calculados: uma linha só, corpo um passo menor (cabem R$ 999.999,99 na 1440). */
+.cot-tabela tbody td {
+  font-size: var(--t-xs);
+  white-space: nowrap;
+}
+.cot-tabela thead th {
+  font-size: var(--t-xs);
+  font-weight: var(--peso-medio);
+  line-height: 1.2;
+  color: var(--texto-2);
+  background: var(--lilas-cabeca);
+  border-bottom: 1px solid var(--borda);
+}
+.cot-tabela thead th:nth-child(2) {
+  text-align: center;
+}
+.cot-tabela .cot-col-produto {
+  text-align: left;
+}
+.cot-abrir-todos {
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin: -0.25rem var(--e1) -0.25rem 0;
+  vertical-align: middle;
+  color: var(--azul);
+  background: none;
+  border: none;
+  border-radius: var(--raio-p);
+  cursor: pointer;
+}
+.cot-abrir-todos:hover:not(:disabled) {
+  background: var(--azul-medio);
+}
+.cot-centro {
+  text-align: center;
+}
+.cot-tabela .cot-centro {
+  text-align: center;
+}
+.cot-texto {
+  font-variant-numeric: normal;
+}
+
+/* item (produto): faixa azul-claro, separada da seguinte */
+.cot-item > tr > * {
+  background: var(--azul-claro);
+}
+.cot-item > tr:first-child > * {
+  border-top: var(--e2) solid var(--superficie);
+}
+.cot-item > tr:last-child > * {
+  border-bottom: 1px solid color-mix(in srgb, var(--azul) 14%, transparent);
+}
+.cot-item[data-editando] > tr:first-child > * {
+  background: var(--laranja-fundo);
+}
+.cot-acoes {
+  display: flex;
+  gap: 0;
+}
+.cot-qtd-form {
+  margin: 0;
+}
+.cot-qtd-leitura {
+  display: block;
+  text-align: center;
+}
+.cot-produto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e1) var(--e2);
+  min-width: 0;
+}
+.cot-chevron {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  color: var(--texto-2);
+  background: none;
+  border: none;
+  border-radius: var(--raio-p);
+  cursor: pointer;
+}
+.cot-chevron:hover {
+  color: var(--azul);
+  background: var(--azul-medio);
+}
+.cot-produto-nome {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  color: var(--texto);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.cot-produto-nome {
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+.cot-produto-nome strong,
+.cot-produto-nome small {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cot-produto-nome strong {
+  font-size: var(--t-md);
+  text-transform: uppercase;
+}
+.cot-produto-nome small {
+  font-size: var(--t-xs);
+  color: var(--texto-3);
+}
+.cot-contador {
+  display: grid;
+  place-items: center;
+  width: 1.625rem;
+  height: 1.625rem;
+  font-size: var(--t-xs);
+  font-weight: var(--peso-medio);
+  color: var(--roxo);
+  background: var(--lilas);
+  border: 1px solid color-mix(in srgb, var(--roxo) 35%, transparent);
+  border-radius: 50%;
+}
+.cot-vencedor {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e1);
+  max-width: 16rem;
+  padding: 0.125rem var(--e2);
+  font-size: var(--t-xs);
+  font-weight: var(--peso-medio);
+  color: var(--verde);
+  background: var(--verde-fundo);
+  border-radius: var(--raio-pilula);
+}
+.cot-vencedor span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cot-tabela .cot-item-vazio {
+  font-size: var(--t-xs);
+  color: var(--texto-3);
+  text-align: left;
+}
+
+/* orçamento (fornecedor) aninhado sob o produto */
+.cot-tabela .cot-orc > * {
+  background: var(--superficie);
+  border-top: 1px solid var(--borda);
+}
+.cot-tabela .cot-orc > .cot-col-acoes {
+  background: var(--azul-claro);
+  border-top-color: transparent;
+}
+.cot-tabela .cot-orc[data-vencedor] > *:not(.cot-col-acoes) {
+  background: var(--verde-fundo);
+}
+.cot-orc[aria-busy] {
+  opacity: 0.7;
+}
+.cot-orc th strong {
+  display: block;
+  font-size: var(--t-sm);
+  font-weight: var(--peso-medio);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cot-orc th small {
+  display: block;
+  font-size: var(--t-xs);
+  font-weight: 400;
+  color: var(--texto-3);
+}
+.cot-num,
+.cot-orc select {
+  width: 100%;
+  min-width: 0;
+  padding: 0.3125rem var(--e2);
+  font: inherit;
+  font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--azul);
+  background: var(--superficie);
+  border: 1px solid color-mix(in srgb, var(--azul) 40%, var(--borda));
+  border-radius: var(--raio-p);
+}
+.cot-num {
+  text-align: right;
+}
+.cot-qtd {
+  text-align: center;
+}
+.cot-num:disabled {
+  color: var(--texto-3);
+  background: var(--fundo-2);
+  border-color: var(--borda);
+}
+.cot-num[aria-invalid] {
+  border-color: var(--vermelho);
+}
+.cot-tributos {
+  color: var(--vermelho);
+}
+.cot-liquido[data-menor],
+.cot-orc[data-vencedor] .cot-liquido {
+  font-weight: var(--peso-forte);
+  color: var(--verde);
+}
+.cot-trofeu {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  color: var(--texto-3);
+  background: var(--superficie);
+  border: 1px solid var(--borda-forte);
+  border-radius: 50%;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-1) var(--curva),
+    border-color var(--dur-1) var(--curva);
+}
+.cot-trofeu:hover:not(:disabled),
+.cot-trofeu[data-vencedor] {
+  color: var(--verde);
+  background: var(--verde-fundo);
+  border-color: var(--verde);
+}
+.cot-trofeu:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+.cot-trofeu[data-vencedor]:disabled {
+  opacity: 1;
+}
+.cot-tabela .cot-orc-erro td,
+.cot-tabela .cot-orc-form td {
+  text-align: left;
+  background: var(--superficie);
+}
+.cot-orc-erro .aviso {
+  margin: 0;
+}
+.cot-subform {
+  max-width: 64rem;
+}
+.cot-subform h4 {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+}
+.cot-subform-campos {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.cot-tabela .cot-vazio {
+  padding: var(--e7) var(--e4);
+  text-align: center;
+  color: var(--texto-3);
+}
+.cot-vazio svg {
+  display: block;
+  margin: 0 auto var(--e2);
+}
+
+/* --------------------------------------------------------------- rodapé */
+.cot-rodape {
+  border-radius: 0 0 var(--raio-g) var(--raio-g);
+}
+.cot-rodape-centro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e3);
+  margin: 0 auto;
+}
+.cot-rodape-centro .aviso {
+  margin: 0;
+}
+.cot-gravar {
+  min-width: 11rem;
+}
+.cot-cancela {
+  min-width: 8rem;
+}
+.cot-cancela[data-tom='alerta'] {
+  color: var(--laranja-texto);
+  border-color: var(--laranja);
+}
+.cot-cancela[data-tom='alerta']:hover:not(:disabled) {
+  color: var(--laranja-texto);
+  background: var(--laranja-fundo);
+}
+
+@media (max-width: 80rem) {
+  .cot-topo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 40rem) {
+  .cot-tela {
+    width: 100vw;
+    height: 100dvh;
+  }
+  .cot-corpo {
+    padding: var(--e3);
+  }
+  .cot-barra {
+    padding: var(--e3) var(--e4);
+  }
+  .cot-barra-titulo {
+    flex: 1;
+  }
+  .cot-barra .dialogo-fechar {
+    order: 2;
+    margin-left: auto;
+  }
+  .cot-abas {
+    order: 3;
+    width: 100%;
+    margin: 0;
+  }
+  .cot-linha-cliente {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .cot-campo-destino {
+    grid-column: 1 / -2;
+  }
+  .cot-carrinho-campos > .campo,
+  .cot-carrinho-campos > .cot-campo-produto,
+  .cot-carrinho-campos > .cot-campo-medida,
+  .cot-carrinho-acoes {
+    grid-column: 1 / -1;
+  }
+  .cot-subform-campos {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

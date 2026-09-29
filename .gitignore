@@ -14,3 +14,6 @@ design/capturas/
 next-env.d.ts
 *.tsbuildinfo
 .vercel/
+
+# Worktrees e estado local de agentes do Claude Code: outra cópia do repositório
+.claude/

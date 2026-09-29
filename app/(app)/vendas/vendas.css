@@ -1246,6 +1246,47 @@ button.cot-icone[data-armado]:hover:not(:disabled) {
   flex: 1;
   min-width: 0;
 }
+/* Campos que não são filho direto de .campo: mesmo visual de estilos/componentes.css. */
+.cot-com-icone select,
+.cot-busca input,
+.cot-validade input {
+  min-height: 2.5rem;
+  padding: 0.4375rem var(--e3);
+  font: inherit;
+  font-size: var(--t-sm);
+  line-height: 1.5;
+  color: var(--texto);
+  background-color: var(--superficie);
+  border: 1px solid var(--borda-campo);
+  border-radius: var(--raio);
+}
+.cot-com-icone select {
+  appearance: none;
+  padding-right: 2rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--texto-2) 50%),
+    linear-gradient(135deg, var(--texto-2) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.05rem) 55%,
+    calc(100% - 0.75rem) 55%;
+  background-size:
+    0.3rem 0.3rem,
+    0.3rem 0.3rem;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+/* "Buscar cliente" e "Data Validade" em azul, como no Bubble. */
+.cot-busca input,
+.cot-validade input {
+  font-size: var(--t-md);
+  font-weight: var(--peso-medio);
+  color: var(--azul);
+}
+.cot-com-icone select:disabled,
+.cot-validade input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 .cot-carrinho-acoes {
   grid-column: span 2;
   display: flex;
@@ -1644,6 +1685,21 @@ button.cot-icone[data-armado]:hover:not(:disabled) {
   }
   .cot-corpo {
     padding: var(--e3);
+  }
+  .cot-barra {
+    padding: var(--e3) var(--e4);
+  }
+  .cot-barra-titulo {
+    flex: 1;
+  }
+  .cot-barra .dialogo-fechar {
+    order: 2;
+    margin-left: auto;
+  }
+  .cot-abas {
+    order: 3;
+    width: 100%;
+    margin: 0;
   }
   .cot-linha-cliente {
     grid-template-columns: auto minmax(0, 1fr) auto;

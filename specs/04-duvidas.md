@@ -344,6 +344,26 @@ cópia dos arquivos de entrega parou em ~316 de 5.153 com a queda do banco — r
 
 ---
 
+### Relatórios refeitos a partir do HTML original (29/09/2026)
+
+O HTML dos relatórios estava no export bruto (`grupomegabox.bubble`, fora do git): o
+`tools/decompile.py` nunca exportou o conteúdo de elementos HTML, por isso o `mapa/` não o tinha e as
+fórmulas de Cotação/Prospecção tinham sido DEFINIDAS por nós (seção "Relatórios" acima). Agora seguem
+o original, com as diferenças documentadas como R1–R9 no cabeçalho de `db/021_relatorios_graficos.sql`:
+
+- **Cotação:** "virou pedido" = etapa Pedir; "em cotação" inclui arquivadas; taxa = pedidos ativos ÷
+  cotações ativas; ranking por conversão; histórico de janeiro ao mês escolhido. Mês em horário de São
+  Paulo (o HTML usava UTC).
+- **Prospecção:** "enviadas" contam pela data de CRIAÇÃO da proposta — a carga preencheu `enviada_em` em
+  só 1 de 7.574, e a regra da 017 deixava a aba quase vazia. "Clientes" = só da carteira do vendedor.
+- **Mantido de propósito:** ticket médio, faturamento e tempo de fechamento com a nossa definição (o HTML
+  procurava campos que não existem e mostrava "sem dados" e "0,0 dias").
+- Gráficos com Recharts (SVG, cores por token, acompanham o tema).
+
+**[DÚVIDA]** Diretoria: conferir os números das abas Cotação e Prospecção contra o que via no Bubble.
+
+---
+
 ### B5 foi respondida pela leitura do mapa — e a resposta era o contrário
 
 Registrado porque o erro custou caro e pode voltar. Três specs (`financeiro-reusables` 21,

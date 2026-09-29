@@ -4,7 +4,11 @@ import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
 
+import { ChevronRight, Plus, X } from 'lucide-react'
+
 import { Foto } from '@/componentes/foto'
+import { Icone } from '@/componentes/icone'
+import { PainelLateral } from '@/componentes/painel-lateral'
 import { type FiltrosProduto, paraQuery } from '@/lib/produtos'
 
 import { FichaProduto } from './dialogo'
@@ -49,21 +53,44 @@ function Linha({
         type="button"
         className="produto-linha"
         aria-current={selecionada ? 'true' : undefined}
+        aria-haspopup="dialog"
         data-inativo={!linha.ativo || undefined}
         onClick={aoAbrir}
+        // Clicar em outra linha com o painel aberto troca o produto, não fecha.
+        data-painel-manter=""
       >
-        <Foto url={foto} nome={linha.nome} className="produto-foto" iniciais={iniciais(linha.nome)} />
-        <span className="produto-principal">
-          <span className="produto-classe">
-            {linha.tipo?.nome ?? 'sem tipo'} › {linha.grupo?.nome ?? 'sem grupo'}
-          </span>
-          <strong className="produto-nome">{linha.nome}</strong>
-          <span className="produto-meta">
-            {fornecedores} {fornecedores === 1 ? 'fornecedor' : 'fornecedores'} | {versoes}{' '}
-            {versoes === 1 ? 'versão' : 'versões'}
+        <span className="produto-c produto-c-nome">
+          <Foto url={foto} nome={linha.nome} className="produto-foto" iniciais={iniciais(linha.nome)} />
+          <span className="produto-principal">
+            <strong className="produto-nome">{linha.nome}</strong>
+            <span className="produto-classe">
+              {linha.tipo?.nome ?? 'sem tipo'}
+              <Icone icone={ChevronRight} tamanho={14} />
+              {linha.grupo?.nome ?? 'sem grupo'}
+            </span>
+            <span className="produto-meta">
+              {fornecedores} {fornecedores === 1 ? 'fornecedor' : 'fornecedores'} | {versoes}{' '}
+              {versoes === 1 ? 'versão' : 'versões'}
+            </span>
           </span>
         </span>
-        <span className="produto-etiquetas">
+        <span className="produto-c produto-c-tipo">
+          <span className="produto-rotulo-celula">Tipo: </span>
+          {linha.tipo?.nome ?? 'sem tipo'}
+        </span>
+        <span className="produto-c produto-c-grupo">
+          <span className="produto-rotulo-celula">Grupo: </span>
+          {linha.grupo?.nome ?? 'sem grupo'}
+        </span>
+        <span className="produto-c produto-c-for numero">
+          <span className="produto-rotulo-celula">Fornecedores: </span>
+          {fornecedores}
+        </span>
+        <span className="produto-c produto-c-ver numero">
+          <span className="produto-rotulo-celula">Versões: </span>
+          {versoes}
+        </span>
+        <span className="produto-c produto-c-etq produto-etiquetas">
           {condicoes.map((c) => (
             <span key={`c-${c}`} className="selo">
               {c}
@@ -75,7 +102,7 @@ function Linha({
             </span>
           ))}
         </span>
-        <span className="produto-estado">
+        <span className="produto-c produto-c-sit produto-estado">
           <span className="selo" data-tom={linha.ativo ? 'ok' : 'erro'}>
             {linha.ativo ? 'Ativo' : 'Inativo'}
           </span>
@@ -133,11 +160,16 @@ export function TelaProdutos({
     espera.current = setTimeout(() => filtrar({ q: valor.trim() }), 400)
   }
 
+  function fechar() {
+    if (novo) setNovo(false)
+    else navegar({ sel: null })
+  }
+
   const gruposDoTipo = filtros.tipo ? opcoes.grupos.filter((g) => g.tipo_id === filtros.tipo) : []
   const temFiltro = filtros.q !== '' || filtros.tipo !== null || filtros.ativo !== 'todos'
 
   return (
-    <div className="produtos">
+    <div className="produtos" data-painel-aberto={ficha || novo ? '' : undefined}>
       <header className="produtos-topo">
         <h1>Cadastro de Produtos</h1>
         <p className="produtos-contador" data-teste="contador">
@@ -206,12 +238,13 @@ export function TelaProdutos({
           {temFiltro ? (
             <button
               type="button"
-              className="botao-texto"
+              className="botao-texto produtos-limpar"
               onClick={() => {
                 setTexto('')
                 filtrar({ q: '', tipo: null, grupo: null, ativo: 'todos' })
               }}
             >
+              <Icone icone={X} tamanho={16} />
               Limpar busca
             </button>
           ) : null}
@@ -221,7 +254,8 @@ export function TelaProdutos({
             onClick={() => setNovo(true)}
             data-teste="novo-produto"
           >
-            + Novo produto
+            <Icone icone={Plus} tamanho={16} />
+            Novo produto
           </button>
         </div>
       </section>
@@ -236,18 +270,30 @@ export function TelaProdutos({
             {temFiltro ? 'Nenhum produto encontrado com esses filtros.' : 'Nenhum produto cadastrado ainda.'}
           </p>
         ) : (
-          <ol className="produtos-lista" data-teste="lista-produtos" data-pendente={pendente || undefined}>
-            {linhas.map((l) => (
-              <Linha
-                key={l.id}
-                linha={l}
-                foto={fotos[l.id]}
-                opcoes={opcoes}
-                selecionada={filtros.sel === l.id}
-                aoAbrir={() => navegar({ sel: l.id })}
-              />
-            ))}
-          </ol>
+          <div className="produtos-tabela">
+            {/* Cabeçalho só visual: cada linha é um botão, e o leitor de tela lê o botão inteiro. */}
+            <div className="produtos-cabeca" aria-hidden="true">
+              <span className="produto-c produto-c-nome">Produto</span>
+              <span className="produto-c produto-c-tipo">Tipo</span>
+              <span className="produto-c produto-c-grupo">Grupo</span>
+              <span className="produto-c produto-c-for numero">Fornecedores</span>
+              <span className="produto-c produto-c-ver numero">Versões</span>
+              <span className="produto-c produto-c-etq">Condições e linhas</span>
+              <span className="produto-c produto-c-sit">Situação</span>
+            </div>
+            <ol className="produtos-lista" data-teste="lista-produtos" data-pendente={pendente || undefined}>
+              {linhas.map((l) => (
+                <Linha
+                  key={l.id}
+                  linha={l}
+                  foto={fotos[l.id]}
+                  opcoes={opcoes}
+                  selecionada={filtros.sel === l.id}
+                  aoAbrir={() => navegar({ sel: l.id })}
+                />
+              ))}
+            </ol>
+          </div>
         )}
 
         <p className="produtos-rodape" aria-live="polite">
@@ -260,20 +306,26 @@ export function TelaProdutos({
       </section>
 
       {ficha || novo ? (
-        <FichaProduto
-          // key: trocar de produto remonta o diálogo e zera formulário e aba.
-          key={novo ? 'novo' : ficha!.produto.id}
-          ficha={novo ? null : ficha}
-          opcoes={opcoes}
-          aoCriar={(id) => {
-            setNovo(false)
-            navegar({ sel: id })
-          }}
-          aoFechar={() => {
-            if (novo) setNovo(false)
-            else navegar({ sel: null })
-          }}
-        />
+        <PainelLateral
+          rotuloId="pf-titulo"
+          aoFechar={fechar}
+          chaveLargura="produtos"
+          fracaoInicial={0.46}
+          className="pf-painel"
+          data-teste="ficha-produto"
+        >
+          <FichaProduto
+            // key: trocar de produto remonta a ficha e zera formulário e aba.
+            key={novo ? 'novo' : ficha!.produto.id}
+            ficha={novo ? null : ficha}
+            opcoes={opcoes}
+            aoCriar={(id) => {
+              setNovo(false)
+              navegar({ sel: id })
+            }}
+            aoFechar={fechar}
+          />
+        </PainelLateral>
       ) : null}
     </div>
   )

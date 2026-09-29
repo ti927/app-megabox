@@ -2,6 +2,9 @@
 
 import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
+import { TriangleAlert, X } from 'lucide-react'
+
+import { Icone } from '@/componentes/icone'
 
 import { formatarData } from '@/lib/datas'
 
@@ -502,7 +505,6 @@ export function FichaProduto({
   aoCriar: (id: string) => void
   aoFechar: () => void
 }) {
-  const ref = useRef<HTMLDialogElement>(null)
   const [aba, setAba] = useState<Aba>('dados')
   const [estado, salvar, salvando] = useActionState(salvarProduto, {})
   const [estadoAtivo, acaoAtivo] = useActionState(definirAtivoProduto, {})
@@ -513,11 +515,6 @@ export function FichaProduto({
     // aoCriar muda de identidade a cada render do pai; o gatilho é só o id novo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [criou])
-
-  useEffect(() => {
-    const d = ref.current
-    if (d && !d.open) d.showModal()
-  }, [])
 
   const p = ficha?.produto ?? null
   const deCliente = ficha ? ficha.filiais.filter(ehDeCliente).length : 0
@@ -532,15 +529,9 @@ export function FichaProduto({
     : []
 
   return (
-    <dialog
-      ref={ref}
-      className="dialogo pf"
-      aria-labelledby="pf-titulo"
-      onClose={aoFechar}
-      data-teste="ficha-produto"
-    >
-      <header className="dialogo-cabecalho">
-        <div>
+    <div className="pf">
+      <header className="painel-lateral-cabecalho pf-cabecalho">
+        <div className="pf-titulo">
           <p className="pf-tipo">{p ? 'Edita produto' : 'Novo produto'}</p>
           <h2 id="pf-titulo">{p ? p.nome : 'Novo produto'}</h2>
           {p ? (
@@ -556,13 +547,13 @@ export function FichaProduto({
             </p>
           ) : null}
         </div>
-        <button type="button" className="dialogo-fechar" aria-label="Fechar" onClick={() => ref.current?.close()}>
-          ✕
+        <button type="button" className="painel-lateral-fechar" aria-label="Fechar" onClick={aoFechar}>
+          <Icone icone={X} tamanho={20} />
         </button>
       </header>
 
       {abas.length > 0 ? (
-        <div className="abas" role="tablist" aria-label="Seções da ficha">
+        <div className="abas pf-abas" role="tablist" aria-label="Seções da ficha">
           {abas.map((a) => (
             <button
               key={a.id}
@@ -575,9 +566,8 @@ export function FichaProduto({
             >
               {a.rotulo}
               {a.id === 'fornecedores' && deCliente > 0 ? (
-                <span className="pf-alerta" aria-label="com filial de cliente">
-                  {' '}
-                  ⚠
+                <span className="pf-alerta">
+                  <Icone icone={TriangleAlert} tamanho={16} rotulo="com filial de cliente" />
                 </span>
               ) : null}
             </button>
@@ -586,7 +576,7 @@ export function FichaProduto({
       ) : null}
 
       <div
-        className="dialogo-corpo"
+        className="painel-lateral-corpo pf-corpo"
         role={abas.length > 0 ? 'tabpanel' : undefined}
         id={`painel-${aba}`}
         aria-labelledby={abas.length > 0 ? `aba-${aba}` : undefined}
@@ -617,7 +607,7 @@ export function FichaProduto({
         <Mensagem estado={estadoAtivo} />
       </div>
 
-      <footer className="dialogo-rodape">
+      <footer className="painel-lateral-rodape">
         {p ? (
           <form
             action={acaoAtivo}
@@ -635,7 +625,7 @@ export function FichaProduto({
             </BotaoEnviar>
           </form>
         ) : null}
-        <button type="button" className="botao-secundario empurra" onClick={() => ref.current?.close()}>
+        <button type="button" className="botao-secundario empurra" onClick={aoFechar}>
           Fechar
         </button>
         {aba === 'dados' ? (
@@ -651,6 +641,6 @@ export function FichaProduto({
           </button>
         ) : null}
       </footer>
-    </dialog>
+    </div>
   )
 }

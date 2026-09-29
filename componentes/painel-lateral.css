@@ -1,0 +1,131 @@
+/* Painel lateral (drawer) — componentes/painel-lateral.tsx.
+ * Só NOMES de token de estilos/tokens.css: o tema troca os valores, isto acompanha.
+ * Estrutura sugerida para o conteúdo: .painel-lateral-cabecalho, .painel-lateral-corpo
+ * (rola) e .painel-lateral-rodape — todas opcionais. */
+
+.painel-lateral {
+  position: fixed;
+  inset: 0 0 0 auto;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  width: min(56vw, calc(100vw - 22rem));
+  min-width: min(26rem, 100vw);
+  max-width: 100vw;
+  color: var(--texto);
+  background: var(--superficie);
+  border-left: 1px solid var(--borda-forte);
+  box-shadow: var(--sombra-3);
+  animation: painel-lateral-entra var(--dur-2) var(--curva);
+}
+.painel-lateral:focus {
+  outline: none;
+}
+.painel-lateral:focus-visible {
+  outline: var(--foco);
+  outline-offset: -3px;
+}
+.painel-lateral[data-arrastando] {
+  user-select: none;
+}
+@keyframes painel-lateral-entra {
+  from {
+    transform: translateX(2.5rem);
+    opacity: 0;
+  }
+}
+
+/* Alça de redimensionar: faixa de 8px sobre a borda, traço aparece no hover/foco. */
+.painel-lateral-alca {
+  position: absolute;
+  inset: 0 auto 0 -4px;
+  z-index: 1;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.painel-lateral-alca::after {
+  content: '';
+  position: absolute;
+  inset: 0 3px;
+  background: transparent;
+  transition: background-color var(--dur-1) var(--curva);
+}
+.painel-lateral-alca:hover::after,
+.painel-lateral[data-arrastando] .painel-lateral-alca::after,
+.painel-lateral-alca:focus-visible::after {
+  background: var(--azul-vivo);
+}
+.painel-lateral-alca:focus-visible {
+  outline: none;
+}
+
+.painel-lateral-cabecalho {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--e3);
+  padding: var(--e4) var(--e5);
+  border-bottom: 1px solid var(--borda);
+}
+.painel-lateral-corpo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--e4) var(--e5);
+  overscroll-behavior: contain;
+}
+.painel-lateral-rodape {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e3) var(--e5);
+  background: var(--fundo-2);
+  border-top: 1px solid var(--borda);
+}
+.painel-lateral-rodape .empurra {
+  margin-left: auto;
+}
+
+.painel-lateral-fechar {
+  margin: -0.25rem -0.5rem 0 auto;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--texto-2);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  cursor: pointer;
+  transition:
+    color var(--dur-1) var(--curva),
+    background-color var(--dur-1) var(--curva);
+}
+.painel-lateral-fechar:hover {
+  color: var(--texto);
+  background: var(--fundo-2);
+}
+
+@media (max-width: 48rem) {
+  .painel-lateral {
+    width: 100vw !important;
+    border-left: none;
+  }
+  .painel-lateral-alca {
+    display: none;
+  }
+  .painel-lateral-cabecalho,
+  .painel-lateral-corpo,
+  .painel-lateral-rodape {
+    padding-left: var(--e4);
+    padding-right: var(--e4);
+  }
+  .painel-lateral-fechar {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}

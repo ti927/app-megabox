@@ -32,7 +32,7 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs'
-import { readdir, readFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { createClient } from '@supabase/supabase-js'
@@ -329,12 +329,19 @@ const MAPA = {
     // `QuaisProdutos`/`QuaisPropostas` não migram (FK do lado N); `QualPedido` também não:
     // `pedidos.cotacao_id` diz tudo.
     renumerar: 'numero',
+    antesDeGravar: liberarNumerosLegados,
     posCarga: ajustarSequenciaCotacao,
   },
 
   'tbl.cotacaoprodutos': {
     tabela: 'cotacao_itens',
     obrigatorias: ['cotacao_id', 'produto_id', 'qtd', 'endereco_destino_id'],
+    // Acrescenta os itens COMPARTILHADOS entre cotações (ver `planejarClones`).
+    preparar: async (linhas, { bruto }) => {
+      const { novos, msg } = await planejarClones(bruto)
+      linhas.push(...novos.values())
+      return msg
+    },
     col: {
       qtd: (r) => (num(r['cpo.Qtd']) > 0 ? num(r['cpo.Qtd']) : null), // check qtd > 0
       medida: (r) => texto(r['cpo.Medida']),
@@ -363,7 +370,13 @@ const MAPA = {
       'vendedor_id',
       'qtd_venda',
     ],
-    preparar: escolherVencedores,
+    preparar: async (linhas, ctx) => {
+      const { orcItem, novos } = await planejarClones(ctx.bruto)
+      for (const r of linhas) if (orcItem.has(r._id)) r['cpo.QualCotacaoProduto'] = orcItem.get(r._id)
+      const msg = await lerItensECotacoes(ctx)
+      for (const [id, it] of novos) itemBubble.set(id, it)
+      return `${orcItem.size} orçamento(s) apontados para item clonado; ${msg}; ${escolherVencedores(linhas)}`
+    },
     col: {
       qtd_venda: (r) => (num(r['cpo.QtdVenda']) > 0 ? num(r['cpo.QtdVenda']) : null), // check > 0
       medida: (r) => texto(r['cpo.Medida']),
@@ -393,10 +406,29 @@ const MAPA = {
       cotacao_item_id: { de: 'cpo.QualCotacaoProduto', tabela: 'cotacao_itens' },
       fornecedor_id: { de: 'cpo.QualFornecedor', tabela: 'grupos_clifor' },
       endereco_origem_id: { de: 'cpo.QualEnderecoOrigem', tabela: 'enderecos_clifor' },
-      endereco_destino_id: { de: 'cpo.QualEnderecoDestino', tabela: 'enderecos_clifor' },
+      // Reservas (29/09, medido com a chave de admin): 558 orçamentos sem `QualProdutoModelo` (20
+      // com item que tem produto, 17 deles com entrega), 27 sem destino e 8 sem vendedor. O
+      // orçamento é DO item (AdicionarFornecedores copia produto e destino do item), e o vendedor
+      // é o da cotação — mesma reserva de `tbl.pedido`.
+      endereco_destino_id: {
+        de: 'cpo.QualEnderecoDestino',
+        tabela: 'enderecos_clifor',
+        reserva: (r) => itemBubble.get(r['cpo.QualCotacaoProduto'])?.['cpo.QualEnderecoDestino'],
+      },
       endereco_cobranca_id: { de: 'cpo.QualEndereçoCobrança', tabela: 'enderecos_clifor' },
-      produto_id: { de: 'cpo.QualProdutoModelo', tabela: 'produtos' },
-      vendedor_id: { de: 'cpo.QualVendedor', tabela: 'usuarios' },
+      produto_id: {
+        de: 'cpo.QualProdutoModelo',
+        tabela: 'produtos',
+        reserva: (r) => itemBubble.get(r['cpo.QualCotacaoProduto'])?.['cpo.QualProdutoModelo'],
+      },
+      vendedor_id: {
+        de: 'cpo.QualVendedor',
+        tabela: 'usuarios',
+        reserva: (r) =>
+          vendedorDaCotacao.get(
+            r['cpo.QualCotacao'] ?? itemBubble.get(r['cpo.QualCotacaoProduto'])?.['cpo.QualCotacao'],
+          ),
+      },
     },
   },
 
@@ -404,8 +436,13 @@ const MAPA = {
     tabela: 'propostas',
     obrigatorias: ['cotacao_id', 'numero', 'vendedor_id'],
     unicos: [['cotacao_id', 'numero']],
+    // 883 propostas sem número: rascunhos abandonados (nenhuma enviada, sem pedido, sem entrega,
+    // sem corpo de e-mail — medido em 29/09) → descartadas pelo `not null`. As repetidas em
+    // (cotação, número) NÃO são descartadas: há enviadas e com pedido entre elas. Ver
+    // `numerarPropostasRepetidas`; `unicos` fica como rede de segurança.
+    preparar: numerarPropostasRepetidas,
     col: {
-      numero: (r) => num(r['cpo.PropostaNum']),
+      numero: (r) => propostaNumero.get(r._id) ?? num(r['cpo.PropostaNum']),
       condicao_pagamento: (r) => texto(r['cpo.CondicaoPgto']),
       info_adicional: (r) => texto(r['cpo.InfoAdicional']),
       corpo_email: (r) => texto(r['cpo.CorpoEmail']),
@@ -543,6 +580,140 @@ async function lerVendedoresDaCotacao(_linhas, { bruto }) {
     if (c['cpo.QualVendedor']) vendedorDaCotacao.set(c._id, c['cpo.QualVendedor'])
   }
   return `vendedor da cotação disponível como reserva para ${vendedorDaCotacao.size} cotação(ões)`
+}
+
+/**
+ * ITEM COMPARTILHADO ENTRE COTAÇÕES. No Bubble a cotação tem a LISTA `QuaisProdutos`, e editar a
+ * cotação grava `QuaisProdutos = CurrentUser:TempOrcamentoProdutos` (bTOjb0) — a lista temporária
+ * do usuário, que pode trazer itens de OUTRA cotação. O item fica com `QualCotacao` da cotação
+ * original, mas passa a morar também na lista da nova; a proposta da nova copia os vencedores da
+ * lista dela (bThFu: `Parent:QuaisProdutos:QuaisOrcamentos…`), e a cópia aponta para o item da
+ * cotação antiga. Medido em 29/09: 428 cópias de proposta e 247 orçamentos originais assim, e ~700
+ * entregas em cima delas — o trigger D6 da 009 (orçamento da cotação do pedido) as recusaria.
+ *
+ * No modelo novo o item é de UMA cotação. Então o item compartilhado é CLONADO na cotação que o
+ * usa, com bubble_id sintético `<item>@<cotação>` (idempotente na recarga), e o orçamento passa a
+ * apontar para o clone. A cotação que usa é a da PROPOSTA, para cópia (`QualProposta`), e a
+ * `QualCotacao` do próprio orçamento, para original. Nada é inventado: produto, quantidade e
+ * destino são os do item do Bubble.
+ */
+let clones = null
+async function planejarClones(bruto) {
+  if (clones) return clones
+  const itens = new Map(((await bruto('tbl.cotacaoprodutos')) ?? []).map((i) => [i._id, i]))
+  const props = new Map(((await bruto('tbl.propostas')) ?? []).map((p) => [p._id, p]))
+  const listas = new Map(((await bruto('tbl.cotacao')) ?? []).map((c) => [c._id, new Set(c['cpo.QuaisProdutos'] ?? [])]))
+  const orcItem = new Map()
+  const novos = new Map()
+  let naLista = 0
+  for (const o of (await bruto('tbl.orcfornecedorescotacao')) ?? []) {
+    const it = itens.get(o['cpo.QualCotacaoProduto'])
+    if (!it) continue
+    const k = o['cpo.QualProposta'] ? props.get(o['cpo.QualProposta'])?.['cpo.QualCotacao'] : o['cpo.QualCotacao']
+    if (!k || k === it['cpo.QualCotacao']) continue
+    const id = `${it._id}@${k}`
+    orcItem.set(o._id, id)
+    if (!novos.has(id)) {
+      novos.set(id, { ...it, _id: id, 'cpo.QualCotacao': k })
+      if (listas.get(k)?.has(it._id)) naLista++
+    }
+  }
+  clones = {
+    orcItem,
+    novos,
+    msg:
+      `${novos.size} item(ns) compartilhado(s) entre cotações clonado(s) na cotação que os usa ` +
+      `(${naLista} confirmados na lista QuaisProdutos dela) para ${orcItem.size} orçamento(s)`,
+  }
+  return clones
+}
+
+/** Preenchido por `lerItensECotacoes`: bubble_id do item → registro cru do item. */
+const itemBubble = new Map()
+async function lerItensECotacoes({ bruto }) {
+  for (const i of (await bruto('tbl.cotacaoprodutos')) ?? []) itemBubble.set(i._id, i)
+  await lerVendedoresDaCotacao(null, { bruto })
+  return `reserva de produto/destino pelo item (${itemBubble.size}) e de vendedor pela cotação (${vendedorDaCotacao.size})`
+}
+
+/**
+ * Propostas com o mesmo número na mesma cotação (`unique (cotacao_id, numero)`, 008). O número é
+ * digitado (sugestão "propostas da cotação + 1", editável — vendas.md §5.2), então o Bubble tem
+ * repetição, e ENTRE as repetidas há proposta enviada e proposta com pedido. Descartar perderia o
+ * documento enviado e o `pedidos.proposta_id`. Então: fica com o número quem tem pedido, depois
+ * quem foi enviada, depois a mais antiga; as outras recebem o próximo número livre DA COTAÇÃO
+ * (maior número dela + 1), em ordem de criação. Determinístico: a recarga dá o mesmo resultado.
+ */
+const propostaNumero = new Map()
+async function numerarPropostasRepetidas(linhas, { bruto }) {
+  propostaNumero.clear()
+  const comPedido = new Set(((await bruto('tbl.pedido')) ?? []).map((p) => p['cpo.QualProposta']).filter(Boolean))
+  const maior = new Map()
+  const grupos = new Map()
+  for (const r of linhas) {
+    const n = num(r['cpo.PropostaNum'])
+    const c = r['cpo.QualCotacao']
+    if (n === null || !c) continue
+    maior.set(c, Math.max(maior.get(c) ?? n, n))
+    const k = `${c}|${n}`
+    grupos.set(k, [...(grupos.get(k) ?? []), r])
+  }
+  const peso = (r) => (comPedido.has(r._id) ? 0 : r['cpo.PropostaEnviada'] ? 1 : 2)
+  const porCriacao = (a, b) =>
+    String(a['Created Date']).localeCompare(String(b['Created Date'])) || String(a._id).localeCompare(String(b._id))
+  const mover = []
+  for (const g of grupos.values()) {
+    if (g.length > 1) mover.push(...[...g].sort((a, b) => peso(a) - peso(b) || porCriacao(a, b)).slice(1))
+  }
+  mover.sort(porCriacao)
+  let enviadas = 0
+  let pedidos = 0
+  for (const r of mover) {
+    const c = r['cpo.QualCotacao']
+    const novo = maior.get(c) + 1
+    maior.set(c, novo)
+    propostaNumero.set(r._id, novo)
+    if (r['cpo.PropostaEnviada']) enviadas++
+    if (comPedido.has(r._id)) pedidos++
+  }
+  return (
+    `${mover.length} proposta(s) com número repetido na cotação ganham o próximo número livre dela ` +
+    `(${enviadas} enviada(s), ${pedidos} com pedido)`
+  )
+}
+
+/**
+ * O `renumerar` da carga anterior deu às 7 cotações repetidas os números 5961–5967, e depois o
+ * Bubble criou cotações NOVAS com esses mesmos números legados. O legado é do dono no Bubble; a
+ * renumerada é que muda. Antes do upsert: toda linha do banco que ocupa o número legado de OUTRA
+ * cotação do Bubble recebe número novo da sequence, ajustada acima do maior legado. Idempotente:
+ * sem colisão, não faz nada.
+ */
+async function liberarNumerosLegados(_db, { relatorio, sql, gravar }) {
+  const b = gravar.map((l) => l.bubble_id)
+  const n = gravar.map((l) => l.numero)
+  const ocupados = await sql(
+    `with legado(b, n) as (select * from unnest($1::text[], $2::int[]))
+     select c.id from public.cotacoes c join legado l on l.n = c.numero
+      where c.bubble_id is distinct from l.b`,
+    [b, n],
+  )
+  const ids = ocupados.rows.map((r) => r.id)
+  if (relatorio || ids.length === 0) {
+    return `${ids.length} cotação(ões) do banco ocupam número legado de outra e ${relatorio ? 'seriam' : 'foram'} renumeradas`
+  }
+  const maxLegado = Math.max(...n.filter((x) => x != null))
+  await sql(
+    `select setval(pg_get_serial_sequence('public.cotacoes', 'numero'),
+                   greatest((select max(numero) from public.cotacoes), $1::int))`,
+    [maxLegado],
+  )
+  const r = await sql(
+    `update public.cotacoes set numero = nextval(pg_get_serial_sequence('public.cotacoes', 'numero'))
+      where id = any($1::uuid[]) returning numero`,
+    [ids],
+  )
+  return `${r.rowCount} cotação(ões) renumerada(s) para liberar o número legado (novos: ${r.rows.map((x) => x.numero).join(', ')})`
 }
 
 /**
@@ -779,13 +950,31 @@ function argumentos() {
   const out = {}
   for (let i = 0; i < a.length; i++) {
     const c = a[i]
-    if (c === '--relatorio' || c === '--baixar') out[c.slice(2)] = true
+    if (c === '--relatorio' || c === '--baixar' || c === '--rebaixar') out[c.slice(2)] = true
     else if (c?.startsWith('--') && a[i + 1] !== undefined) out[c.slice(2)] = a[i++ + 1]
   }
   return out
 }
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * Grava um lote com UMA espera em caso de sobrecarga. A instância é Micro e já caiu por carga:
+ * timeout (57014), 522 do gateway ou conexão derrubada → espera 60 s e tenta o MESMO lote uma
+ * única vez; se falhar de novo, para (a carga é idempotente, a próxima rodada continua). Nunca
+ * repete em laço. Entre lotes, 300 ms de respiro para não disputar a CPU com quem usa o banco.
+ */
+const SOBRECARGA = /57014|statement timeout|522|ECONNRESET|fetch failed|socket hang up|timed? ?out/i
+async function comEspera(rotulo, gravar) {
+  let { error } = await gravar()
+  if (error && SOBRECARGA.test(`${error.code ?? ''} ${error.message ?? ''}`)) {
+    console.warn(`\n  ${rotulo}: sobrecarga (${error.code ?? error.message}); esperando 60 s e tentando UMA vez…`)
+    await dormir(60_000)
+    ;({ error } = await gravar())
+  }
+  if (error) throw new Error(`${rotulo}: ${error.code ?? ''} ${error.message}`)
+  await dormir(300)
+}
 
 async function baixar(base, chave, tipo) {
   const linhas = []
@@ -973,10 +1162,18 @@ async function main() {
   const cacheBruto = {}
   async function bruto(tipo) {
     if (cacheBruto[tipo]) return cacheBruto[tipo]
-    let linhas = await lerBruto(tipo)
-    if (!linhas && arg.baixar) {
+    // `--rebaixar` ignora o `bruto/` e o SOBRESCREVE: o que foi baixado sem a chave de admin
+    // (privacidade "everyone") está incompleto e velho — medido em 29/09: 11 cotações, 49
+    // orçamentos, 6 pedidos e 7 entregas a menos que a API com chave. Baixar sem gravar faria
+    // cada rodada (relatório, carga, recarga) pagar 450 páginas da API de novo.
+    let linhas = arg.rebaixar ? null : await lerBruto(tipo)
+    if (!linhas && (arg.baixar || arg.rebaixar)) {
       console.log(`  ${tipo}: baixando…`)
       linhas = await baixar((env.BUBBLE_APP_URL ?? '').replace(/\/+$/, ''), env.BUBBLE_API_KEY || null, tipo)
+      if (arg.rebaixar) {
+        await mkdir(join('bruto', tipo), { recursive: true })
+        await writeFile(join('bruto', tipo, 'tudo.json'), JSON.stringify({ tipo, baixado_em: new Date().toISOString(), linhas }))
+      }
     }
     if (linhas) cacheBruto[tipo] = linhas
     return linhas
@@ -1185,6 +1382,9 @@ async function main() {
     const contexto = { relatorio: !!arg.relatorio, sql, linhas, traduzir }
 
     if (arg.relatorio) {
+      if (config.antesDeGravar) {
+        relatorio.push(`${tipo} (antes de gravar) ${await config.antesDeGravar(db, { ...contexto, gravar })}`)
+      }
       previstos[config.tabela] = new Set([...gravar, ...adiados].map((l) => l.bubble_id))
       relatorio.push(
         `${tipo} → ${config.tabela}: ${gravar.length + adiados.length} linha(s) grava, ` +
@@ -1195,13 +1395,15 @@ async function main() {
       )
     } else {
       if (descartados) console.warn(`  ${config.tabela}: ${resumoDescarte}`)
+      if (config.antesDeGravar) {
+        console.log(`  ${config.tabela}: ${await config.antesDeGravar(db, { ...contexto, gravar })}`)
+      }
 
       for (let i = 0; i < gravar.length; i += LOTE) {
         const fatia = gravar.slice(i, i + LOTE)
-        const { error } = await db
-          .from(config.tabela)
-          .upsert(fatia, { onConflict: 'bubble_id', ignoreDuplicates: false })
-        if (error) throw new Error(`${config.tabela} lote ${i / LOTE + 1}: ${error.message}`)
+        await comEspera(`${config.tabela} lote ${i / LOTE + 1}`, () =>
+          db.from(config.tabela).upsert(fatia, { onConflict: 'bubble_id', ignoreDuplicates: false }),
+        )
         process.stdout.write(`\r  ${config.tabela}: ${Math.min(i + LOTE, gravar.length)}/${gravar.length}`)
       }
       console.log(`\r  ${config.tabela}: ${gravar.length} linha(s) gravada(s).           `)
@@ -1275,10 +1477,10 @@ async function main() {
         continue
       }
       for (let i = 0; i < ligar.length; i += LOTE) {
-        const { error } = await db
-          .from(tabela)
-          .upsert(ligar.slice(i, i + LOTE), { onConflict: `${lig.dono},${lig.alvo}`, ignoreDuplicates: true })
-        if (error) throw new Error(`${tabela} lote ${i / LOTE + 1}: ${error.message}`)
+        const fatia = ligar.slice(i, i + LOTE)
+        await comEspera(`${tabela} lote ${i / LOTE + 1}`, () =>
+          db.from(tabela).upsert(fatia, { onConflict: `${lig.dono},${lig.alvo}`, ignoreDuplicates: true }),
+        )
       }
       console.log(`  ${resumo}`)
     }

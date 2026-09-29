@@ -315,6 +315,35 @@ com URL do CDN — o vazamento de `00` §2.2 está aberto hoje, para qualquer um
 
 ---
 
+### Carga final das vendas (29/09/2026) — com a chave da API
+
+Carregados: 5.957 cotações, 10.045 itens, 24.189 orçamentos (7.479 vencedores), 7.764 propostas,
+10.787 itens de proposta, 2.235 pedidos, 2.329 prazos, 3.610 entregas. Próxima cotação: 5978.
+
+Quatro decisões do carregador que **substituem** as anteriores — **[DÚVIDA]** para conferir:
+
+1. **Item de cotação compartilhado é clonado** (substitui "430 entregas descartadas"). Ao editar
+   uma cotação, o Bubble (bTOjb0) grava na lista de produtos itens de OUTRA cotação, e a proposta
+   (bThFu) copia os vencedores deles. Com a chave, o descarte seria de 696 entregas (19%), todas
+   de propostas válidas. Agora: 434 itens clonados na cotação que os usa (`bubble_id` sintético
+   `<item>@<cotação>`), 675 orçamentos apontando para o clone, **0 entregas descartadas** por isso.
+2. **Proposta com número repetido na mesma cotação é renumerada** (27, 18 enviadas): fica com o
+   número a que tem pedido, depois a enviada, depois a mais antiga.
+3. Números de cotação 5961–5967, dados a repetidas na carga anterior, foram devolvidos ao dono
+   legado; 6 cotações renumeradas para 5972–5977.
+4. Orçamento sem produto, destino ou vendedor herda do item ou da cotação (20 recuperados).
+
+Conferência de dinheiro (só linhas carregadas): entregas — bruto −470.871,40, exatamente as 30
+canceladas com quantidade 0 (decisão anterior); comissão −15,94 de arredondamento. Orçamentos —
+bruto +1.309.849,90 em 207 linhas, quase todo (+1.468.199,90 em 99) porque o Bubble somava frete
+fora de "CIF Informado" (regra D1 da 007). **Diretoria: confirmar que a regra do frete é a certa.**
+
+Pendente: 883 propostas sem número (rascunhos abandonados, nenhuma enviada) ficaram fora;
+cópia dos arquivos de entrega parou em ~316 de 5.153 com a queda do banco — retomar com
+`node tools/copiar-arquivos-bubble.mjs --so entregas --paralelo 1 --lote 200 --pausa-lote 60`.
+
+---
+
 ### B5 foi respondida pela leitura do mapa — e a resposta era o contrário
 
 Registrado porque o erro custou caro e pode voltar. Três specs (`financeiro-reusables` 21,

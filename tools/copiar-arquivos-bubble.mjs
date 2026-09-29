@@ -50,7 +50,10 @@ const soIdx = args.indexOf('--so')
 const ALVOS = new Set(
   soIdx >= 0 ? args[soIdx + 1].split(',') : ['produtos', 'tipos', 'anexos', 'usuarios', 'clifor', 'entregas'],
 )
-const PARALELO = 4
+// `--paralelo N` (padrão 4). Com a instância Micro sob carga, rode com `--paralelo 1`: cada
+// arquivo é um objeto no Storage e uma linha no banco, e 4 ao mesmo tempo disputam a CPU.
+const paraleloIdx = args.indexOf('--paralelo')
+const PARALELO = Math.max(1, Number(paraleloIdx >= 0 ? args[paraleloIdx + 1] : 4) || 4)
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -171,10 +174,34 @@ async function removerObjeto(path) {
   await admin.storage.from(bucket).remove([resto.join('/')])
 }
 
-/** Roda `fn` em lotes de PARALELO. */
+/**
+ * Roda `fn` em lotes de PARALELO. Com `--lote N --pausa-lote S` (instância Micro sob carga), a cada N
+ * arquivos espera S segundos; `--max N` para depois de N arquivos (a próxima rodada continua: é
+ * idempotente). Se uma gravação cair por timeout, `sobrecarga` é marcada e o laço espera 2 min uma
+ * vez antes de seguir — nunca repete o arquivo em laço.
+ */
+const numArg = (nome, padrao) => {
+  const i = args.indexOf(nome)
+  return i >= 0 ? Number(args[i + 1]) || padrao : padrao
+}
+const LOTE_ARQ = numArg('--lote', Infinity)
+const PAUSA_LOTE_MS = numArg('--pausa-lote', 0) * 1000
+const MAX_ARQ = numArg('--max', Infinity)
+let sobrecarga = false
+const ehSobrecarga = (e) => /57014|timeout|timed out|522|ECONNRESET|fetch failed|authentication/i.test(`${e?.code ?? ''} ${e?.message ?? ''}`)
 async function emParalelo(itens, fn) {
-  for (let i = 0; i < itens.length; i += PARALELO) {
-    await Promise.all(itens.slice(i, i + PARALELO).map(fn))
+  const fila = itens.slice(0, MAX_ARQ)
+  for (let i = 0; i < fila.length; i += PARALELO) {
+    await Promise.all(fila.slice(i, i + PARALELO).map(fn))
+    const feitos = Math.min(i + PARALELO, fila.length)
+    if (sobrecarga) {
+      console.warn(`  sobrecarga do banco depois de ${feitos} arquivo(s): esperando 2 min`)
+      sobrecarga = false
+      await dormir(120_000)
+    } else if (PAUSA_LOTE_MS && feitos < fila.length && feitos % LOTE_ARQ < PARALELO) {
+      console.log(`  ${feitos}/${fila.length} arquivo(s); pausa de ${PAUSA_LOTE_MS / 1000} s`)
+      await dormir(PAUSA_LOTE_MS)
+    }
   }
 }
 
@@ -379,7 +406,8 @@ async function copiarEntregas() {
       path: c.path,
     })
     if (erro) {
-      await removerObjeto(c.path)
+      if (ehSobrecarga(erro)) sobrecarga = true
+      await removerObjeto(c.path).catch(() => {})
       somar(alvo, 'falha_gravar_linha')
     } else somar(alvo, 'copiado')
   })

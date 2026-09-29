@@ -53,14 +53,22 @@
   gap: var(--e2);
 }
 .pilula-filtro {
-  padding: var(--e1) var(--e3);
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: var(--e1) var(--e4);
   font: inherit;
   font-size: var(--t-sm);
+  font-weight: var(--peso-medio);
   color: var(--azul);
+  white-space: nowrap;
   background: var(--superficie);
   border: 1px solid var(--azul);
-  border-radius: 999px;
+  border-radius: var(--raio-pilula);
   cursor: pointer;
+  transition:
+    background-color var(--dur-1) var(--curva),
+    color var(--dur-1) var(--curva);
 }
 .pilula-filtro:hover {
   background: var(--azul-claro);
@@ -69,6 +77,9 @@
 .pilula-filtro[aria-pressed='true'] {
   color: var(--sobre-azul);
   background: var(--azul);
+}
+.pilula-filtro[aria-pressed='true']:hover {
+  background: var(--azul-escuro);
 }
 .vendas-nova {
   margin-left: auto;
@@ -79,12 +90,14 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--e3);
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-2) var(--curva);
 }
 .kanban[data-pendente] {
   opacity: 0.55;
 }
 
+/* Coluna: faixa de cabeçalho cinza-lilás com título centralizado e contador abaixo
+   (vendas-01); o corpo é uma calha um tom abaixo do cartão, para o branco destacar. */
 .coluna {
   display: flex;
   flex-direction: column;
@@ -92,20 +105,26 @@
   background: var(--fundo-2);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
+  overflow: hidden;
 }
 .coluna-cabecalho {
   padding: var(--e2) var(--e3);
   text-align: center;
+  background: var(--lilas-cabeca);
   border-bottom: 1px solid var(--borda);
 }
 .coluna-cabecalho h2 {
   margin: 0;
   font-size: var(--t-lg);
-  font-weight: 600;
+  font-weight: var(--peso-forte);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
 }
 .coluna-cabecalho p {
   margin: 0;
-  font-size: var(--t-sm);
+  font-size: var(--t-xs);
+  font-weight: var(--peso-medio);
+  font-variant-numeric: tabular-nums;
   color: var(--texto-2);
 }
 /* Cada coluna rola sozinha, como no Bubble — a página não cresce com 134 cartões. */
@@ -145,10 +164,18 @@
   gap: var(--e2);
   padding: var(--e3);
   font-size: var(--t-sm);
+  line-height: 1.4;
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
-  box-shadow: var(--sombra);
+  box-shadow: var(--sombra-1);
+  transition:
+    box-shadow var(--dur-1) var(--curva),
+    border-color var(--dur-1) var(--curva);
+}
+.cartao:hover {
+  border-color: var(--borda-forte);
+  box-shadow: var(--sombra-2);
 }
 /* Arquivada: fundo cinza (vendas-09). */
 .cartao[data-arquivado] {
@@ -169,39 +196,48 @@
   background: var(--azul-claro);
   border-color: var(--azul);
 }
+/* Avatar à esquerda (centrado na altura, como o logo do cliente no Bubble), texto ao
+   centro e a coluna de ícones — lápis e propostas — à direita. */
 .cartao-topo {
   display: grid;
-  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
-  gap: var(--e2);
-  align-items: start;
+  grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+  gap: var(--e3);
+  align-items: center;
 }
 .cartao-avatar {
   display: grid;
   place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  margin-top: var(--e1);
+  width: 2.75rem;
+  height: 2.75rem;
   font-size: var(--t-xs);
-  font-weight: 700;
-  color: var(--texto-2);
-  background: var(--fundo-2);
-  border: 1px solid var(--borda);
+  font-weight: var(--peso-forte);
+  letter-spacing: 0.02em;
+  color: var(--roxo);
+  background: var(--lilas);
   border-radius: 50%;
 }
 .cartao-principal {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0.125rem;
   min-width: 0;
+  color: var(--texto-2);
 }
 .cartao-principal b {
-  font-weight: 600;
+  font-weight: var(--peso-medio);
+  color: var(--texto);
 }
 .cartao-titulo {
+  margin-bottom: 0.125rem;
   font-size: var(--t-md);
-  line-height: 1.25;
+  font-weight: var(--peso-forte);
+  line-height: 1.2;
+  color: var(--texto);
   text-transform: uppercase;
   overflow-wrap: anywhere;
+}
+.cartao-icones {
+  align-self: flex-start;
 }
 .cartao-valor {
   font-family: var(--fonte-numero);
@@ -214,7 +250,7 @@
   color: var(--vermelho);
 }
 .cartao-concluido {
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--verde);
 }
 .cartao-icones {
@@ -271,48 +307,89 @@
   list-style: none;
   border-top: 1px solid var(--borda);
 }
-.cartao-resumo li::before {
-  display: inline-grid;
-  place-items: center;
-  width: 1.25rem;
-  height: 1.25rem;
-  margin-right: var(--e2);
-  font-size: 0.7rem;
+/* Três linhas com ícone circular colorido (vendas-02): carrinho roxo, troféu verde,
+   documento azul. Ícone SVG por máscara — a cor vem do token, e o escuro acompanha
+   (emoji não obedece à paleta nem ao tema). */
+.cartao-resumo li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 1.5rem;
+  padding-left: 2rem;
+  color: var(--texto-2);
+}
+.cartao-resumo li::before,
+.cartao-resumo li::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 1.5rem;
+  height: 1.5rem;
   border-radius: 50%;
+  transform: translateY(-50%);
+}
+.cartao-resumo li::after {
+  left: 0.25rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0;
+  background: currentColor;
+  mask: var(--icone) center / contain no-repeat;
+}
+.cartao-resumo li[data-icone='carrinho'] {
+  --icone: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM1 2v2h2l3.6 7.59-1.35 2.45A2 2 0 0 0 7 17h12v-2H7.42a.25.25 0 0 1-.22-.37l.9-1.63h7.45a2 2 0 0 0 1.75-1.03l3.58-6.49A1 1 0 0 0 20 4H5.21l-.94-2H1Zm16 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z'/%3E%3C/svg%3E");
 }
 .cartao-resumo li[data-icone='carrinho']::before {
-  content: '🛒';
   background: var(--lilas);
 }
+.cartao-resumo li[data-icone='carrinho']::after {
+  color: var(--roxo);
+}
+.cartao-resumo li[data-icone='trofeu'] {
+  --icone: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M19 5h-2V3H7v2H5a2 2 0 0 0-2 2v1a5 5 0 0 0 4.39 4.94A5 5 0 0 0 11 15.9V19H7v2h10v-2h-4v-3.1a5 5 0 0 0 3.61-2.96A5 5 0 0 0 21 8V7a2 2 0 0 0-2-2ZM5 8V7h2v3.82A3 3 0 0 1 5 8Zm14 0a3 3 0 0 1-2 2.82V7h2v1Z'/%3E%3C/svg%3E");
+}
 .cartao-resumo li[data-icone='trofeu']::before {
-  content: '🏆';
   background: var(--verde-fundo);
 }
+.cartao-resumo li[data-icone='trofeu']::after {
+  color: var(--verde);
+}
+.cartao-resumo li[data-icone='proposta'] {
+  --icone: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Zm2 16H8v-2h8v2Zm0-4H8v-2h8v2Zm-3-5V3.5L18.5 9H13Z'/%3E%3C/svg%3E");
+}
 .cartao-resumo li[data-icone='proposta']::before {
-  content: '📄';
   background: var(--azul-claro);
+}
+.cartao-resumo li[data-icone='proposta']::after {
+  color: var(--azul);
 }
 .cartao-entregas li {
   overflow-wrap: anywhere;
 }
 /* Azul/negrito se Em Entrega e saiu; vermelho se Cancelado (spec §2.3). */
 .cartao-entregas li[data-status='4'][data-saiu] {
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--azul);
 }
 .cartao-entregas li[data-status='7'] {
   color: var(--vermelho);
   text-decoration: line-through;
 }
+/* Pílula de quantidade com contorno azul (vendas-02). */
 .pilula {
   display: inline-block;
+  min-width: 2.75rem;
   margin-right: var(--e2);
   padding: 0 var(--e2);
   font-family: var(--fonte-numero);
   font-size: var(--t-xs);
+  font-weight: var(--peso-medio);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
   color: var(--azul);
   border: 1px solid var(--azul);
-  border-radius: 999px;
+  border-radius: var(--raio-pilula);
 }
 .cartao-vazio {
   margin: 0;
@@ -411,7 +488,7 @@
 .ficha-vendas-tipo {
   margin: 0 0 var(--e1);
   font-size: var(--t-xs);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--roxo);
@@ -424,7 +501,7 @@
   display: inline-block;
   margin-left: var(--e2);
   font-size: var(--t-sm);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   text-transform: none;
   color: var(--texto-2);
 }
@@ -480,9 +557,10 @@
   flex-direction: column;
   gap: var(--e3);
   min-width: 0;
-  padding: var(--e3);
+  padding: var(--e3) var(--e4);
   background: var(--azul-claro);
-  border-radius: var(--raio);
+  border: 1px solid color-mix(in srgb, var(--azul) 12%, transparent);
+  border-radius: var(--raio-g);
 }
 .item-topo {
   display: flex;
@@ -526,7 +604,7 @@
 }
 .item-vencedor {
   font-size: var(--t-sm);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--verde);
 }
 
@@ -550,11 +628,16 @@
   text-align: right;
   border-bottom: 1px solid var(--borda);
 }
+/* Cabeçalho cinza-lilás, como as colunas do kanban e as tabelas das outras telas. */
 .orc-tabela thead th {
   font-size: var(--t-xs);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
+  line-height: 1.25;
   color: var(--texto-2);
-  background: var(--lilas);
+  background: var(--lilas-cabeca);
+}
+.orc-tabela tbody tr:hover > * {
+  background: var(--fundo-2);
 }
 .orc-tabela th[scope='row'],
 .orc-tabela thead th:first-child {
@@ -583,40 +666,60 @@
   border-bottom: none;
 }
 /* Linha do vencedor com fundo verde-azulado; tributos em vermelho, líquido em verde. */
-.orc-tabela tr[data-vencedor] > * {
+.orc-tabela tr[data-vencedor] > *,
+.orc-tabela tbody tr[data-vencedor]:hover > * {
   background: var(--verde-fundo);
 }
 .orc-tributos {
   color: var(--vermelho);
 }
 .orc-liquido[data-menor] {
-  font-weight: 700;
+  font-weight: var(--peso-forte);
   color: var(--verde);
 }
+/* Troféu: contorno cinza quando não vence, círculo verde quando vence (vendas-04).
+   O emoji do markup some (font-size 0) e dá lugar a um SVG por máscara na cor do
+   token; o aria-label do elemento continua sendo o nome acessível. */
 .trofeu {
-  padding: var(--e1);
-  font-size: var(--t-md);
-  line-height: 1;
+  --icone: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M19 5h-2V3H7v2H5a2 2 0 0 0-2 2v1a5 5 0 0 0 4.39 4.94A5 5 0 0 0 11 15.9V19H7v2h10v-2h-4v-3.1a5 5 0 0 0 3.61-2.96A5 5 0 0 0 21 8V7a2 2 0 0 0-2-2ZM5 8V7h2v3.82A3 3 0 0 1 5 8Zm14 0a3 3 0 0 1-2 2.82V7h2v1Z'/%3E%3C/svg%3E");
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  font-size: 0;
+  line-height: 0;
+  color: var(--texto-3);
   background: none;
-  border: 1px solid transparent;
-  border-radius: var(--raio);
-  filter: grayscale(1);
-  opacity: 0.45;
+  border: 1px solid var(--borda-forte);
+  border-radius: 50%;
+  transition:
+    background-color var(--dur-1) var(--curva),
+    border-color var(--dur-1) var(--curva);
+}
+.trofeu::before {
+  content: '';
+  width: 1rem;
+  height: 1rem;
+  background: currentColor;
+  mask: var(--icone) center / contain no-repeat;
 }
 button.trofeu {
   cursor: pointer;
 }
 button.trofeu:hover:not(:disabled) {
-  opacity: 0.8;
+  color: var(--verde);
   border-color: var(--verde);
+  background: var(--verde-fundo);
 }
 button.trofeu:disabled {
   cursor: not-allowed;
-  opacity: 0.2;
+  opacity: 0.4;
 }
 .trofeu[data-vencedor] {
-  filter: none;
-  opacity: 1;
+  color: var(--verde);
+  background: var(--verde-fundo);
+  border-color: var(--verde);
 }
 .vendas-propostas td {
   font-family: var(--fonte);
@@ -672,21 +775,7 @@ button.trofeu:disabled {
   align-items: flex-end;
   gap: var(--e2);
 }
-/* "Arquivar" amarelo sólido (vendas-12). Sem botão amarelo global: fica na rota. */
-.botao-alerta {
-  padding: var(--e2) var(--e4);
-  font: inherit;
-  font-weight: 600;
-  color: #1f2430;
-  background: var(--laranja);
-  border: 1px solid var(--laranja);
-  border-radius: var(--raio);
-  cursor: pointer;
-}
-.botao-alerta:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
+/* "Arquivar" amarelo sólido (vendas-12): .botao-alerta de estilos/componentes.css. */
 
 /* ------------------------------------------- proposta, pedido e entregas (fluxo.tsx)
  * Diálogos abertos POR CIMA da ficha (top layer do <dialog>). */

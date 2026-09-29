@@ -1,4 +1,10 @@
+/* Casca das telas autenticadas: cabeçalho, menu lateral e engrenagem.
+ * Posições do Bubble (specs/bubble/02-telas-e-design.md, "Elementos globais"):
+ * hambúrguer à esquerda, logo ao centro, usuário + engrenagem à direita; menu
+ * lateral que empurra o conteúdo, com "Sair" no rodapé. */
+
 .casca {
+  --altura-cabecalho: 3.75rem;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -6,79 +12,80 @@
 
 /* ---------------------------------------------------------------- cabeçalho */
 .cabecalho {
-  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: var(--e3);
-  padding: var(--e2) var(--e4);
-  background: var(--superficie);
+  height: var(--altura-cabecalho);
+  padding: 0 var(--e4);
+  background: var(--cabecalho-fundo);
   border-bottom: 1px solid var(--borda);
 }
 
 .cabecalho-menu {
-  padding: var(--e2);
-  font-size: var(--t-lg);
-  line-height: 1;
+  justify-self: start;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
   color: var(--azul);
   background: none;
   border: 1px solid transparent;
   border-radius: var(--raio);
   cursor: pointer;
+  transition: background-color var(--dur-1) var(--curva);
 }
-.cabecalho-menu:hover {
+.cabecalho-menu:hover,
+.cabecalho-menu[aria-expanded='true'] {
   background: var(--azul-claro);
 }
 
 .cabecalho-marca {
-  font-size: var(--t-lg);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--roxo);
-}
-.cabecalho-marca span {
-  color: var(--texto);
+  justify-self: center;
+  display: inline-flex;
 }
 
 .cabecalho-usuario {
+  justify-self: end;
   display: flex;
   align-items: center;
   gap: var(--e3);
-  margin-left: auto;
+  min-width: 0;
 }
 
 .avatar {
+  flex: none;
   display: grid;
   place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.375rem;
+  height: 2.375rem;
   font-size: var(--t-xs);
-  font-weight: 700;
+  font-weight: var(--peso-forte);
+  letter-spacing: 0.02em;
   color: #fff;
-  background: linear-gradient(135deg, var(--azul), var(--roxo));
+  background: linear-gradient(135deg, #2c66e0, #7030a0); /* branco sobre o tom mais claro: 5,14:1 */
   border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--superficie);
 }
 
 .cabecalho-identidade {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   line-height: 1.2;
+}
+.cabecalho-identidade strong {
+  font-size: var(--t-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cabecalho-identidade small {
   font-size: var(--t-xs);
   color: var(--texto-2);
-}
-
-.botao-texto {
-  padding: var(--e1) var(--e2);
-  font: inherit;
-  font-size: var(--t-sm);
-  color: var(--azul);
-  background: none;
-  border: 1px solid var(--borda);
-  border-radius: var(--raio);
-  cursor: pointer;
-}
-.botao-texto:hover {
-  background: var(--azul-claro);
 }
 
 /* -------------------------------------------------------------- engrenagem
@@ -90,16 +97,24 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: var(--e2);
+  height: 2.75rem;
+  padding: 0 var(--e2);
   color: var(--azul);
   background: none;
   border: 1px solid transparent;
   border-radius: var(--raio);
   cursor: pointer;
+  transition: background-color var(--dur-1) var(--curva);
 }
 .engrenagem-botao:hover,
 .engrenagem-botao[aria-expanded='true'] {
   background: var(--azul-claro);
+}
+.engrenagem-botao svg {
+  transition: transform var(--dur-2) var(--curva);
+}
+.engrenagem-botao[aria-expanded='true'] svg {
+  transform: rotate(45deg);
 }
 .engrenagem-caret {
   font-size: var(--t-xs);
@@ -109,18 +124,30 @@
   top: calc(100% + var(--e1));
   right: 0;
   z-index: 30;
-  min-width: 14rem;
+  min-width: 15rem;
   margin: 0;
   padding: var(--e1);
   list-style: none;
   background: var(--superficie);
   border: 1px solid var(--borda);
-  border-radius: var(--raio);
-  box-shadow: var(--sombra-alta);
+  border-radius: var(--raio-g);
+  box-shadow: var(--sombra-2);
+  animation: menu-entra var(--dur-1) var(--curva);
+  transform-origin: top right;
+}
+@keyframes menu-entra {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
 }
 .engrenagem-menu a {
-  display: block;
+  display: flex;
+  align-items: center;
+  min-height: 2.5rem;
   padding: var(--e2) var(--e3);
+  font-size: var(--t-sm);
+  font-weight: var(--peso-medio);
   color: var(--azul);
   text-decoration: none;
   border-radius: var(--raio);
@@ -138,9 +165,16 @@
 }
 
 .menu {
-  flex: 0 0 15rem;
-  padding: var(--e4) var(--e3);
-  background: var(--superficie);
+  flex: 0 0 15.5rem;
+  position: sticky;
+  top: var(--altura-cabecalho);
+  align-self: flex-start;
+  height: calc(100dvh - var(--altura-cabecalho));
+  display: flex;
+  flex-direction: column;
+  padding: var(--e5) var(--e3) var(--e4);
+  overflow-y: auto;
+  background: var(--menu-fundo);
   border-right: 1px solid var(--borda);
 }
 .casca[data-menu='fechado'] .menu {
@@ -153,23 +187,43 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: var(--e1);
+  gap: 2px;
 }
+/* Bubble: itens em texto azul, grandes; o ativo tem barra vertical azul à esquerda. */
 .menu a {
-  display: block;
-  padding: var(--e2) var(--e3);
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: var(--e2) var(--e3) var(--e2) var(--e4);
+  font-size: 1.0625rem;
+  font-weight: var(--peso-medio);
+  line-height: 1.25;
   color: var(--azul);
   text-decoration: none;
-  border-left: 3px solid transparent;
   border-radius: var(--raio);
+  transition: background-color var(--dur-1) var(--curva);
+}
+.menu a::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  width: 3px;
+  border-radius: 3px;
+  background: transparent;
 }
 .menu a:hover {
+  color: var(--azul-escuro);
   background: var(--azul-claro);
 }
 .menu a[aria-current='page'] {
-  font-weight: 600;
+  color: var(--azul-escuro);
   background: var(--azul-claro);
-  border-left-color: var(--azul);
+}
+.menu a[aria-current='page']::before {
+  background: var(--azul);
 }
 
 .menu-vazio {
@@ -177,30 +231,79 @@
   color: var(--texto-2);
 }
 
+/* Bubble: botões com contorno azul e fundo lilás-claro no rodapé do menu. */
+.menu-rodape {
+  margin-top: auto;
+  padding-top: var(--e5);
+}
+.menu-sair {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e2);
+  width: 100%;
+  min-height: 2.75rem;
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: var(--peso-medio);
+  color: var(--azul);
+  background: var(--azul-claro);
+  border: 1px solid var(--azul);
+  border-radius: var(--raio);
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--curva);
+}
+.menu-sair:hover {
+  color: var(--azul-escuro); /* --azul sobre --azul-medio dá 4,17:1; o escuro, 5,47:1 */
+  background: var(--azul-medio);
+}
+
 .conteudo {
   flex: 1;
   min-width: 0;
-  padding: var(--e5);
+  padding: var(--e5) var(--e6) var(--e6);
   background: var(--fundo);
 }
 
 /* ------------------------------------------------------------------ celular
  * O app Bubble não tem layout móvel: as tabelas espremem o texto até ficar
  * vertical (design/LEIA-ME.md). Aqui o menu vira gaveta sobreposta em vez de
- * roubar metade da largura. */
+ * roubar metade da largura, e o cabeçalho fica numa linha só. */
+@media (max-width: 64rem) {
+  .conteudo {
+    padding: var(--e5);
+  }
+}
 @media (max-width: 48rem) {
+  .casca {
+    --altura-cabecalho: 3.5rem;
+  }
+  .cabecalho {
+    padding: 0 var(--e2);
+    gap: var(--e2);
+  }
   .menu {
     position: fixed;
-    inset: 3.5rem 0 0 0;
-    z-index: 10;
-    flex-basis: auto;
+    inset: var(--altura-cabecalho) 0 auto 0;
+    z-index: 15;
+    height: calc(100dvh - var(--altura-cabecalho));
     border-right: none;
-    border-top: 1px solid var(--borda);
+    box-shadow: var(--sombra-3);
   }
   .conteudo {
-    padding: var(--e4) var(--e3);
+    padding: var(--e4) var(--e4) var(--e5);
   }
   .cabecalho-identidade {
     display: none;
+  }
+  .cabecalho-usuario {
+    gap: var(--e1);
+  }
+  .avatar {
+    width: 2.125rem;
+    height: 2.125rem;
+  }
+  .cabecalho-marca .marca-nome {
+    font-size: 1.1875rem;
   }
 }

@@ -31,12 +31,13 @@
 .produtos-filtros {
   display: grid;
   grid-template-columns: minmax(14rem, 2fr) repeat(3, minmax(8rem, 1fr)) auto;
-  align-items: end;
+  align-items: flex-end;
   gap: var(--e3);
   padding: var(--e4);
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
 }
 .produtos-acoes {
   display: flex;
@@ -68,11 +69,11 @@
 .produtos-lista {
   display: flex;
   flex-direction: column;
-  gap: var(--e2);
+  gap: 0.375rem;
   margin: 0;
   padding: 0;
   list-style: none;
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-2) var(--curva);
 }
 .produtos-lista[data-pendente] {
   opacity: 0.55;
@@ -84,22 +85,29 @@
   grid-template-columns: auto minmax(0, 1fr) minmax(0, 18rem) auto;
   align-items: center;
   gap: var(--e3);
-  padding: var(--e3) var(--e4);
+  padding: var(--e2) var(--e4) var(--e2) var(--e4);
   font: inherit;
   text-align: left;
   color: var(--texto);
   background: var(--azul-claro);
   border: 1px solid transparent;
-  border-left: 4px solid var(--azul);
-  border-radius: var(--raio-g);
+  border-left: 3px solid var(--azul);
+  border-radius: var(--raio);
   cursor: pointer;
+  transition:
+    background-color var(--dur-1) var(--curva),
+    border-color var(--dur-1) var(--curva),
+    box-shadow var(--dur-1) var(--curva);
 }
 .produto-linha:hover {
-  border-color: var(--borda-forte);
+  --azul: var(--azul-escuro); /* texto azul da linha sobre --azul-medio: 5,47:1 */
+  background: var(--azul-medio);
+  box-shadow: var(--sombra-1);
 }
 .produto-linha[aria-current='true'] {
   background: var(--lilas);
-  border-color: var(--azul);
+  border-color: color-mix(in srgb, var(--azul) 45%, transparent);
+  border-left-color: var(--azul);
 }
 .produto-linha[data-inativo] {
   border-left-color: var(--borda-forte);
@@ -140,6 +148,8 @@
   overflow-wrap: anywhere;
 }
 .produto-nome {
+  font-weight: var(--peso-forte);
+  letter-spacing: 0.01em;
   text-transform: uppercase;
   overflow-wrap: anywhere;
 }
@@ -171,9 +181,7 @@
 .pf-tipo {
   margin: 0 0 var(--e1);
   font-size: var(--t-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: var(--peso-medio);
   color: var(--roxo);
 }
 .pf-selos {
@@ -183,7 +191,7 @@
   margin: var(--e2) 0 0;
 }
 .pf-alerta {
-  color: var(--laranja);
+  color: var(--laranja-texto);
 }
 .pf-aviso-topo {
   margin-bottom: var(--e4);

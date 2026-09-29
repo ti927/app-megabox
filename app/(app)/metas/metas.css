@@ -24,7 +24,7 @@
 .metas-periodo {
   margin: 0;
   font-size: var(--t-md);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--azul);
 }
 .metas-topo-acoes {
@@ -36,20 +36,25 @@
 .metas-filtros {
   display: grid;
   grid-template-columns: auto repeat(2, minmax(9rem, 11rem)) minmax(12rem, 1fr);
-  align-items: end;
+  align-items: flex-end;
   gap: var(--e3);
   padding: var(--e4);
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
 }
 .metas-meses {
   display: flex;
   align-items: flex-end;
   gap: var(--e2);
 }
+/* ‹ › de mês: o glifo em 14px some dentro do botão; sobe para o tamanho de título. */
 .metas-meses .botao-secundario {
-  padding-inline: var(--e3);
+  min-width: 2.5rem;
+  padding-inline: var(--e2);
+  font-size: var(--t-lg);
+  line-height: 1;
 }
 
 /* ------------------------------------------------------- equipe + ranking */
@@ -57,7 +62,7 @@
   display: grid;
   grid-template-columns: minmax(16rem, 1fr) minmax(0, 2fr);
   gap: var(--e4);
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-2) var(--curva);
 }
 .metas-painel-topo[data-pendente] {
   opacity: 0.55;
@@ -75,6 +80,7 @@
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
 }
 .mt-cartao h2 {
   margin: 0;
@@ -106,9 +112,10 @@
   color: var(--texto-2);
 }
 .mt-numeros dd {
+  font-variant-numeric: tabular-nums;
   margin: 0;
   font-size: var(--t-lg);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--roxo);
 }
 .mt-meses {
@@ -128,6 +135,7 @@
   color: var(--texto-2);
 }
 .mt-meses strong {
+  font-variant-numeric: tabular-nums;
   color: var(--roxo);
 }
 
@@ -173,7 +181,7 @@
   border-left-color: var(--vermelho);
 }
 .mt-posicao {
-  font-weight: 700;
+  font-weight: var(--peso-forte);
   font-size: var(--t-lg);
   color: var(--texto-2);
 }
@@ -209,13 +217,13 @@
   overflow: hidden;
   background: var(--fundo-2);
   border: 1px solid var(--borda);
-  border-radius: 999px;
+  border-radius: var(--raio-pilula);
 }
 .mt-barra-cheio {
   position: absolute;
   inset: 0 auto 0 0;
   background: var(--texto-3);
-  border-radius: 999px;
+  border-radius: var(--raio-pilula);
 }
 /* faixas do Progress-Bar A (bTvpx): < 50% padrão, 50–100% primária, ≥ 100% destaque */
 .mt-barra[data-faixa='media'] .mt-barra-cheio {
@@ -259,7 +267,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-2) var(--curva);
 }
 .mt-painel[data-pendente] {
   opacity: 0.55;
@@ -300,7 +308,7 @@
   overflow-wrap: anywhere;
 }
 .mt-tipo {
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   letter-spacing: 0.04em;
 }
 .mt-selo-nivel {
@@ -331,9 +339,7 @@
 .mt-sobretitulo {
   margin: 0 0 var(--e1);
   font-size: var(--t-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: var(--peso-medio);
   color: var(--roxo);
 }
 .mt-form,
@@ -363,7 +369,7 @@
 }
 .mt-calculo dd {
   margin: 0;
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   white-space: normal;
 }
 .mt-destaque {
@@ -399,7 +405,7 @@
 .mt-nivel-form {
   display: grid;
   grid-template-columns: minmax(8rem, 1.4fr) 6.5rem repeat(3, minmax(7rem, 1fr)) 6rem auto;
-  align-items: end;
+  align-items: flex-end;
   gap: var(--e2) var(--e3);
 }
 .mt-nivel-form[data-teste='form-historico'] {

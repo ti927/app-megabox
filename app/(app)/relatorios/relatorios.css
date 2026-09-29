@@ -30,12 +30,13 @@
 .rel-filtros {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
+  align-items: flex-end;
   gap: var(--e3);
   padding: var(--e4);
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
 }
 .rel-filtros .campo {
   min-width: 9rem;
@@ -75,7 +76,7 @@
 }
 .rel-conteudo[aria-busy='true'] {
   opacity: 0.6;
-  transition: opacity 0.2s;
+  transition: opacity var(--dur-2) var(--curva);
 }
 
 .rel-bloco {
@@ -87,6 +88,7 @@
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
 }
 .rel-bloco h2 {
   display: flex;
@@ -117,7 +119,9 @@
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-left: 4px solid var(--kpi, var(--azul));
+  min-width: 0;
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
 }
 .rel-kpi[data-tom='verde'] {
   --kpi: var(--verde);
@@ -132,16 +136,20 @@
   --kpi: var(--laranja);
 }
 .rel-kpi-rotulo {
-  font-size: var(--t-xs);
+  font-size: var(--t-sm);
+  font-weight: var(--peso-medio);
   color: var(--texto-2);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
 }
 .rel-kpi-valor {
   font-family: var(--fonte-numero);
   font-variant-numeric: tabular-nums;
-  font-size: var(--t-lg);
+  font-size: 1.625rem;
+  font-weight: var(--peso-forte);
+  line-height: 1.15;
   color: var(--kpi, var(--azul));
+}
+.rel-kpi[data-tom='laranja'] .rel-kpi-valor {
+  color: var(--laranja-texto);
 }
 .rel-kpi-detalhe {
   font-size: var(--t-xs);
@@ -175,12 +183,12 @@
   position: sticky;
   top: 0;
   font-size: var(--t-xs);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--sobre-azul);
   background: var(--azul);
 }
 .rel-tabela tbody th {
-  font-weight: 600;
+  font-weight: var(--peso-medio);
 }
 .rel-tabela tbody tr:hover {
   background: var(--azul-claro);
@@ -190,17 +198,17 @@
 }
 .rel-tabela tr[data-nivel='subtotal'] th,
 .rel-tabela tr[data-nivel='subtotal'] td {
-  font-weight: 600;
+  font-weight: var(--peso-medio);
 }
 .rel-tabela tfoot th,
 .rel-tabela tfoot td {
-  font-weight: 700;
+  font-weight: var(--peso-forte);
   background: var(--fundo-2);
   border-top: 2px solid var(--borda-forte);
   border-bottom: none;
 }
 .rel-total {
-  font-weight: 700;
+  font-weight: var(--peso-forte);
 }
 
 /* Matriz: primeira coluna presa ao rolar para os meses. */
@@ -245,7 +253,7 @@
   margin: 0;
 }
 .rel-definicoes dt {
-  font-weight: 600;
+  font-weight: var(--peso-medio);
 }
 .rel-definicoes dd {
   margin: 0;

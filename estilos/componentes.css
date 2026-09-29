@@ -1,17 +1,23 @@
 /* Peças compartilhadas pelas telas: campo, botões, selo, aviso, diálogo, abas,
  * paginação e esqueleto. Nasceram com a tela de cadastros, que é a tela-modelo;
  * as outras telas usam estas classes em vez de redefinir as suas.
- * Só tokens de estilos/tokens.css — claro e escuro vêm de graça. */
+ * Só tokens de estilos/tokens.css — claro e escuro vêm de graça.
+ * Decisões e estados: design/sistema-visual.md. */
 
-/* ------------------------------------------------------------------- campo */
+/* ------------------------------------------------------------------- campo
+ * Rótulo pequeno acima, contorno arredondado (padrão do Bubble). Altura fixa de
+ * 2.5rem no desktop e 2.75rem (44px) no celular, para campo e botão alinharem
+ * na mesma linha de filtros. */
 .campo {
   display: flex;
   flex-direction: column;
-  gap: var(--e1);
+  gap: 0.3125rem;
   min-width: 0;
 }
 .campo > span {
   font-size: var(--t-xs);
+  font-weight: var(--peso-medio);
+  line-height: 1.25;
   color: var(--texto-2);
 }
 .campo > input,
@@ -19,64 +25,166 @@
 .campo > textarea {
   width: 100%;
   min-width: 0;
-  padding: var(--e2) var(--e3);
+  min-height: 2.5rem;
+  padding: 0.4375rem var(--e3);
   font: inherit;
+  font-size: var(--t-sm);
+  line-height: 1.5;
   color: var(--texto);
-  background: var(--fundo);
-  border: 1px solid var(--borda-forte);
+  background: var(--superficie);
+  border: 1px solid var(--borda-campo);
   border-radius: var(--raio);
+  transition:
+    border-color var(--dur-1) var(--curva),
+    box-shadow var(--dur-1) var(--curva);
 }
 .campo > textarea {
+  min-height: 5rem;
   resize: vertical;
+}
+.campo > input::placeholder,
+.campo > textarea::placeholder {
+  color: var(--texto-3);
+  opacity: 1;
+}
+.campo > select {
+  appearance: none;
+  padding-right: 2rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--texto-2) 50%),
+    linear-gradient(135deg, var(--texto-2) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.05rem) 55%,
+    calc(100% - 0.75rem) 55%;
+  background-size:
+    0.3rem 0.3rem,
+    0.3rem 0.3rem;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+.campo > select[multiple] {
+  padding-right: var(--e3);
+  background-image: none;
+}
+.campo > input:hover:not(:disabled, :read-only),
+.campo > select:hover:not(:disabled),
+.campo > textarea:hover:not(:disabled, :read-only) {
+  border-color: var(--texto-3);
 }
 .campo > input:focus-visible,
 .campo > select:focus-visible,
 .campo > textarea:focus-visible {
-  border-color: var(--azul);
+  outline: none;
+  border-color: var(--azul-vivo);
+  box-shadow: var(--anel);
 }
 .campo > input:read-only,
 .campo > input:disabled,
 .campo > select:disabled,
-.campo > textarea:read-only {
+.campo > textarea:read-only,
+.campo > textarea:disabled {
   color: var(--texto-2);
-  background: var(--fundo-2);
+  background-color: var(--fundo-2);
+  border-color: var(--borda-forte);
+  cursor: default;
+}
+.campo > input:disabled,
+.campo > select:disabled,
+.campo > textarea:disabled {
+  cursor: not-allowed;
+}
+/* Campo com erro: a página marca com aria-invalid; a borda e o anel viram vermelhos. */
+.campo > [aria-invalid='true'] {
+  border-color: var(--vermelho);
+}
+.campo > [aria-invalid='true']:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--vermelho) 25%, transparent);
+}
+/* Data: os valores de data são azuis no Bubble. */
+.campo > input[type='date'],
+.campo > input[type='month'] {
+  color: var(--azul);
+  font-variant-numeric: tabular-nums;
+}
+.campo > input[type='date']:disabled,
+.campo > input[type='date']:read-only {
+  color: var(--texto-2);
+}
+.campo > input[type='file'] {
+  padding: 0.3125rem;
+  font-size: var(--t-xs);
+}
+.campo > input[type='file']::file-selector-button {
+  margin-right: var(--e3);
+  padding: var(--e1) var(--e3);
+  font: inherit;
+  font-weight: var(--peso-medio);
+  color: var(--azul);
+  background: var(--azul-claro);
+  border: 1px solid var(--azul);
+  border-radius: var(--raio-p);
+  cursor: pointer;
 }
 
 .caixa {
   display: inline-flex;
   align-items: center;
   gap: var(--e2);
+  min-height: 1.75rem;
   font-size: var(--t-sm);
   cursor: pointer;
 }
 .caixa > input {
-  width: 1rem;
-  height: 1rem;
+  flex: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0;
   accent-color: var(--azul);
+  cursor: pointer;
+}
+.caixa:has(> input:disabled) {
+  color: var(--texto-3);
+  cursor: not-allowed;
 }
 
-/* ------------------------------------------------------------------ botões */
+/* ------------------------------------------------------------------ botões
+ * Primário = azul sólido (ação da tela). Secundário = contorno azul (Bubble:
+ * "Cancela", pílulas de filtro). Perigo = contorno vermelho. Alerta = laranja
+ * sólido (Bubble: "Salvar" em popup de edição). Texto = ação terciária. */
 .botao-primario,
 .botao-secundario,
-.botao-perigo {
+.botao-perigo,
+.botao-alerta {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--e2);
-  padding: var(--e2) var(--e4);
+  min-height: 2.5rem;
+  padding: 0.4375rem var(--e4);
   font: inherit;
-  font-weight: 600;
+  font-size: var(--t-sm);
+  font-weight: var(--peso-medio);
+  line-height: 1.25;
   text-decoration: none;
   border: 1px solid transparent;
   border-radius: var(--raio);
   cursor: pointer;
   white-space: nowrap;
+  transition:
+    background-color var(--dur-1) var(--curva),
+    border-color var(--dur-1) var(--curva),
+    color var(--dur-1) var(--curva),
+    box-shadow var(--dur-1) var(--curva),
+    transform var(--dur-1) var(--curva);
 }
 .botao-primario {
   color: var(--sobre-azul);
   background: var(--azul);
+  box-shadow: 0 1px 2px rgb(28 34 48 / 12%);
 }
 .botao-primario:hover:not(:disabled) {
+  color: var(--sobre-azul);
   background: var(--azul-escuro);
 }
 .botao-secundario {
@@ -85,7 +193,12 @@
   border-color: var(--azul);
 }
 .botao-secundario:hover:not(:disabled) {
+  color: var(--azul-escuro);
   background: var(--azul-claro);
+}
+.botao-secundario[aria-pressed='true'] {
+  color: var(--sobre-azul);
+  background: var(--azul);
 }
 .botao-perigo {
   color: var(--vermelho);
@@ -93,18 +206,64 @@
   border-color: var(--vermelho);
 }
 .botao-perigo:hover:not(:disabled) {
+  color: var(--vermelho);
   background: var(--vermelho-fundo);
+}
+.botao-alerta {
+  color: var(--sobre-laranja);
+  background: var(--laranja);
+}
+.botao-alerta:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--laranja) 86%, black);
+}
+.botao-primario:active:not(:disabled),
+.botao-secundario:active:not(:disabled),
+.botao-perigo:active:not(:disabled),
+.botao-alerta:active:not(:disabled) {
+  transform: translateY(1px);
 }
 .botao-primario:disabled,
 .botao-secundario:disabled,
-.botao-perigo:disabled {
-  opacity: 0.6;
+.botao-perigo:disabled,
+.botao-alerta:disabled {
+  opacity: 0.5;
+  box-shadow: none;
   cursor: not-allowed;
 }
+/* Carregando: o rótulo continua (a página troca por "Gravando…"); o cursor avisa. */
 .botao-primario[aria-busy='true'],
 .botao-secundario[aria-busy='true'],
-.botao-perigo[aria-busy='true'] {
+.botao-perigo[aria-busy='true'],
+.botao-alerta[aria-busy='true'] {
   cursor: progress;
+  opacity: 0.8;
+}
+
+/* Botão de texto: ação discreta (Sair, Limpar, Cancelar em linha). */
+.botao-texto {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e1);
+  min-height: 2rem;
+  padding: var(--e1) var(--e3);
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: var(--peso-medio);
+  color: var(--azul);
+  white-space: nowrap;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--curva);
+}
+.botao-texto:hover:not(:disabled) {
+  background: var(--azul-claro);
+}
+.botao-texto:disabled {
+  color: var(--texto-3);
+  cursor: not-allowed;
 }
 
 /* -------------------------------------------------------------------- selo
@@ -114,12 +273,12 @@
   display: inline-flex;
   align-items: center;
   gap: var(--e1);
-  padding: 1px var(--e2);
+  padding: 0.0625rem 0.5625rem;
   font-size: var(--t-xs);
-  font-weight: 600;
-  line-height: 1.6;
+  font-weight: var(--peso-medio);
+  line-height: 1.5;
   white-space: nowrap;
-  border-radius: 999px;
+  border-radius: var(--raio-pilula);
   color: var(--texto-2);
   background: var(--fundo-2);
   border: 1px solid var(--borda);
@@ -127,17 +286,22 @@
 .selo[data-tom='ok'] {
   color: var(--verde);
   background: var(--verde-fundo);
-  border-color: transparent;
+  border-color: color-mix(in srgb, var(--verde) 22%, transparent);
 }
 .selo[data-tom='erro'] {
   color: var(--vermelho);
   background: var(--vermelho-fundo);
-  border-color: transparent;
+  border-color: color-mix(in srgb, var(--vermelho) 22%, transparent);
 }
 .selo[data-tom='alerta'] {
-  color: var(--texto);
+  color: var(--laranja-texto);
   background: var(--laranja-fundo);
-  border-color: var(--laranja);
+  border-color: color-mix(in srgb, var(--laranja) 55%, transparent);
+}
+.selo[data-tom='info'] {
+  color: var(--roxo);
+  background: var(--lilas);
+  border-color: transparent;
 }
 
 /* ------------------------------------------------------------------- aviso */
@@ -145,21 +309,29 @@
   margin: 0;
   padding: var(--e2) var(--e3);
   font-size: var(--t-sm);
+  line-height: 1.45;
   color: var(--texto);
   background: var(--laranja-fundo);
-  border: 1px solid var(--laranja);
-  border-left-width: 4px;
+  border: 1px solid color-mix(in srgb, var(--laranja) 60%, transparent);
+  border-left: 4px solid var(--laranja);
   border-radius: var(--raio);
 }
 .aviso[data-tom='erro'] {
   color: var(--vermelho);
   background: var(--vermelho-fundo);
-  border-color: var(--vermelho);
+  border-color: color-mix(in srgb, var(--vermelho) 30%, transparent);
+  border-left-color: var(--vermelho);
 }
 .aviso[data-tom='ok'] {
   color: var(--verde);
   background: var(--verde-fundo);
-  border-color: var(--verde);
+  border-color: color-mix(in srgb, var(--verde) 30%, transparent);
+  border-left-color: var(--verde);
+}
+.aviso[data-tom='info'] {
+  background: var(--azul-claro);
+  border-color: color-mix(in srgb, var(--azul) 25%, transparent);
+  border-left-color: var(--azul);
 }
 
 /* ----------------------------------------------------------------- diálogo
@@ -173,14 +345,29 @@
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
-  box-shadow: var(--sombra-alta);
+  box-shadow: var(--sombra-3);
 }
 .dialogo[open] {
   display: flex;
   flex-direction: column;
+  animation: dialogo-entra var(--dur-2) var(--curva);
 }
 .dialogo::backdrop {
-  background: rgb(18 21 28 / 55%);
+  background: var(--veu);
+}
+.dialogo[open]::backdrop {
+  animation: veu-entra var(--dur-2) var(--curva);
+}
+@keyframes dialogo-entra {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+}
+@keyframes veu-entra {
+  from {
+    opacity: 0;
+  }
 }
 .dialogo-cabecalho {
   flex-shrink: 0;
@@ -192,29 +379,35 @@
 }
 .dialogo-cabecalho h2 {
   margin: 0;
+  font-size: var(--t-lg);
   overflow-wrap: anywhere;
 }
+/* Bubble: o X dos popups é azul. Alvo de 40px (44px no celular). */
 .dialogo-fechar {
-  margin-left: auto;
+  margin: -0.25rem -0.5rem 0 auto;
   flex: none;
-  width: 2.25rem;
-  height: 2.25rem;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
   font-size: var(--t-lg);
   line-height: 1;
-  color: var(--laranja);
+  color: var(--azul);
   background: none;
   border: 1px solid transparent;
   border-radius: var(--raio);
   cursor: pointer;
+  transition: background-color var(--dur-1) var(--curva);
 }
 .dialogo-fechar:hover {
-  background: var(--laranja-fundo);
+  background: var(--azul-claro);
 }
 .dialogo-corpo {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   padding: var(--e4) var(--e5);
+  overscroll-behavior: contain;
 }
 .dialogo-rodape {
   flex-shrink: 0;
@@ -223,7 +416,9 @@
   align-items: center;
   gap: var(--e3);
   padding: var(--e3) var(--e5);
+  background: var(--fundo-2);
   border-top: 1px solid var(--borda);
+  border-radius: 0 0 var(--raio-g) var(--raio-g);
 }
 .dialogo-rodape .empurra {
   margin-left: auto;
@@ -239,15 +434,23 @@
     border: none;
     border-radius: 0;
   }
+  .dialogo-rodape {
+    border-radius: 0;
+  }
   .dialogo-cabecalho,
   .dialogo-corpo,
   .dialogo-rodape {
     padding-left: var(--e4);
     padding-right: var(--e4);
   }
+  .dialogo-fechar {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
 }
 
-/* -------------------------------------------------------------------- abas */
+/* -------------------------------------------------------------------- abas
+ * Sublinhadas, ativa em azul com traço grosso (Bubble: SAC e Relatórios). */
 .abas {
   /* Numa ficha longa o corpo do <dialog> espreme o resto; sem isto as abas somem. */
   flex-shrink: 0;
@@ -255,23 +458,37 @@
   gap: var(--e1);
   padding: 0 var(--e5);
   overflow-x: auto;
+  scrollbar-width: thin;
   border-bottom: 1px solid var(--borda);
 }
 .abas button {
+  position: relative;
+  min-height: 2.75rem;
   padding: var(--e2) var(--e3);
   font: inherit;
   font-size: var(--t-sm);
+  font-weight: var(--peso-medio);
   color: var(--texto-2);
   white-space: nowrap;
   background: none;
   border: none;
   border-bottom: 3px solid transparent;
+  border-radius: var(--raio) var(--raio) 0 0;
   cursor: pointer;
+  transition:
+    color var(--dur-1) var(--curva),
+    background-color var(--dur-1) var(--curva);
+}
+.abas button:hover {
+  color: var(--texto);
+  background: var(--fundo-2);
 }
 .abas button[aria-selected='true'] {
-  font-weight: 600;
   color: var(--azul);
   border-bottom-color: var(--azul);
+}
+.abas button:focus-visible {
+  outline-offset: -2px;
 }
 @media (max-width: 40rem) {
   .abas {
@@ -288,6 +505,7 @@
   gap: var(--e3);
   font-size: var(--t-sm);
   color: var(--texto-2);
+  font-variant-numeric: tabular-nums;
 }
 .paginacao nav {
   display: flex;
@@ -296,7 +514,7 @@
 
 /* --------------------------------------------------------------- esqueleto */
 .esqueleto {
-  background: linear-gradient(90deg, var(--fundo-2), var(--borda), var(--fundo-2));
+  background: linear-gradient(90deg, var(--fundo-2) 25%, var(--borda) 50%, var(--fundo-2) 75%);
   background-size: 200% 100%;
   border-radius: var(--raio);
   animation: esqueleto 1.4s ease-in-out infinite;
@@ -318,4 +536,51 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ celular
+ * Alvo de toque de 44px em controles (UX: touch-target-size). */
+@media (max-width: 48rem) {
+  .campo > input,
+  .campo > select,
+  .campo > textarea,
+  .botao-primario,
+  .botao-secundario,
+  .botao-perigo,
+  .botao-alerta {
+    min-height: 2.75rem;
+  }
+  /* 16px no iOS evita o zoom automático ao focar o campo. */
+  .campo > input,
+  .campo > select,
+  .campo > textarea {
+    font-size: var(--t-md);
+  }
+  .botao-texto {
+    min-height: 2.75rem;
+  }
+  .caixa {
+    min-height: 2.75rem;
+  }
+}
+
+/* ------------------------------------------------------------------- marca
+ * componentes/marca.tsx — cubo roxo + "megabox" (Bubble: logo do cabeçalho). */
+.marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--texto);
+  text-decoration: none;
+}
+.marca-cubo {
+  flex: none;
+  color: var(--roxo);
+}
+.marca-nome {
+  font-size: 1.375rem;
+  font-weight: var(--peso-forte);
+  line-height: 1;
+  letter-spacing: -0.035em;
+  color: var(--texto);
 }

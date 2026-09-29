@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 
+import { Marca } from '@/componentes/marca'
+
 import './formulario.css'
 
 /**
@@ -25,13 +27,14 @@ export const metadata: Metadata = {
 
 export default function LayoutFormulario({ children }: { children: React.ReactNode }) {
   return (
-    <main className="pesq">
-      <div className="pesq-cartao">
-        <p className="pesq-marca" aria-label="MegaBox">
-          Mega<span>Box</span>
-        </p>
-        {children}
-      </div>
-    </main>
+    <div className="pesq">
+      {/* Bubble: cabeçalho próprio, só com o logo centralizado sobre faixa clara com sombra. */}
+      <header className="pesq-topo">
+        <Marca tamanho={32} />
+      </header>
+      <main className="pesq-corpo">
+        <div className="pesq-cartao">{children}</div>
+      </main>
+    </div>
   )
 }

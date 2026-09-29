@@ -39,12 +39,13 @@
 .cadastros-filtros {
   display: grid;
   grid-template-columns: auto minmax(14rem, 2fr) repeat(4, minmax(7rem, 1fr));
-  align-items: end;
+  align-items: flex-end;
   gap: var(--e3);
   padding: var(--e4);
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
 }
 .cadastros-tipo {
   display: flex;
@@ -92,7 +93,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-2) var(--curva);
 }
 .clifor-lista[data-pendente] {
   opacity: 0.55;
@@ -104,7 +105,7 @@
   grid-template-columns: 2.5rem 2.75rem minmax(0, 1fr) minmax(0, 14rem) auto;
   align-items: center;
   gap: var(--e3);
-  padding: var(--e3) var(--e4);
+  padding: var(--e2) var(--e4);
   font: inherit;
   text-align: left;
   color: var(--texto);
@@ -113,16 +114,24 @@
   border-left: 4px solid var(--azul);
   border-radius: var(--raio-g);
   cursor: pointer;
+  transition:
+    border-color var(--dur-1) var(--curva),
+    box-shadow var(--dur-1) var(--curva);
 }
 .clifor-linha[data-tipo='fornecedor'] {
   border-left-color: var(--laranja);
 }
 .clifor-linha:hover {
   border-color: var(--borda-forte);
+  box-shadow: var(--sombra-1);
 }
 .clifor-linha[aria-current='true'] {
   background: var(--lilas);
   border-color: var(--azul);
+}
+/* --azul sobre --lilas dá 3,99:1; --azul-escuro, 5,24:1. */
+.clifor-linha[aria-current='true'] .clifor-carteira span {
+  color: var(--azul-escuro);
 }
 
 .clifor-indice {
@@ -136,11 +145,11 @@
   place-items: center;
   width: 2.75rem;
   height: 2.75rem;
-  font-size: var(--t-sm);
-  font-weight: 700;
-  color: var(--texto-2);
-  background: var(--superficie);
-  border: 1px solid var(--borda);
+  font-size: var(--t-xs);
+  font-weight: var(--peso-forte);
+  letter-spacing: 0.02em;
+  color: var(--roxo);
+  background: var(--lilas);
   border-radius: 50%;
 }
 /* Foto do grupo (bucket privado `clifor`, URL assinada): ocupa o círculo inteiro. */
@@ -157,6 +166,8 @@
   min-width: 0;
 }
 .clifor-nome {
+  font-weight: var(--peso-forte);
+  line-height: 1.25;
   text-transform: uppercase;
   overflow-wrap: anywhere;
 }
@@ -196,7 +207,7 @@
 .ficha-tipo {
   margin: 0 0 var(--e1);
   font-size: var(--t-xs);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--texto-2);
@@ -342,7 +353,7 @@
   gap: var(--e2) var(--e4);
   margin-bottom: var(--e3);
   font-size: var(--t-sm);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--texto-2);
 }
 .ficha-secao-topo + .aviso,
@@ -371,7 +382,7 @@
 .ficha-form fieldset.ficha-campos > legend {
   padding: 0 var(--e2) 0 0;
   font-size: var(--t-xs);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--texto-2);

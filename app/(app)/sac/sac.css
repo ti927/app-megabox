@@ -17,7 +17,7 @@
 }
 /* As abas do SAC são navegação (aria-current), não tablist: repete o destaque de .abas. */
 .sac-abas button[aria-current='page'] {
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--azul);
   border-bottom-color: var(--azul);
 }
@@ -51,12 +51,13 @@
 .sac-filtros {
   display: grid;
   grid-template-columns: minmax(14rem, 2fr) repeat(4, minmax(8rem, 1fr));
-  align-items: end;
+  align-items: flex-end;
   gap: var(--e3);
   padding: var(--e4);
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
 }
 .sac-acoes {
   grid-column: span 3;
@@ -100,25 +101,27 @@
 
 /* Cabeçalho em pílula azul, como a tabela do Bubble (design sac-01). */
 .sac-cabecalho {
+  min-height: 2.5rem;
   padding: var(--e2) var(--e4);
-  padding-left: calc(var(--e4) + 4px);
+  padding-left: calc(var(--e4) + 3px);
   font-size: var(--t-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-weight: var(--peso-forte);
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--sobre-azul);
   background: var(--azul);
-  border-radius: 999px;
+  border-radius: var(--raio-pilula);
+  box-shadow: 0 1px 2px rgb(28 34 48 / 12%);
 }
 
 .sac-lista {
   display: flex;
   flex-direction: column;
-  gap: var(--e2);
+  gap: 0.375rem;
   margin: 0;
   padding: 0;
   list-style: none;
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-2) var(--curva);
 }
 .sac-lista[data-pendente] {
   opacity: 0.55;
@@ -133,16 +136,21 @@
   color: var(--texto);
   background: var(--azul-claro);
   border: 1px solid transparent;
-  border-left: 4px solid var(--azul);
-  border-radius: var(--raio-g);
+  border-left: 3px solid var(--azul);
+  border-radius: var(--raio);
   cursor: pointer;
+  transition:
+    background-color var(--dur-1) var(--curva),
+    box-shadow var(--dur-1) var(--curva);
 }
 .sac-linha:hover {
-  border-color: var(--borda-forte);
+  --azul: var(--azul-escuro); /* texto azul da linha sobre --azul-medio: 5,47:1 */
+  background: var(--azul-medio);
+  box-shadow: var(--sombra-1);
 }
 .sac-linha[aria-current='true'] {
   background: var(--lilas);
-  border-color: var(--azul);
+  border-color: color-mix(in srgb, var(--azul) 45%, transparent);
 }
 /* A borda esquerda carrega a prioridade; o texto do selo diz qual é. */
 .sac-linha[data-prioridade='3'] {
@@ -190,7 +198,7 @@
   border-color: transparent;
 }
 .sac-prioridade[data-prioridade='2'] {
-  color: var(--texto);
+  color: var(--laranja-texto);
   background: var(--laranja-fundo);
   border-color: var(--laranja);
 }
@@ -211,7 +219,7 @@
   border-color: transparent;
 }
 .sac-status[data-status='3'] {
-  color: var(--texto);
+  color: var(--laranja-texto);
   background: var(--laranja-fundo);
   border-color: var(--laranja);
 }
@@ -231,9 +239,7 @@
 .sf-tipo {
   margin: 0 0 var(--e1);
   font-size: var(--t-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: var(--peso-medio);
   color: var(--roxo);
 }
 .sf-subtitulo {
@@ -262,11 +268,9 @@
 }
 .sf-secao > h3 {
   margin: 0;
-  font-size: var(--t-sm);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--roxo);
+  font-size: var(--t-md);
+  font-weight: var(--peso-forte);
+  color: var(--texto);
 }
 .sf-form > .sf-secao {
   padding: var(--e3) var(--e4) var(--e4);
@@ -295,7 +299,7 @@
 }
 .sf-dados dd {
   margin: 0;
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   overflow-wrap: anywhere;
 }
 .sf-marcas {
@@ -486,21 +490,23 @@
   display: flex;
   flex-direction: column;
   gap: var(--e1);
-  padding: var(--e3) var(--e4);
+  padding: var(--e4);
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
   min-width: 0;
 }
 .nps-card small {
-  font-size: var(--t-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: var(--t-sm);
+  font-weight: var(--peso-medio);
   color: var(--texto-2);
 }
 .nps-card strong {
-  font-size: var(--t-xl);
+  font-size: 1.875rem;
+  font-weight: var(--peso-forte);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
   font-family: var(--fonte-numero);
   color: var(--texto);
 }
@@ -528,7 +534,7 @@
 .nps-adicionar-form {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.5fr) auto;
-  align-items: end;
+  align-items: flex-end;
   gap: var(--e3);
 }
 .nps-busca {
@@ -542,7 +548,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-2) var(--curva);
 }
 .nps-convites[data-pendente] {
   opacity: 0.55;
@@ -554,8 +560,8 @@
   gap: var(--e2) var(--e4);
   padding: var(--e3) var(--e4);
   background: var(--azul-claro);
-  border-left: 4px solid var(--azul);
-  border-radius: var(--raio-g);
+  border-left: 3px solid var(--azul);
+  border-radius: var(--raio);
 }
 .nps-convite[data-situacao='respondido'] {
   border-left-color: var(--verde);

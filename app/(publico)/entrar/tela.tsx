@@ -3,6 +3,8 @@
 import { useActionState } from 'react'
 import { useFormStatus } from 'react-dom'
 
+import { Marca } from '@/componentes/marca'
+
 import { entrar, type EstadoEntrar } from './acoes'
 
 function Botao() {
@@ -19,11 +21,11 @@ export function TelaEntrar({ proximo }: { proximo: string }) {
 
   return (
     <main className="entrar">
+      {/* Bubble (index): logo grande centralizado, cartão de login logo abaixo. */}
+      <Marca className="entrar-marca" tamanho={44} />
       <form action={acao} className="entrar-cartao" noValidate>
-        <h1 className="entrar-marca">
-          Mega<span>Box</span>
-        </h1>
-        <p className="entrar-sub">Entre para continuar</p>
+        <h1 className="entrar-titulo">Bem-vindo de volta</h1>
+        <p className="entrar-sub">Entre com seu e-mail e senha para continuar.</p>
 
         <input type="hidden" name="proximo" value={proximo} />
 

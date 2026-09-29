@@ -5,10 +5,27 @@
 
 .pesq {
   min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--fundo-2);
+}
+
+.pesq-topo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 4rem;
+  padding: var(--e3) var(--e4);
+  background: var(--cabecalho-fundo);
+  border-bottom: 1px solid var(--borda);
+  box-shadow: var(--sombra-1);
+}
+
+.pesq-corpo {
+  flex: 1;
   display: grid;
   place-items: start center;
-  padding: var(--e6) var(--e4);
-  background: var(--fundo-2);
+  padding: var(--e6) var(--e4) var(--e7);
 }
 
 .pesq-cartao {
@@ -17,23 +34,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--e5);
-  padding: var(--e6) var(--e5) var(--e5);
+  padding: var(--e6);
   background: var(--superficie);
   border: 1px solid var(--borda);
-  border-radius: var(--raio-g);
-  box-shadow: var(--sombra);
-}
-
-.pesq-marca {
-  margin: 0;
-  font-size: var(--t-lg);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--roxo);
-  text-align: center;
-}
-.pesq-marca span {
-  color: var(--texto);
+  border-radius: 16px;
+  box-shadow: var(--sombra-2);
 }
 
 .pesq-form {
@@ -46,6 +51,7 @@
 .pesq-aviso h1 {
   margin: 0 0 var(--e1);
   font-size: var(--t-xl);
+  color: var(--texto);
 }
 .pesq-intro p,
 .pesq-aviso p {
@@ -68,13 +74,16 @@
 .pesq-pergunta legend {
   padding: 0;
   margin-bottom: var(--e3);
-  font-weight: 600;
+  font-size: var(--t-md);
+  font-weight: var(--peso-medio);
+  line-height: 1.4;
 }
 
 .pesq-escala {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--e2);
+  display: grid;
+  grid-template-columns: repeat(11, minmax(0, 2.75rem));
+  justify-content: space-between;
+  gap: var(--e1);
 }
 
 /* O rádio fica por cima do círculo, transparente: o clique/toque e o foco são dele. */
@@ -83,7 +92,12 @@
   display: grid;
   place-items: center;
   width: 2.75rem;
-  height: 2.75rem;
+  aspect-ratio: 1;
+}
+@media (max-width: 480px) {
+  .pesq-nota {
+    height: 2.75rem;
+  }
 }
 .pesq-nota input {
   position: absolute;
@@ -104,13 +118,19 @@
   border: 2px solid var(--azul);
   border-radius: 50%;
   pointer-events: none;
+  transition:
+    background-color var(--dur-1) var(--curva),
+    color var(--dur-1) var(--curva),
+    transform var(--dur-1) var(--curva);
 }
 .pesq-nota:hover span {
   background: var(--azul-claro);
+  transform: scale(1.06);
 }
 .pesq-nota input:checked + span {
   color: var(--sobre-azul);
   background: var(--azul);
+  box-shadow: var(--anel);
 }
 .pesq-nota input:focus-visible + span {
   outline: var(--foco);
@@ -150,7 +170,8 @@
 
 .pesq-enviar {
   width: 100%;
-  padding: var(--e3);
+  min-height: 3rem;
+  font-size: var(--t-md);
 }
 
 .pesq-lgpd {
@@ -161,13 +182,16 @@
 }
 
 @media (max-width: 480px) {
-  .pesq {
-    padding: var(--e4) var(--e3);
+  .pesq-corpo {
+    padding: var(--e4) var(--e3) var(--e6);
   }
   .pesq-cartao {
     padding: var(--e5) var(--e4) var(--e4);
+    border-radius: var(--raio-g);
   }
   .pesq-escala {
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--e2) var(--e1);
     justify-content: flex-start;
   }

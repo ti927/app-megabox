@@ -1,43 +1,56 @@
-/* Tokens de design.
+/* Tokens de design — sistema visual v2 (design/sistema-visual.md).
  *
- * As cores saem da paleta observada no app Bubble atual
- * (specs/bubble/02-telas-e-design.md, seção "Elementos globais"), para que as
- * telas continuem reconhecíveis para quem usa hoje. O que muda é o que estava
- * quebrado: contraste, foco visível e um tema escuro que o Bubble não tem.
+ * A paleta é a do app Bubble atual (specs/bubble/02-telas-e-design.md, "Elementos
+ * globais"), refinada — não trocada: o azul de ação escureceu um passo para passar
+ * AA com texto branco, o laranja ganhou uma variante de texto e o cinza terciário
+ * subiu até 4,5:1. As razões de contraste medidas estão no documento acima.
+ *
+ * Os NOMES dos tokens antigos continuam valendo (as rotas os usam); os novos
+ * (--cabecalho-fundo, --lilas-cabeca, --laranja-texto, --sobre-laranja,
+ * --borda-campo, --azul-medio, --sombra-1..3, --dur-*, --raio-*) completam o sistema.
  *
  * Nada de Tailwind (CLAUDE.md, Stack).
  */
 
 :root {
+  color-scheme: light;
+
   /* --- marca e ações --- */
-  --azul: #3d78f3;
-  --azul-escuro: #2b5ed4;
-  --azul-claro: #eef3fb;
-  /* Texto sobre --azul. Branco no claro; no escuro o azul clareia e branco cai para ~2,7:1. */
+  --azul: #2c66e0; /* Bubble #3D78F3, um passo mais escuro: branco 5,14:1 */
+  --azul-escuro: #2154c2; /* hover/pressionado */
+  --azul-vivo: #3d78f3; /* o azul original: ícones, anel de foco, gráficos */
+  --azul-claro: #eef3fb; /* Bubble: fundo de linhas e cartões */
+  --azul-medio: #dfe8f8; /* linha em hover/selecionada */
   --sobre-azul: #ffffff;
-  --lilas: #ded9f7;
-  --roxo: #7030a0;
+  --lilas: #e4e0f6; /* chips e status */
+  --lilas-cabeca: #e7e5f0; /* cabeçalho de tabela "cinza-lilás" */
+  --roxo: #7030a0; /* marca (cubo do logo) */
 
   /* --- semântica de negócio ---
-   * No app atual estas cores carregam significado, não decoração:
-   * verde = líquido / vencedor / concluído; vermelho = vencido / cancelado;
-   * laranja = salvar em popup de edição e alerta. Mantido de propósito. */
-  --verde: #1f9254;
-  --verde-fundo: #e6f4ec;
-  --vermelho: #c8372d;
+   * verde = líquido / vencedor / concluído; vermelho = vencido / cancelado /
+   * destrutivo; laranja = salvar em popup de edição e alerta. Mantido de propósito. */
+  --verde: #177a45;
+  --verde-fundo: #e5f4eb;
+  --vermelho: #c0362c;
   --vermelho-fundo: #fbeceb;
-  --laranja: #f5a623;
+  --laranja: #f5a623; /* preenchimento, borda, ícone — nunca texto sobre claro */
+  --laranja-texto: #955800;
   --laranja-fundo: #fdf3e2;
+  --sobre-laranja: #2b1d00;
 
   /* --- superfícies e texto --- */
   --fundo: #ffffff;
-  --fundo-2: #f7f9fc;
+  --fundo-2: #f5f7fb;
   --superficie: #ffffff;
-  --borda: #dfe3eb;
-  --borda-forte: #c2c9d6;
-  --texto: #1f2430;
-  --texto-2: #5a6273;
-  --texto-3: #858c9b;
+  --cabecalho-fundo: #f1f6f5; /* Bubble: faixa "cinza-esverdeado muito claro" */
+  --menu-fundo: #f7f9fc; /* Bubble: gaveta do menu lateral */
+  --borda: #e1e5ec;
+  --borda-forte: #c3cad6;
+  --borda-campo: #8c95a6; /* contorno de campo: 3,02:1 (WCAG 1.4.11) */
+  --texto: #1c2230;
+  --texto-2: #4f586a;
+  --texto-3: #626b7e; /* 4,80:1 sobre --azul-claro, 5,35:1 sobre branco */
+  --veu: rgb(17 20 27 / 52%); /* fundo de diálogo */
 
   /* --- espaço (escala de 4) --- */
   --e1: 0.25rem;
@@ -48,80 +61,127 @@
   --e6: 2rem;
   --e7: 3rem;
 
-  /* --- tipografia --- */
-  --fonte: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --fonte-numero: ui-monospace, 'Cascadia Mono', 'Consolas', monospace;
-  --t-xs: 0.75rem;
-  --t-sm: 0.875rem;
-  --t-md: 1rem;
-  --t-lg: 1.25rem;
-  --t-xl: 1.75rem;
+  /* --- tipografia ---
+   * Source Sans 3 (next/font, app/layout.tsx): humanista como o Lato do Bubble,
+   * mais legível em corpo pequeno e com algarismos tabulares de verdade — dinheiro
+   * alinha na coluna sem precisar de fonte monoespaçada. Escala 1,2 (terça menor). */
+  --fonte: var(--fonte-sans, 'Source Sans 3'), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fonte-numero: var(--fonte);
+  --t-xs: 0.8125rem; /* 13px — rótulo, meta, selo */
+  --t-sm: 0.875rem; /* 14px — tabela, controles */
+  --t-md: 1rem; /* 16px — corpo */
+  --t-lg: 1.25rem; /* 20px — título de seção/diálogo */
+  --t-xl: 1.625rem; /* 26px — título de página */
+  --peso-medio: 600;
+  --peso-forte: 700;
 
-  /* --- forma --- */
+  /* --- forma ---
+   * Três raios com papel: campo/botão (--raio), cartão/diálogo (--raio-g),
+   * selo/pílula (--raio-pilula). */
+  --raio-p: 4px;
   --raio: 6px;
   --raio-g: 10px;
-  --sombra: 0 1px 2px rgb(31 36 48 / 8%), 0 2px 8px rgb(31 36 48 / 6%);
-  --sombra-alta: 0 4px 12px rgb(31 36 48 / 12%), 0 12px 32px rgb(31 36 48 / 10%);
+  --raio-pilula: 999px;
 
-  --foco: 2px solid var(--azul);
+  /* Elevação: 1 = cartão parado, 2 = cartão em hover / menu, 3 = diálogo. */
+  --sombra-1: 0 1px 2px rgb(28 34 48 / 6%), 0 1px 3px rgb(28 34 48 / 5%);
+  --sombra-2: 0 2px 4px rgb(28 34 48 / 6%), 0 6px 16px rgb(28 34 48 / 8%);
+  --sombra-3: 0 8px 24px rgb(28 34 48 / 14%), 0 24px 56px rgb(28 34 48 / 14%);
+  --sombra: var(--sombra-1);
+  --sombra-alta: var(--sombra-2);
+
+  /* --- foco --- anel duplo: visível sobre azul sólido e sobre claro */
+  --foco-cor: var(--azul-vivo);
+  --foco: 2px solid var(--foco-cor);
   --foco-offset: 2px;
+  --anel: 0 0 0 3px rgb(61 120 243 / 28%);
+
+  /* --- movimento --- curto e discreto; zerado em prefers-reduced-motion (base.css) */
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --curva: cubic-bezier(0.2, 0, 0, 1);
 }
 
+/* ------------------------------------------------------------------ escuro
+ * Duas cópias idênticas (data-tema e prefers-color-scheme). Mantê-las iguais. */
 :root[data-tema='escuro'] {
-  --azul: #6b9bff;
-  --azul-escuro: #8db3ff;
-  --azul-claro: #1b2436;
-  --sobre-azul: #0b1220;
-  --lilas: #2e2a44;
-  --roxo: #b183d6;
+  color-scheme: dark;
+  --azul: #7aa5ff;
+  --azul-escuro: #9dbcff;
+  --azul-vivo: #7aa5ff;
+  --azul-claro: #1a2438;
+  --azul-medio: #22314d;
+  --sobre-azul: #0b1220; /* texto escuro sobre o azul claro: 7,72:1 */
+  --lilas: #2d2946;
+  --lilas-cabeca: #262a3a;
+  --roxo: #c197e6;
 
-  --verde: #4ec07f;
-  --verde-fundo: #16291f;
-  --vermelho: #f0776c;
-  --vermelho-fundo: #2e1b19;
+  --verde: #5cc98c;
+  --verde-fundo: #14291d;
+  --vermelho: #ff8a80;
+  --vermelho-fundo: #321c1a;
   --laranja: #f0b453;
-  --laranja-fundo: #2e2416;
+  --laranja-texto: #f3bf6a;
+  --laranja-fundo: #2f2515;
+  --sobre-laranja: #2b1d00;
 
-  --fundo: #12151c;
-  --fundo-2: #171b24;
-  --superficie: #1b1f29;
-  --borda: #2b313d;
-  --borda-forte: #3c4453;
-  --texto: #e8eaf0;
-  --texto-2: #a9b0bf;
-  --texto-3: #79808f;
+  --fundo: #11141b;
+  --fundo-2: #161a23;
+  --superficie: #1b202a;
+  --cabecalho-fundo: #161c1f;
+  --menu-fundo: #151922;
+  --borda: #2a303c;
+  --borda-forte: #3a4252;
+  --borda-campo: #687186;
+  --texto: #e7eaf0;
+  --texto-2: #aab1c0;
+  --texto-3: #8f97a8;
+  --veu: rgb(0 0 0 / 62%);
 
-  --sombra: 0 1px 2px rgb(0 0 0 / 40%), 0 2px 8px rgb(0 0 0 / 30%);
-  --sombra-alta: 0 4px 12px rgb(0 0 0 / 45%), 0 12px 32px rgb(0 0 0 / 35%);
+  --sombra-1: 0 1px 2px rgb(0 0 0 / 40%);
+  --sombra-2: 0 2px 6px rgb(0 0 0 / 40%), 0 8px 20px rgb(0 0 0 / 30%);
+  --sombra-3: 0 8px 28px rgb(0 0 0 / 55%), 0 24px 60px rgb(0 0 0 / 45%);
+  --anel: 0 0 0 3px rgb(122 165 255 / 30%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema='claro']) {
-    --azul: #6b9bff;
-    --azul-escuro: #8db3ff;
-    --azul-claro: #1b2436;
+    color-scheme: dark;
+    --azul: #7aa5ff;
+    --azul-escuro: #9dbcff;
+    --azul-vivo: #7aa5ff;
+    --azul-claro: #1a2438;
+    --azul-medio: #22314d;
     --sobre-azul: #0b1220;
-  --sobre-azul: #0b1220;
-    --lilas: #2e2a44;
-    --roxo: #b183d6;
+    --lilas: #2d2946;
+    --lilas-cabeca: #262a3a;
+    --roxo: #c197e6;
 
-    --verde: #4ec07f;
-    --verde-fundo: #16291f;
-    --vermelho: #f0776c;
-    --vermelho-fundo: #2e1b19;
+    --verde: #5cc98c;
+    --verde-fundo: #14291d;
+    --vermelho: #ff8a80;
+    --vermelho-fundo: #321c1a;
     --laranja: #f0b453;
-    --laranja-fundo: #2e2416;
+    --laranja-texto: #f3bf6a;
+    --laranja-fundo: #2f2515;
+    --sobre-laranja: #2b1d00;
 
-    --fundo: #12151c;
-    --fundo-2: #171b24;
-    --superficie: #1b1f29;
-    --borda: #2b313d;
-    --borda-forte: #3c4453;
-    --texto: #e8eaf0;
-    --texto-2: #a9b0bf;
-    --texto-3: #79808f;
+    --fundo: #11141b;
+    --fundo-2: #161a23;
+    --superficie: #1b202a;
+    --cabecalho-fundo: #161c1f;
+    --menu-fundo: #151922;
+    --borda: #2a303c;
+    --borda-forte: #3a4252;
+    --borda-campo: #687186;
+    --texto: #e7eaf0;
+    --texto-2: #aab1c0;
+    --texto-3: #8f97a8;
+    --veu: rgb(0 0 0 / 62%);
 
-    --sombra: 0 1px 2px rgb(0 0 0 / 40%), 0 2px 8px rgb(0 0 0 / 30%);
-    --sombra-alta: 0 4px 12px rgb(0 0 0 / 45%), 0 12px 32px rgb(0 0 0 / 35%);
+    --sombra-1: 0 1px 2px rgb(0 0 0 / 40%);
+    --sombra-2: 0 2px 6px rgb(0 0 0 / 40%), 0 8px 20px rgb(0 0 0 / 30%);
+    --sombra-3: 0 8px 28px rgb(0 0 0 / 55%), 0 24px 60px rgb(0 0 0 / 45%);
+    --anel: 0 0 0 3px rgb(122 165 255 / 30%);
   }
 }

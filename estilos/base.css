@@ -8,7 +8,8 @@
 }
 
 html {
-  color-scheme: light dark;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -19,23 +20,62 @@ body {
   font-size: var(--t-md);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 h1,
 h2,
 h3 {
   margin: 0 0 var(--e3);
-  line-height: 1.25;
+  line-height: 1.2;
+  font-weight: var(--peso-forte);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
 }
 h1 {
   font-size: var(--t-xl);
+  letter-spacing: -0.015em;
 }
 h2 {
   font-size: var(--t-lg);
 }
+h3 {
+  font-size: var(--t-md);
+}
+
+p {
+  text-wrap: pretty;
+}
 
 a {
   color: var(--azul);
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+}
+a:hover {
+  color: var(--azul-escuro);
+  text-decoration-thickness: 2px;
+}
+
+::selection {
+  background: var(--azul-medio);
+  color: var(--texto);
+}
+
+/* Tabelas: algarismos tabulares em toda célula, para colunas de número alinharem. */
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button {
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Foco sempre visível. No app Bubble atual o foco é inconsistente e em vários
@@ -43,7 +83,6 @@ a {
 :focus-visible {
   outline: var(--foco);
   outline-offset: var(--foco-offset);
-  border-radius: var(--raio);
 }
 
 /* Valor monetário: tabular, alinhado à direita, para a coluna ficar legível.
@@ -62,5 +101,6 @@ a {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

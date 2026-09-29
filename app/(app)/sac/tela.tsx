@@ -4,6 +4,9 @@ import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { startTransition, useActionState, useEffect, useRef, useState, useTransition } from 'react'
 
+import { Check, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
+
+import { Icone } from '@/componentes/icone'
 import { totalPaginas } from '@/lib/clifor'
 import { formatarData } from '@/lib/datas'
 import {
@@ -53,7 +56,8 @@ function Paginacao({
           disabled={pagina <= 1 || pendente}
           onClick={() => navegar({ pagina: pagina - 1, sel: null })}
         >
-          ← Anterior
+          <Icone icone={ChevronLeft} tamanho={16} />
+          Anterior
         </button>
         <button
           type="button"
@@ -61,7 +65,8 @@ function Paginacao({
           disabled={pagina >= paginas || pendente}
           onClick={() => navegar({ pagina: pagina + 1, sel: null })}
         >
-          Próxima →
+          Próxima
+          <Icone icone={ChevronRight} tamanho={16} />
         </button>
       </nav>
     </div>
@@ -113,8 +118,12 @@ function LinhaChamado({
           <small className="sac-rotulo">Tipo</small>
           {tipo}
         </span>
-        <span className="sac-col-selos">
+        <span className="sac-col-prioridade">
+          <small className="sac-rotulo">Prioridade</small>
           <SeloPrioridade id={linha.prioridade_id} opcoes={opcoes.prioridades} />
+        </span>
+        <span className="sac-col-selos">
+          <small className="sac-rotulo">Status</small>
           <SeloStatus id={linha.status_id} opcoes={opcoes.status} />
           {linha.excluido_em ? (
             <span className="selo" data-tom="erro">
@@ -176,7 +185,8 @@ function Chamados({
           Não resolvidos: <strong>{abertos.toLocaleString('pt-BR')}</strong>
         </p>
         <button type="button" className="botao-primario" onClick={() => setNovo(true)} data-teste="novo-chamado">
-          + Novo chamado
+          <Icone icone={Plus} tamanho={16} />
+          Novo chamado
         </button>
       </header>
 
@@ -249,12 +259,13 @@ function Chamados({
           {algumFiltro ? (
             <button
               type="button"
-              className="botao-texto"
+              className="botao-texto sac-limpar"
               onClick={() => {
                 setTexto('')
                 filtrar({ q: '', status: null, prioridade: null, tipo: null, responsavel: null, de: null, ate: null, excluidos: false })
               }}
             >
+              <Icone icone={X} tamanho={16} />
               Limpar
             </button>
           ) : null}
@@ -271,13 +282,14 @@ function Chamados({
             {algumFiltro ? 'Nenhum chamado encontrado com esses filtros.' : 'Nenhum chamado aberto para você ainda.'}
           </p>
         ) : (
-          <>
+          <div className="sac-tabela">
             <div className="sac-cabecalho" aria-hidden="true">
               <span>Protocolo</span>
               <span>Cliente (CNPJ)</span>
               <span>Pedido</span>
               <span>Tipo</span>
-              <span>Prioridade · Status</span>
+              <span>Prioridade</span>
+              <span>Status</span>
               <span>Responsável</span>
             </div>
             <ol className="sac-lista" data-teste="lista-chamados" data-pendente={pendente || undefined}>
@@ -291,7 +303,7 @@ function Chamados({
                 />
               ))}
             </ol>
-          </>
+          </div>
         )}
         <Paginacao pagina={filtros.pagina} total={lista.total} pendente={pendente} navegar={navegar} />
       </section>
@@ -357,7 +369,14 @@ function LinkEmitido({ caminho, aoFechar }: { caminho: string; aoFechar: () => v
             }
           }}
         >
-          {copiado ? 'Copiado ✓' : 'Copiar link'}
+          {copiado ? (
+            <>
+              <Icone icone={Check} tamanho={16} />
+              Copiado
+            </>
+          ) : (
+            'Copiar link'
+          )}
         </button>
         <button type="button" className="botao-texto" onClick={aoFechar}>
           Fechar
@@ -601,13 +620,14 @@ function GestaoNps({
           <p className="sac-subtitulo">Campanhas de NPS, convidados e respostas</p>
         </div>
         <button type="button" className="botao-primario" onClick={() => setNova(true)} data-teste="nova-pesquisa-botao">
-          + Nova pesquisa NPS
+          <Icone icone={Plus} tamanho={16} />
+          Nova pesquisa NPS
         </button>
       </header>
 
       {painel.pesquisas.length === 0 ? (
         <p className="sac-vazio" data-teste="nps-vazio">
-          Nenhuma pesquisa criada ainda. Crie a primeira em “+ Nova pesquisa NPS”.
+          Nenhuma pesquisa criada ainda. Crie a primeira em “Nova pesquisa NPS”.
         </p>
       ) : (
         <>

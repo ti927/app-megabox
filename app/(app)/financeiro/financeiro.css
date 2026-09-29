@@ -1,6 +1,6 @@
 /* Tela do Fluxo Financeiro.
- * Segue as telas-modelo (/cadastros, /produtos): título, filtros num cartão, lista, ficha em
- * <dialog>. Peças genéricas (campo, botão, selo, aviso, diálogo, paginação, esqueleto) vêm de
+ * Aplicativo de mesa: a página usa a largura toda (sem max-width no contêiner), filtros num
+ * cartão, cards de soma, tabela densa de largura total, ficha em <dialog>. Peças genéricas (campo, botão, selo, aviso, diálogo, paginação, esqueleto) vêm de
  * estilos/componentes.css; aqui só o que é do financeiro. Prefixo `fin-`.
  * Cores com significado (tokens.css): roxo = vencidos, verde = receber, vermelho = pagar e
  * vencida, laranja = rótulo da data usada no filtro (specs/bubble/02-telas-e-design.md). */
@@ -69,7 +69,6 @@
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
-  box-shadow: var(--sombra-1);
 }
 .fin-filtros-fim {
   display: flex;
@@ -142,7 +141,7 @@ button.fin-card:hover {
   font-weight: var(--peso-medio);
 }
 .fin-card-valor {
-  font-size: 1.5rem;
+  font-size: var(--t-lg);
   font-weight: var(--peso-forte);
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
@@ -205,7 +204,7 @@ button.fin-card:hover {
   padding: var(--e2) var(--e3);
   z-index: 1;
   font-size: var(--t-xs);
-  font-weight: var(--peso-forte);
+  font-weight: var(--peso-medio);
   text-align: left;
   white-space: nowrap;
   color: var(--texto-2);
@@ -214,7 +213,7 @@ button.fin-card:hover {
 }
 .fin-tabela td {
   padding: var(--e2) var(--e3);
-  vertical-align: top;
+  vertical-align: middle;
   border-bottom: 1px solid var(--borda);
   overflow-wrap: anywhere;
 }
@@ -228,9 +227,11 @@ button.fin-card:hover {
   transition: background-color var(--dur-1) var(--curva);
 }
 .fin-tabela tbody tr:hover {
+  --azul: var(--azul-escuro); /* link azul sobre fundo tingido: sobra de contraste no claro e no escuro */
   background: var(--azul-claro);
 }
 .fin-tabela tbody tr[data-marcada] {
+  --azul: var(--azul-escuro);
   background: var(--laranja-fundo);
 }
 .fin-tabela tbody tr[data-atual] {

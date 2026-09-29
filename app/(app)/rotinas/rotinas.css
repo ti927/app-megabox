@@ -1,4 +1,6 @@
 /* Tela de rotinas de manutenção (db/014, rotinas.md §9).
+ * Aplicativo de mesa: a página usa a largura toda (sem max-width no contêiner); o catálogo
+ * enche a linha com quantos cartões couberem e o histórico é tabela de largura total.
  * Peças genéricas (campo, botões, selo, aviso, diálogo, esqueleto) vêm de
  * estilos/componentes.css; aqui só o que é da tela. Prefixos `rotina(s)-`. */
 
@@ -6,7 +8,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--e5);
-  max-width: 80rem;
+  min-width: 0;
 }
 .rotinas h1,
 .rotinas h2,
@@ -56,6 +58,7 @@
   box-shadow: var(--sombra-1);
 }
 .rotina-cartao[aria-current='true'] {
+  --azul: var(--azul-escuro); /* texto azul sobre --lilas: --azul dá 3,99:1, --azul-escuro 5,24:1 */
   background: var(--lilas);
   border-color: var(--azul);
 }
@@ -290,42 +293,52 @@
 .rotinas-execucoes {
   display: flex;
   flex-direction: column;
-  gap: var(--e1);
   margin: 0;
   padding: 0;
   list-style: none;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  overflow: hidden;
+}
+.rotinas-execucoes > li + li {
+  border-top: 1px solid var(--borda);
 }
 .rotina-execucao {
   width: 100%;
   display: grid;
-  grid-template-columns: 8.5rem minmax(0, 1.6fr) 6.5rem 6.5rem 4rem minmax(0, 1fr) minmax(0, 1.6fr);
+  grid-template-columns:
+    9rem minmax(0, 1.6fr) 7rem 7rem 5rem minmax(0, 1fr) minmax(0, 1.8fr);
   align-items: center;
   gap: var(--e3);
-  padding: var(--e2) var(--e3);
+  min-height: 2.75rem;
+  padding: var(--e2) var(--e4);
   font: inherit;
   font-size: var(--t-sm);
   text-align: left;
   color: var(--texto);
   background: var(--superficie);
-  border: 1px solid var(--borda);
-  border-radius: var(--raio);
+  border: none;
   cursor: pointer;
+  transition: background-color var(--dur-1) var(--curva);
 }
 .rotina-execucao:hover {
-  border-color: var(--borda-forte);
   background: var(--azul-claro);
 }
+.rotina-execucao:focus-visible {
+  outline: var(--foco);
+  outline-offset: -3px;
+}
 .rotina-execucao-cabecalho {
+  min-height: 2.25rem;
   font-size: var(--t-xs);
   font-weight: var(--peso-medio);
   color: var(--texto-2);
-  background: none;
-  border-color: transparent;
+  background: var(--lilas-cabeca);
   cursor: default;
 }
 .rotina-execucao-cabecalho:hover {
-  background: none;
-  border-color: transparent;
+  background: var(--lilas-cabeca);
 }
 .rotina-execucao-nome,
 .rotina-execucao-motivo {

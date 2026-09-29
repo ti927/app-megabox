@@ -2,7 +2,9 @@
 
 import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
+import { X } from 'lucide-react'
 
+import { Icone } from '@/componentes/icone'
 import {
   camposEditaveis,
   formatarDataHora,
@@ -325,7 +327,7 @@ export function FichaProtocolo({
           </p>
         </div>
         <button type="button" className="dialogo-fechar" aria-label="Fechar" onClick={() => ref.current?.close()}>
-          ✕
+          <Icone icone={X} tamanho={20} />
         </button>
       </header>
 
@@ -714,7 +716,7 @@ export function NovoProtocolo({
           <p className="sf-subtitulo">Registre o atendimento. O número sai ao gravar.</p>
         </div>
         <button type="button" className="dialogo-fechar" aria-label="Fechar" onClick={() => ref.current?.close()}>
-          ✕
+          <Icone icone={X} tamanho={20} />
         </button>
       </header>
 
@@ -897,7 +899,7 @@ export function NovaPesquisa({ aoCriar, aoFechar }: { aoCriar: (id: string) => v
       <header className="dialogo-cabecalho">
         <h2 id="np-titulo">Nova pesquisa NPS</h2>
         <button type="button" className="dialogo-fechar" aria-label="Fechar" onClick={() => ref.current?.close()}>
-          ✕
+          <Icone icone={X} tamanho={20} />
         </button>
       </header>
       <form action={criar} className="dialogo-corpo sf-form">

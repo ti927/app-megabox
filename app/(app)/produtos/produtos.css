@@ -1,14 +1,29 @@
 /* Tela de cadastro de produtos.
- * Segue a tela-modelo (/cadastros): título, contador, filtros num cartão, itens em cartão
- * azul-claro com borda à esquerda, ficha em <dialog>. Peças genéricas (campo, botão, selo,
- * aviso, diálogo, abas, esqueleto) vêm de estilos/componentes.css; aqui só o que é de
- * produto. Prefixos `produto(s)-` (lista) e `pf-` (ficha) para não colidir com /cadastros. */
+ * Mesmo desenho de /cadastros (aplicativo de mesa): lista densa em largura total, uma linha
+ * por produto com colunas, e a ficha num painel lateral à direita
+ * (componentes/painel-lateral.tsx) — a lista encolhe e esconde colunas pelo tamanho do
+ * contêiner. Peças genéricas (campo, botão, selo, aviso, abas, esqueleto) vêm de
+ * estilos/componentes.css; aqui só NOMES de token. Prefixos `produto(s)-` (lista) e `pf-`
+ * (ficha) para não colidir com /cadastros. */
 
 .produtos {
   display: flex;
   flex-direction: column;
   gap: var(--e4);
-  max-width: 80rem;
+  min-width: 0;
+  transition: padding-right var(--dur-2) var(--curva);
+}
+/* Painel aberto: abre espaço do tamanho dele, menos o respiro que a casca já dá à direita. */
+@media (min-width: 48.01rem) {
+  .produtos[data-painel-aberto] {
+    padding-right: max(0px, calc(var(--painel-lateral-largura, 52vw) - var(--margem-pagina) + var(--e4)));
+  }
+}
+
+.produtos .numero {
+  font-family: var(--fonte-numero);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .produtos-topo {
@@ -24,25 +39,46 @@
 .produtos-contador {
   margin: 0;
   font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+.produtos-contador strong {
+  font-variant-numeric: tabular-nums;
   color: var(--roxo);
 }
 
-/* ------------------------------------------------------------------ filtros */
+/* ------------------------------------------------------------------ filtros
+ * Uma faixa só: busca que cresce, três filtros de largura fixa, ações à direita. */
 .produtos-filtros {
-  display: grid;
-  grid-template-columns: minmax(14rem, 2fr) repeat(3, minmax(8rem, 1fr)) auto;
+  display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--e3);
-  padding: var(--e4);
+  padding: var(--e3) var(--e4);
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
-  box-shadow: var(--sombra-1);
+}
+.produtos-busca {
+  flex: 1 1 16rem;
+}
+.produtos-filtros > .campo:not(.produtos-busca) {
+  flex: 0 1 12rem;
 }
 .produtos-acoes {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--e3);
+  margin-left: auto;
+}
+.produtos-acoes button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e2);
+}
+.produtos-limpar {
+  min-height: 2.5rem;
 }
 
 /* -------------------------------------------------------------------- lista */
@@ -50,6 +86,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--e3);
+  min-width: 0;
+  container: produtos / inline-size;
 }
 .produtos-vazio {
   margin: 0;
@@ -66,10 +104,75 @@
   color: var(--texto-2);
 }
 
-.produtos-lista {
+/* Colunas: cada célula tem a SUA coluna (grid-column fixo). Coluna escondida vira 0px e a
+ * célula some — nada escorrega para o lugar errado. O respiro é padding da célula. */
+.produtos-tabela {
+  --c-nome: minmax(16rem, 3fr);
+  --c-tipo: minmax(7rem, 1fr);
+  --c-grupo: minmax(8rem, 1.2fr);
+  --c-for: 6.5rem;
+  --c-ver: 5rem;
+  --c-etq: minmax(11rem, 2fr);
+  --c-sit: 13.5rem;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  overflow: hidden;
+}
+.produtos-cabeca,
+.produto-linha {
+  display: grid;
+  grid-template-columns:
+    var(--c-nome) var(--c-tipo) var(--c-grupo) var(--c-for) var(--c-ver) var(--c-etq)
+    var(--c-sit);
+  align-items: center;
+}
+.produtos-cabeca {
+  min-height: 2.25rem;
+  font-size: var(--t-xs);
+  font-weight: var(--peso-medio);
+  color: var(--texto-2);
+  background: var(--lilas-cabeca);
+  border-bottom: 1px solid var(--borda);
+}
+.produto-c {
+  min-width: 0;
+  padding: 0 var(--e3);
+}
+.produto-c-nome {
+  grid-column: 1;
   display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
+  align-items: center;
+  gap: var(--e3);
+  padding-left: var(--e4);
+}
+.produto-c-tipo {
+  grid-column: 2;
+}
+.produto-c-grupo {
+  grid-column: 3;
+}
+.produto-c-for {
+  grid-column: 4;
+}
+.produto-c-ver {
+  grid-column: 5;
+}
+.produto-c-etq {
+  grid-column: 6;
+}
+.produto-c-sit {
+  grid-column: 7;
+}
+.produto-linha .produto-c-tipo,
+.produto-linha .produto-c-grupo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--texto-2);
+}
+
+.produtos-lista {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -78,39 +181,43 @@
 .produtos-lista[data-pendente] {
   opacity: 0.55;
 }
+.produtos-lista > li + li {
+  border-top: 1px solid var(--borda);
+}
 
 .produto-linha {
+  position: relative;
   width: 100%;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) minmax(0, 18rem) auto;
-  align-items: center;
-  gap: var(--e3);
-  padding: var(--e2) var(--e4) var(--e2) var(--e4);
+  min-height: 3.5rem;
+  padding: var(--e2) 0;
   font: inherit;
+  font-size: var(--t-sm);
   text-align: left;
   color: var(--texto);
-  background: var(--azul-claro);
-  border: 1px solid transparent;
-  border-left: 3px solid var(--azul);
-  border-radius: var(--raio);
+  background: var(--superficie);
+  border: none;
   cursor: pointer;
-  transition:
-    background-color var(--dur-1) var(--curva),
-    border-color var(--dur-1) var(--curva),
-    box-shadow var(--dur-1) var(--curva);
+  transition: background-color var(--dur-1) var(--curva);
 }
+/* Texto azul da linha sobre fundo tingido: --azul-escuro (5,47:1 sobre --azul-medio). */
 .produto-linha:hover {
-  --azul: var(--azul-escuro); /* texto azul da linha sobre --azul-medio: 5,47:1 */
-  background: var(--azul-medio);
-  box-shadow: var(--sombra-1);
+  --azul: var(--azul-escuro);
+  background: var(--azul-claro);
+}
+.produto-linha:focus-visible {
+  outline: var(--foco);
+  outline-offset: -3px;
 }
 .produto-linha[aria-current='true'] {
-  background: var(--lilas);
-  border-color: color-mix(in srgb, var(--azul) 45%, transparent);
-  border-left-color: var(--azul);
+  --azul: var(--azul-escuro);
+  background: var(--azul-medio);
 }
-.produto-linha[data-inativo] {
-  border-left-color: var(--borda-forte);
+.produto-linha[aria-current='true']::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--azul-vivo);
 }
 .produto-linha[data-inativo] .produto-nome {
   color: var(--texto-2);
@@ -120,15 +227,20 @@
 .produto-foto {
   display: grid;
   place-items: center;
-  width: 3rem;
-  height: 3rem;
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
   overflow: hidden;
-  font-size: var(--t-sm);
-  font-weight: 700;
-  color: var(--texto-2);
-  background: var(--superficie);
-  border: 1px solid var(--borda);
+  font-size: var(--t-xs);
+  font-weight: var(--peso-forte);
+  letter-spacing: 0.02em;
+  color: var(--roxo);
+  background: var(--lilas);
   border-radius: var(--raio);
+}
+.produto-foto[data-foto] {
+  background: var(--fundo-2);
+  border: 1px solid var(--borda);
 }
 .pf-foto-quadro img {
   display: block;
@@ -142,41 +254,111 @@
   flex-direction: column;
   min-width: 0;
 }
-.produto-classe {
-  font-size: var(--t-xs);
-  color: var(--roxo);
-  overflow-wrap: anywhere;
-}
 .produto-nome {
-  font-weight: var(--peso-forte);
+  overflow: hidden;
+  font-weight: var(--peso-medio);
+  line-height: 1.3;
   letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-transform: uppercase;
-  overflow-wrap: anywhere;
+}
+/* Tipo › grupo e contagens dentro da célula do nome: só quando as colunas somem. */
+.produto-classe,
+.produto-meta {
+  display: none;
+  overflow: hidden;
+  font-size: var(--t-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.produto-classe {
+  align-items: center;
+  gap: 2px;
+  color: var(--roxo);
 }
 .produto-meta {
-  font-size: var(--t-xs);
   color: var(--texto-2);
 }
 .produto-etiquetas {
   display: flex;
   flex-wrap: wrap;
   gap: var(--e1);
-  min-width: 0;
 }
 .produto-selo-linha {
   color: var(--azul);
 }
 .produto-estado {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-wrap: wrap;
   gap: var(--e1);
+}
+/* Rótulos de célula: só para leitor de tela, já que o cabeçalho visual é aria-hidden. */
+.produto-rotulo-celula {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Lista estreita (painel aberto ou janela menor): some o secundário, na ordem. */
+@container produtos (max-width: 68rem) {
+  .produtos-tabela {
+    --c-tipo: 0px;
+    --c-grupo: 0px;
+  }
+  .produto-c-tipo,
+  .produto-c-grupo {
+    display: none;
+  }
+  .produto-classe {
+    display: flex;
+  }
+}
+@container produtos (max-width: 50rem) {
+  .produtos-tabela {
+    --c-for: 0px;
+    --c-ver: 0px;
+    --c-nome: minmax(14rem, 3fr);
+  }
+  .produto-c-for,
+  .produto-c-ver {
+    display: none;
+  }
+  .produto-meta {
+    display: block;
+  }
+}
+@container produtos (max-width: 40rem) {
+  .produtos-tabela {
+    --c-etq: 0px;
+    --c-nome: minmax(0, 1fr);
+    --c-sit: 9rem;
+  }
+  .produto-c-etq {
+    display: none;
+  }
 }
 
 /* -------------------------------------------------------------------- ficha */
-.pf .dialogo-cabecalho h2 {
+.pf {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.pf-titulo {
+  min-width: 0;
+}
+.pf-cabecalho h2 {
+  margin: 0;
+  font-size: var(--t-lg);
+  line-height: 1.25;
   color: var(--azul);
   text-transform: uppercase;
+  overflow-wrap: anywhere;
 }
 .pf-tipo {
   margin: 0 0 var(--e1);
@@ -190,7 +372,13 @@
   gap: var(--e2);
   margin: var(--e2) 0 0;
 }
+.pf-abas button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e2);
+}
 .pf-alerta {
+  display: inline-flex;
   color: var(--laranja-texto);
 }
 .pf-aviso-topo {
@@ -366,55 +554,16 @@
   border-top: 1px solid var(--borda);
 }
 
-/* ------------------------------------------------------------------ celular */
-@media (max-width: 64rem) {
-  .produtos-filtros {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .produtos-busca,
-  .produtos-acoes {
-    grid-column: 1 / -1;
-  }
-}
-
+/* ------------------------------------------------------------- tela estreita */
 @media (max-width: 40rem) {
-  .produtos-filtros {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  .produtos-filtros > .campo,
+  .produtos-acoes,
   .produtos-acoes > * {
-    flex: 1;
-  }
-  .produto-linha {
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: var(--e2) var(--e3);
-    padding: var(--e3);
-  }
-  .produto-etiquetas,
-  .produto-estado {
-    grid-column: 1 / -1;
-  }
-  .produto-estado {
-    flex-direction: row;
-    justify-content: flex-start;
+    flex: 1 1 100%;
   }
   .pf-campos {
     grid-template-columns: minmax(0, 1fr);
   }
-}
-
-/* Altura mínima na ficha, para o diálogo não pular de tamanho ao trocar de aba. */
-@media (min-width: 40.01rem) {
-  .pf .dialogo-corpo {
-    min-height: 24rem;
-  }
-}
-
-/* A barra de abas encolhia a zero no <dialog> em coluna quando o corpo é longo (produto com
- * dezenas de filiais). Correção local; o lugar certo é .abas em estilos/componentes.css. */
-.pf .abas,
-.pf .dialogo-cabecalho,
-.pf .dialogo-rodape {
-  flex-shrink: 0;
 }
 
 /* ------------------------------------------------------------------ aba Fotos */
@@ -434,7 +583,7 @@
 }
 .pf-foto-rotulo {
   font-size: var(--t-sm);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--texto-2);
 }
 .pf-foto-quadro {

@@ -219,14 +219,17 @@ begin
     left join public.usuarios u on u.id = x.vendedor_id
   ),
   motivos as (
-    select coalesce(jsonb_agg(jsonb_build_object('motivo', m.motivo, 'qtd', m.qtd)
+    -- motivo_id vai junto: a cor do gráfico segue o motivo, não a posição no ranking.
+    select coalesce(jsonb_agg(jsonb_build_object('motivo_id', m.motivo_id, 'motivo', m.motivo, 'qtd', m.qtd)
                               order by m.qtd desc, m.motivo), '[]'::jsonb) as j
     from (
-      select coalesce(mo.nome, 'Não informado') as motivo, count(*) as qtd
+      select b.motivo_arquivamento_id as motivo_id,
+             coalesce(mo.nome, 'Não informado') as motivo,
+             count(*) as qtd
       from base b
       left join public.motivos_arquivamento mo on mo.id = b.motivo_arquivamento_id
       where b.arquivado
-      group by 1
+      group by 1, 2
     ) m
   ),
   historico as (                                                            -- R5

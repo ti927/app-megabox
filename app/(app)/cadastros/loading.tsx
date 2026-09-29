@@ -4,15 +4,16 @@ import './cadastros.css'
 export default function Carregando() {
   return (
     <div className="cadastros" aria-busy="true" aria-label="Carregando cadastros">
-      <div className="esqueleto" style={{ height: '2rem', width: '16rem' }} />
-      <div className="esqueleto" style={{ height: '5.5rem' }} />
-      <ol className="clifor-lista">
-        {Array.from({ length: 8 }, (_, i) => (
-          <li key={i}>
-            <div className="esqueleto" style={{ height: '4.5rem' }} />
-          </li>
+      <div className="esqueleto" style={{ height: '2rem', width: '22rem' }} />
+      <div className="esqueleto" style={{ height: '4rem' }} />
+      <div className="clifor-tabela">
+        <div className="clifor-cabeca" />
+        {Array.from({ length: 12 }, (_, i) => (
+          <div key={i} style={{ padding: 'var(--e2) var(--e3)' }}>
+            <div className="esqueleto" style={{ height: '2.25rem' }} />
+          </div>
         ))}
-      </ol>
+      </div>
     </div>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
-import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
+import { AlertTriangle, Building2, FileText, Paperclip, Users, X } from 'lucide-react'
+import { startTransition, useActionState, useEffect, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
 import { Foto } from '@/componentes/foto'
@@ -208,10 +209,12 @@ function FormularioGrupo({
   )
 }
 
-// ----------------------------------------------------------------------- o diálogo
+// ----------------------------------------------------------------------- a ficha
 
 /**
- * Ficha do grupo (cliente ou fornecedor): dados, filiais e contatos.
+ * Ficha do grupo (cliente ou fornecedor): dados, filiais e contatos. É o CONTEÚDO do
+ * painel lateral (componentes/painel-lateral.tsx), que a tela monta uma vez só: trocar de
+ * grupo troca só isto (key = id), sem refazer a animação do painel.
  *
  * Substitui o painel `gp cadastros` (bUCYr0) da página do Bubble. Filiais e contatos são
  * criados e editados nas próprias abas (filiais-contatos.tsx — porta de pop.AddEditaEndereço
@@ -232,7 +235,6 @@ export function FichaGrupo({
   aoCriar: (id: string) => void
   aoFechar: () => void
 }) {
-  const ref = useRef<HTMLDialogElement>(null)
   const [aba, setAba] = useState<Aba>('dados')
   const [estado, salvar, salvando] = useActionState(salvarGrupo, {})
   const [estadoAtivo, acaoAtivo] = useActionState(definirAtivoGrupo, {})
@@ -244,11 +246,6 @@ export function FichaGrupo({
     // aoCriar muda de identidade a cada render do pai; o gatilho é só o id novo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [criou])
-
-  useEffect(() => {
-    const d = ref.current
-    if (d && !d.open) d.showModal()
-  }, [])
 
   const g = ficha?.grupo ?? null
   const tipo: TipoClifor = g?.tipo ?? novoTipo ?? 'cliente'
@@ -262,25 +259,18 @@ export function FichaGrupo({
       ).length
     : 0
 
-  const abas: { id: Aba; rotulo: string }[] = ficha
+  const abas: { id: Aba; rotulo: string; qtd?: number; Icone: typeof FileText }[] = ficha
     ? [
-        { id: 'dados', rotulo: 'Dados' },
-        { id: 'filiais', rotulo: `Filiais (${ficha.filiais.length})` },
-        { id: 'contatos', rotulo: `Contatos (${ficha.contatos.length})` },
-        { id: 'anexos', rotulo: `Anexos (${ficha.anexos.length})` },
+        { id: 'dados', rotulo: 'Dados', Icone: FileText },
+        { id: 'filiais', rotulo: 'Filiais', qtd: ficha.filiais.length, Icone: Building2 },
+        { id: 'contatos', rotulo: 'Contatos', qtd: ficha.contatos.length, Icone: Users },
+        { id: 'anexos', rotulo: 'Anexos', qtd: ficha.anexos.length, Icone: Paperclip },
       ]
     : []
 
   return (
-    <dialog
-      ref={ref}
-      className="dialogo ficha"
-      aria-labelledby="ficha-titulo"
-      data-tipo={tipo}
-      onClose={aoFechar}
-      data-teste="ficha-grupo"
-    >
-      <header className="dialogo-cabecalho">
+    <div className="ficha" data-tipo={tipo}>
+      <header className="painel-lateral-cabecalho ficha-cabecalho">
         {g ? (
           <Foto
             url={ficha?.fotoUrl}
@@ -303,18 +293,13 @@ export function FichaGrupo({
             </p>
           ) : null}
         </div>
-        <button
-          type="button"
-          className="dialogo-fechar"
-          aria-label="Fechar"
-          onClick={() => ref.current?.close()}
-        >
-          ✕
+        <button type="button" className="painel-lateral-fechar" aria-label="Fechar" onClick={aoFechar}>
+          <X size={20} aria-hidden="true" />
         </button>
       </header>
 
       {abas.length > 0 ? (
-        <div className="abas" role="tablist" aria-label="Seções da ficha">
+        <div className="abas ficha-abas" role="tablist" aria-label="Seções da ficha">
           {abas.map((a) => (
             <button
               key={a.id}
@@ -325,12 +310,11 @@ export function FichaGrupo({
               aria-controls={`painel-${a.id}`}
               onClick={() => setAba(a.id)}
             >
+              <a.Icone size={16} aria-hidden="true" />
               {a.rotulo}
+              {a.qtd !== undefined ? <span className="ficha-aba-qtd">{a.qtd}</span> : null}
               {a.id === 'filiais' && qtdDuplicados > 0 ? (
-                <span className="ficha-alerta" aria-label="com documento repetido">
-                  {' '}
-                  ⚠
-                </span>
+                <AlertTriangle size={15} className="ficha-alerta" aria-label="com documento repetido" />
               ) : null}
             </button>
           ))}
@@ -338,7 +322,7 @@ export function FichaGrupo({
       ) : null}
 
       <div
-        className="dialogo-corpo"
+        className="painel-lateral-corpo ficha-corpo"
         role={abas.length > 0 ? 'tabpanel' : undefined}
         id={`painel-${aba}`}
         aria-labelledby={abas.length > 0 ? `aba-${aba}` : undefined}
@@ -385,7 +369,7 @@ export function FichaGrupo({
         <Mensagem estado={estadoAtivo} />
       </div>
 
-      <footer className="dialogo-rodape">
+      <footer className="painel-lateral-rodape">
         {g && alteraAtivo ? (
           <form
             action={acaoAtivo}
@@ -403,7 +387,7 @@ export function FichaGrupo({
             </BotaoEnviar>
           </form>
         ) : null}
-        <button type="button" className="botao-secundario empurra" onClick={() => ref.current?.close()}>
+        <button type="button" className="botao-secundario empurra" onClick={aoFechar}>
           Fechar
         </button>
         {escreve && aba === 'dados' ? (
@@ -419,6 +403,6 @@ export function FichaGrupo({
           </button>
         ) : null}
       </footer>
-    </dialog>
+    </div>
   )
 }

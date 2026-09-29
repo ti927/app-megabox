@@ -1,5 +1,6 @@
 'use client'
 
+import { ExternalLink, Plus, Trash2 } from 'lucide-react'
 import { startTransition, useActionState, useEffect, useState } from 'react'
 
 import { formatarTamanho } from '@/lib/anexos'
@@ -70,6 +71,7 @@ function LinhaAnexo({ anexo, podeApagar }: { anexo: Anexo; podeApagar: boolean }
             aria-busy={abrindo}
             data-teste="abrir-anexo"
           >
+            <ExternalLink size={14} aria-hidden="true" />
             {abrindo ? 'Abrindo…' : 'Abrir'}
           </button>
           {podeApagar ? (
@@ -83,6 +85,7 @@ function LinhaAnexo({ anexo, podeApagar }: { anexo: Anexo; podeApagar: boolean }
             >
               <input type="hidden" name="id" value={anexo.id} />
               <button type="submit" className="link anexo-apagar" disabled={apagando} data-teste="apagar-anexo">
+                <Trash2 size={14} aria-hidden="true" />
                 {apagando ? 'Apagando…' : 'Apagar'}
               </button>
             </form>
@@ -249,7 +252,8 @@ export function AbaAnexos({
           }}
           data-teste="novo-anexo"
         >
-          + Anexar documento
+          <Plus size={16} aria-hidden="true" />
+          Anexar documento
         </button>
       </div>
       <Retorno estado={retorno} teste="lista-anexo" />

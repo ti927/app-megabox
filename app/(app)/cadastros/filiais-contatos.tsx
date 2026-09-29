@@ -1,5 +1,6 @@
 'use client'
 
+import { Pencil, Plus, Power, PowerOff } from 'lucide-react'
 import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
@@ -53,6 +54,7 @@ function BotaoAlternar({ ativo }: { ativo: boolean }) {
   const { pending } = useFormStatus()
   return (
     <button type="submit" className="link" disabled={pending}>
+      {ativo ? <PowerOff size={14} aria-hidden="true" /> : <Power size={14} aria-hidden="true" />}
       {pending ? 'Gravando…' : ativo ? 'Desativar' : 'Reativar'}
     </button>
   )
@@ -448,7 +450,8 @@ export function AbaFiliais({
             }}
             data-teste="nova-filial"
           >
-            + Nova filial
+            <Plus size={16} aria-hidden="true" />
+            Nova filial
           </button>
         ) : null}
       </div>
@@ -487,6 +490,7 @@ export function AbaFiliais({
                         }}
                         data-teste="editar-filial"
                       >
+                        <Pencil size={14} aria-hidden="true" />
                         Editar
                       </button>
                       <form
@@ -707,7 +711,8 @@ export function AbaContatos({ ficha }: { ficha: Ficha }) {
           }}
           data-teste="novo-contato"
         >
-          + Novo contato
+          <Plus size={16} aria-hidden="true" />
+          Novo contato
         </button>
       </div>
       <Retorno estado={retorno} teste="lista-contato" />
@@ -737,6 +742,7 @@ export function AbaContatos({ ficha }: { ficha: Ficha }) {
                     }}
                     data-teste="editar-contato"
                   >
+                    <Pencil size={14} aria-hidden="true" />
                     Editar
                   </button>
                   <form

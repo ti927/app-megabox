@@ -1,10 +1,12 @@
 'use client'
 
+import { ChevronLeft, ChevronRight, Plus, Search, UserX, X } from 'lucide-react'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
 
 import { Foto } from '@/componentes/foto'
+import { PainelLateral } from '@/componentes/painel-lateral'
 import { type FiltrosClifor, paraQuery, POR_PAGINA, type TipoClifor, totalPaginas } from '@/lib/clifor'
 import { formatarData } from '@/lib/datas'
 
@@ -15,6 +17,8 @@ const ROTULO: Record<TipoClifor, { um: string; varios: string }> = {
   cliente: { um: 'Cliente', varios: 'Clientes' },
   fornecedor: { um: 'Fornecedor', varios: 'Fornecedores' },
 }
+
+const idLinha = (id: string) => `clifor-${id}`
 
 function Linha({
   linha,
@@ -40,36 +44,56 @@ function Linha({
     <li>
       <button
         type="button"
+        id={idLinha(linha.id)}
         className="clifor-linha"
         data-tipo={linha.tipo}
         aria-current={selecionada ? 'true' : undefined}
+        aria-haspopup="dialog"
         onClick={aoAbrir}
+        // Clicar em outra linha com o painel aberto troca o conteúdo, não fecha.
+        data-painel-manter=""
       >
-        <span className="clifor-indice" aria-hidden="true">
+        <span className="clifor-c clifor-c-ind numero" aria-hidden="true">
           {indice}
         </span>
-        <Foto url={foto} nome={linha.nome} className="clifor-avatar" iniciais={iniciais(linha.nome)} />
-        <span className="clifor-principal">
-          <strong className="clifor-nome">{linha.nome}</strong>
-          <span className="clifor-meta">
-            Contém: {filiais} {filiais === 1 ? 'filial' : 'filiais'} | {contatos}{' '}
-            {contatos === 1 ? 'contato' : 'contatos'}
-          </span>
-          <span className="clifor-meta">
-            Criado em {formatarData(linha.criado_em)}
-            {linha.autor ? ` por ${linha.autor.nome}` : ''}
+        <span className="clifor-c clifor-c-nome">
+          <Foto url={foto} nome={linha.nome} className="clifor-avatar" iniciais={iniciais(linha.nome)} />
+          <span className="clifor-principal">
+            <strong className="clifor-nome">{linha.nome}</strong>
+            <span className="clifor-meta">
+              Contém: {filiais} {filiais === 1 ? 'filial' : 'filiais'} | {contatos}{' '}
+              {contatos === 1 ? 'contato' : 'contatos'}
+            </span>
           </span>
         </span>
         {linha.tipo === 'cliente' ? (
-          <span className="clifor-carteira">
-            <small>Carteira</small>
-            <span>{linha.carteira?.nome ?? 'Sem carteira'}</span>
+          <span className="clifor-c clifor-c-cart" data-vazio={linha.carteira ? undefined : ''}>
+            <span className="rotulo-celula">Carteira: </span>
+            {linha.carteira?.nome ?? 'Sem carteira'}
           </span>
         ) : null}
-        <span className="clifor-selos">
+        <span className="clifor-c clifor-c-fil numero">
+          <span className="rotulo-celula">Filiais: </span>
+          {filiais}
+        </span>
+        <span className="clifor-c clifor-c-con numero">
+          <span className="rotulo-celula">Contatos: </span>
+          {contatos}
+        </span>
+        <span className="clifor-c clifor-c-cri numero">
+          <span className="rotulo-celula">Criado em </span>
+          {formatarData(linha.criado_em)}
+        </span>
+        <span className="clifor-c clifor-c-aut">
+          <span className="rotulo-celula">por </span>
+          {linha.autor?.nome ?? '—'}
+        </span>
+        <span className="clifor-c clifor-c-sit">
           <span className="selo" data-tom={linha.ativo ? 'ok' : 'erro'}>
             {linha.ativo ? 'Ativo' : 'Inativo'}
           </span>
+        </span>
+        <span className="clifor-c clifor-c-lib">
           {bloqueado ? (
             <span className="selo" data-tom="erro">
               {bloqueadas > 0 ? `${bloqueadas} bloqueada${bloqueadas === 1 ? '' : 's'}` : 'Bloqueado'}
@@ -80,6 +104,30 @@ function Linha({
         </span>
       </button>
     </li>
+  )
+}
+
+/** Enquanto a ficha de outro grupo chega do servidor: nome já no topo, forma do resto. */
+function FichaCarregando({ nome, aoFechar }: { nome: string; aoFechar: () => void }) {
+  return (
+    <div className="ficha">
+      <header className="painel-lateral-cabecalho ficha-cabecalho">
+        <span className="clifor-avatar ficha-avatar" aria-hidden="true">
+          {iniciais(nome)}
+        </span>
+        <div className="ficha-titulo">
+          <p className="ficha-tipo">Carregando</p>
+          <h2 id="ficha-titulo">{nome}</h2>
+        </div>
+        <button type="button" className="painel-lateral-fechar" aria-label="Fechar" onClick={aoFechar}>
+          <X size={20} aria-hidden="true" />
+        </button>
+      </header>
+      <div className="painel-lateral-corpo ficha-corpo">
+        <div className="esqueleto" style={{ height: '2.75rem', marginBottom: 'var(--e4)' }} />
+        <div className="esqueleto" style={{ height: '14rem' }} />
+      </div>
+    </div>
   )
 }
 
@@ -111,6 +159,18 @@ export function TelaCadastros({
   const [texto, setTexto] = useState(filtros.q)
   const espera = useRef<ReturnType<typeof setTimeout>>(undefined)
 
+  // Grupo que o painel mostra. Anda na frente da URL: o painel abre (ou troca de nome) no
+  // clique, e a ficha completa entra quando o servidor responde. Voltar/avançar do
+  // navegador muda `filtros.sel`, e o alvo acompanha.
+  const [alvo, setAlvo] = useState<string | null>(filtros.sel)
+  const [selVista, setSelVista] = useState<string | null>(filtros.sel)
+  if (filtros.sel !== selVista) {
+    setSelVista(filtros.sel)
+    setAlvo(filtros.sel)
+  }
+  // Foco volta para a linha que estava aberta (ou para o botão "novo").
+  const devolverPara = useRef<string | null>(null)
+
   // Todo o estado da lista mora na URL (spec §9.1): recarregar, voltar e mandar o link
   // funcionam. A transição mantém a lista atual na tela enquanto a nova chega.
   function navegar(mudancas: Partial<FiltrosClifor>) {
@@ -120,6 +180,7 @@ export function TelaCadastros({
   }
   /** Mudou filtro: volta à página 1 e fecha a ficha. */
   function filtrar(mudancas: Partial<FiltrosClifor>) {
+    setAlvo(null)
     navegar({ pagina: 1, sel: null, ...mudancas })
   }
 
@@ -127,6 +188,20 @@ export function TelaCadastros({
     setTexto(valor)
     clearTimeout(espera.current)
     espera.current = setTimeout(() => filtrar({ q: valor.trim() }), 400)
+  }
+
+  function abrir(id: string) {
+    setNovo(null)
+    setAlvo(id)
+    devolverPara.current = idLinha(id)
+    if (filtros.sel !== id) navegar({ sel: id })
+  }
+
+  function fechar() {
+    const eraNovo = novo !== null
+    setNovo(null)
+    setAlvo(null)
+    if (!eraNovo || filtros.sel) navegar({ sel: null })
   }
 
   const rotulo = ROTULO[filtros.tipo]
@@ -137,25 +212,54 @@ export function TelaCadastros({
   const temFiltro =
     filtros.q !== '' || filtros.uf !== null || filtros.semCarteira || filtros.captacao !== null
 
+  const fichaCerta = ficha && ficha.grupo.id === alvo ? ficha : null
+  // Esperando a ficha do alvo: só enquanto a navegação corre. Terminou e não veio (id que
+  // não existe ou que a RLS esconde)? Painel fechado, como antes.
+  const carregando = !novo && alvo !== null && !fichaCerta && (pendente || filtros.sel !== alvo)
+  const aberto = novo !== null || fichaCerta !== null || carregando
+  const nomeAlvo = linhas.find((l) => l.id === alvo)?.nome ?? ficha?.grupo.nome ?? 'Cadastro'
+  const tipoPainel = novo ?? fichaCerta?.grupo.tipo ?? filtros.tipo
+
   return (
-    <div className="cadastros">
+    <div className="cadastros" data-painel-aberto={aberto || undefined}>
       <header className="cadastros-topo">
-        <h1>Cadastros de {rotulo.um}</h1>
-        <p className="cadastros-contadores" data-teste="contadores">
-          <span>
-            Clientes ativos: <strong>{contadores.clientes.toLocaleString('pt-BR')}</strong>
-          </span>
-          <span>
-            Fornecedores ativos: <strong>{contadores.fornecedores.toLocaleString('pt-BR')}</strong>
-          </span>
-        </p>
+        <div className="cadastros-titulo">
+          <h1>Cadastros de {rotulo.um}</h1>
+          <p className="cadastros-contadores" data-teste="contadores">
+            <span data-tipo="cliente">
+              Clientes ativos: <strong>{contadores.clientes.toLocaleString('pt-BR')}</strong>
+            </span>
+            <span data-tipo="fornecedor">
+              Fornecedores ativos: <strong>{contadores.fornecedores.toLocaleString('pt-BR')}</strong>
+            </span>
+          </p>
+        </div>
+        {/* No Bubble só aparece o botão do tipo escolhido, e o de fornecedor nasce
+            desabilitado para quem não pode (bUCYe0). Aqui ele nem aparece. */}
+        {podeCriar ? (
+          <button
+            type="button"
+            className="botao-primario"
+            onClick={() => {
+              setAlvo(null)
+              devolverPara.current = 'cadastros-novo'
+              setNovo(filtros.tipo)
+            }}
+            id="cadastros-novo"
+            data-painel-manter=""
+            data-teste="novo-grupo"
+          >
+            <Plus size={16} aria-hidden="true" />
+            {rotulo.um}
+          </button>
+        ) : null}
       </header>
 
       <section className="cadastros-filtros" aria-label="Filtros">
         <fieldset className="cadastros-tipo">
-          <legend>Exibir lista de</legend>
+          <legend className="visualmente-oculto">Exibir lista de</legend>
           {(['cliente', 'fornecedor'] as const).map((t) => (
-            <label key={t} className="caixa">
+            <label key={t}>
               <input
                 type="radio"
                 name="tipo"
@@ -163,24 +267,25 @@ export function TelaCadastros({
                 checked={filtros.tipo === t}
                 onChange={() => filtrar({ tipo: t, semCarteira: false })}
               />
-              {ROTULO[t].um}
+              <span>{ROTULO[t].varios}</span>
             </label>
           ))}
         </fieldset>
 
         <label className="campo cadastros-busca">
-          <span>Buscar por nome ou CNPJ/CPF</span>
+          <span className="visualmente-oculto">Buscar por nome ou CNPJ/CPF</span>
+          <Search size={16} className="cadastros-busca-icone" aria-hidden="true" />
           <input
             type="search"
             value={texto}
             onChange={(e) => digitar(e.target.value)}
-            placeholder="Digite parte do nome ou do documento"
+            placeholder="Buscar por nome ou CNPJ/CPF"
             spellCheck={false}
             data-teste="busca"
           />
         </label>
 
-        <label className="campo">
+        <label className="campo cadastros-filtro">
           <span>Estado</span>
           <select value={filtros.uf ?? ''} onChange={(e) => filtrar({ uf: e.target.value || null })}>
             <option value="">Todos</option>
@@ -192,7 +297,7 @@ export function TelaCadastros({
           </select>
         </label>
 
-        <label className="campo">
+        <label className="campo cadastros-filtro">
           <span>Situação</span>
           <select
             value={filtros.ativo}
@@ -206,7 +311,7 @@ export function TelaCadastros({
 
         {/* Filtro de captação: existia na página antiga e no pop.CadastroCliFor (bTrns) e
             sumiu da página atual; spec §10 [DÚVIDA 15] manda voltar. */}
-        <label className="campo">
+        <label className="campo cadastros-filtro">
           <span>Captação</span>
           <select
             value={filtros.captacao ?? ''}
@@ -221,7 +326,7 @@ export function TelaCadastros({
           </select>
         </label>
 
-        <label className="campo">
+        <label className="campo cadastros-filtro">
           <span>Ordem</span>
           <select
             value={filtros.ordem}
@@ -239,39 +344,31 @@ export function TelaCadastros({
               checked={filtros.semCarteira}
               onChange={(e) => filtrar({ semCarteira: e.target.checked })}
             />
-            Clientes sem carteira
+            <UserX size={16} aria-hidden="true" />
+            Sem carteira
           </label>
         ) : null}
 
-        <div className="cadastros-acoes">
-          {temFiltro ? (
-            <button
-              type="button"
-              className="botao-texto"
-              onClick={() => {
-                setTexto('')
-                filtrar({ q: '', uf: null, semCarteira: false, captacao: null })
-              }}
-            >
-              Limpar busca
-            </button>
-          ) : null}
-          {/* No Bubble só aparece o botão do tipo escolhido, e o de fornecedor nasce
-              desabilitado para quem não pode (bUCYe0). Aqui ele nem aparece. */}
-          {podeCriar ? (
-            <button
-              type="button"
-              className="botao-primario"
-              onClick={() => setNovo(filtros.tipo)}
-              data-teste="novo-grupo"
-            >
-              + {rotulo.um}
-            </button>
-          ) : null}
-        </div>
+        {temFiltro ? (
+          <button
+            type="button"
+            className="botao-texto cadastros-limpar"
+            onClick={() => {
+              setTexto('')
+              filtrar({ q: '', uf: null, semCarteira: false, captacao: null })
+            }}
+          >
+            <X size={14} aria-hidden="true" />
+            Limpar busca
+          </button>
+        ) : null}
       </section>
 
-      <section className="cadastros-lista" aria-label={`Lista de ${rotulo.varios.toLowerCase()}`} aria-busy={pendente}>
+      <section
+        className="cadastros-lista"
+        aria-label={`Lista de ${rotulo.varios.toLowerCase()}`}
+        aria-busy={pendente}
+      >
         {falhou ? (
           <p className="aviso" data-tom="erro" role="alert">
             Não foi possível carregar a lista agora. Recarregue a página em instantes.
@@ -283,18 +380,32 @@ export function TelaCadastros({
               : `Nenhum ${rotulo.um.toLowerCase()} cadastrado ainda.`}
           </p>
         ) : (
-          <ol className="clifor-lista" data-teste="lista-grupos" data-pendente={pendente || undefined}>
-            {linhas.map((l, i) => (
-              <Linha
-                key={l.id}
-                linha={l}
-                foto={fotos[l.id]}
-                indice={primeiro + i}
-                selecionada={filtros.sel === l.id}
-                aoAbrir={() => navegar({ sel: l.id })}
-              />
-            ))}
-          </ol>
+          <div className="clifor-tabela" data-tipo={filtros.tipo}>
+            {/* Cabeçalho só visual: cada linha é um botão, e o leitor de tela lê o botão inteiro. */}
+            <div className="clifor-cabeca" aria-hidden="true">
+              <span className="clifor-c clifor-c-ind">#</span>
+              <span className="clifor-c clifor-c-nome">{rotulo.um}</span>
+              {filtros.tipo === 'cliente' ? <span className="clifor-c clifor-c-cart">Carteira</span> : null}
+              <span className="clifor-c clifor-c-fil numero">Filiais</span>
+              <span className="clifor-c clifor-c-con numero">Contatos</span>
+              <span className="clifor-c clifor-c-cri numero">Criado em</span>
+              <span className="clifor-c clifor-c-aut">Criado por</span>
+              <span className="clifor-c clifor-c-sit">Situação</span>
+              <span className="clifor-c clifor-c-lib">Liberação</span>
+            </div>
+            <ol className="clifor-lista" data-teste="lista-grupos" data-pendente={pendente || undefined}>
+              {linhas.map((l, i) => (
+                <Linha
+                  key={l.id}
+                  linha={l}
+                  foto={fotos[l.id]}
+                  indice={primeiro + i}
+                  selecionada={!novo && alvo === l.id}
+                  aoAbrir={() => abrir(l.id)}
+                />
+              ))}
+            </ol>
+          </div>
         )}
 
         <div className="paginacao">
@@ -308,39 +419,61 @@ export function TelaCadastros({
               type="button"
               className="botao-secundario"
               disabled={filtros.pagina <= 1 || pendente}
-              onClick={() => navegar({ pagina: filtros.pagina - 1, sel: null })}
+              onClick={() => {
+                setAlvo(null)
+                navegar({ pagina: filtros.pagina - 1, sel: null })
+              }}
             >
-              ← Anterior
+              <ChevronLeft size={16} aria-hidden="true" />
+              Anterior
             </button>
             <button
               type="button"
               className="botao-secundario"
               disabled={filtros.pagina >= paginas || pendente}
-              onClick={() => navegar({ pagina: filtros.pagina + 1, sel: null })}
+              onClick={() => {
+                setAlvo(null)
+                navegar({ pagina: filtros.pagina + 1, sel: null })
+              }}
             >
-              Próxima →
+              Próxima
+              <ChevronRight size={16} aria-hidden="true" />
             </button>
           </nav>
         </div>
       </section>
 
-      {ficha || novo ? (
-        <FichaGrupo
-          // key: trocar de grupo remonta o diálogo e zera o formulário e a aba.
-          key={novo ? `novo-${novo}` : ficha!.grupo.id}
-          ficha={novo ? null : ficha}
-          novoTipo={novo}
-          opcoes={opcoes}
-          permissoes={permissoes}
-          aoCriar={(id) => {
-            setNovo(null)
-            navegar({ sel: id })
-          }}
-          aoFechar={() => {
-            if (novo) setNovo(null)
-            else navegar({ sel: null })
-          }}
-        />
+      {aberto ? (
+        <PainelLateral
+          rotuloId="ficha-titulo"
+          aoFechar={fechar}
+          focoAoFechar={() =>
+            devolverPara.current ? document.getElementById(devolverPara.current) : null
+          }
+          chaveLargura="cadastros"
+          fracaoInicial={0.52}
+          ocupado={carregando}
+          className={`ficha-painel ficha-painel-${tipoPainel}`}
+          data-teste="ficha-grupo"
+        >
+          {fichaCerta || novo ? (
+            <FichaGrupo
+              // key: trocar de grupo remonta a ficha e zera o formulário e a aba.
+              key={novo ? `novo-${novo}` : fichaCerta!.grupo.id}
+              ficha={novo ? null : fichaCerta}
+              novoTipo={novo}
+              opcoes={opcoes}
+              permissoes={permissoes}
+              aoCriar={(id) => {
+                setNovo(null)
+                abrir(id)
+              }}
+              aoFechar={fechar}
+            />
+          ) : (
+            <FichaCarregando nome={nomeAlvo} aoFechar={fechar} />
+          )}
+        </PainelLateral>
       ) : null}
     </div>
   )

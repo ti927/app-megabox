@@ -3,6 +3,8 @@
  * TEXTO (`coluna::text` no select): o `numeric` do banco nunca vira float no caminho.
  */
 
+import type { MetaDiaria } from '@/lib/metas-painel'
+
 /** Uma linha de `v_meta_atingimento` (uma meta mensal), com o nome resolvido no servidor. */
 export type LinhaMeta = {
   meta_mensal_id: string
@@ -52,6 +54,8 @@ export type Vendedor = {
   perfil_id: number
   departamento_id: number
   nivel_vendedor_id: string | null
+  /** URL assinada (curta) da foto em `usuarios`, ou null → iniciais */
+  foto: string | null
   /** entra no combo de nova meta (bTvyf: ativo, fora de Operação e Financeiro) */
   elegivel: boolean
 }
@@ -69,6 +73,8 @@ export type HistoricoNivel = {
 export type Coletivo = {
   metaColetiva: string
   faturado: string
+  /** metas [DÚVIDA 8] — lib/metas-painel `metaDiaria` */
+  metaDiaria: MetaDiaria
   meses: { mes: string; vendas: string }[]
 }
 

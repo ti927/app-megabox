@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 
+import { urlsDeLinhas } from '@/lib/arquivos-lote'
 import { exigirAcesso } from '@/lib/autorizacao'
 import {
   type FiltrosMetas,
@@ -10,6 +11,7 @@ import {
   somarMeses,
   somarReais,
 } from '@/lib/metas'
+import { hojeSaoPaulo, metaDiaria } from '@/lib/metas-painel'
 import { clienteServidor } from '@/lib/supabase/servidor'
 
 import { TelaMetas } from './tela'
@@ -94,10 +96,10 @@ async function buscarNiveis(supabase: Supabase) {
 }
 
 /** Colegas ativos (policy de 004) — nomes da tela e o combo de nova meta. */
-async function buscarVendedores(supabase: Supabase): Promise<Vendedor[]> {
+async function buscarVendedores(supabase: Supabase): Promise<(Vendedor & { foto_path: string | null })[]> {
   const { data, error } = await supabase
     .from('usuarios')
-    .select('id, nome, perfil_id, departamento_id, ativo, nivel_vendedor_id')
+    .select('id, nome, perfil_id, departamento_id, ativo, nivel_vendedor_id, foto_path')
     .order('nome')
   if (error) console.error('metas: vendedores', error)
   return (data ?? []).map((u) => ({
@@ -106,6 +108,8 @@ async function buscarVendedores(supabase: Supabase): Promise<Vendedor[]> {
     perfil_id: u.perfil_id as number,
     departamento_id: u.departamento_id as number,
     nivel_vendedor_id: (u.nivel_vendedor_id as string | null) ?? null,
+    foto_path: (u.foto_path as string | null) ?? null,
+    foto: null,
     elegivel: Boolean(u.ativo) && !DEPTOS_FORA.has(u.departamento_id as number),
   }))
 }
@@ -178,7 +182,13 @@ async function buscarColetivo(supabase: Supabase, f: FiltrosMetas): Promise<Cole
       .filter((e) => contam.has(e.status_id))
       .map((e) => e.valor_comissao),
   )
-  return { metaColetiva: metaColetiva(porMes.map((m) => m.vendas)), faturado, meses: porMes }
+  const meta = metaColetiva(porMes.map((m) => m.vendas))
+  return {
+    metaColetiva: meta,
+    faturado,
+    metaDiaria: metaDiaria(meta, faturado, f.inicio, f.fim, hojeSaoPaulo()),
+    meses: porMes,
+  }
 }
 
 async function buscarHistorico(supabase: Supabase) {
@@ -203,7 +213,7 @@ export default async function PaginaMetas({
 
   // Cliente da SESSÃO: a RLS decide o que cada um vê. Nunca service_role aqui.
   const supabase = await clienteServidor()
-  const [painel, ranking, niveis, vendedores, coletivo, historico] = await Promise.all([
+  const [painel, ranking, niveis, vendedoresLidos, coletivo, historico] = await Promise.all([
     buscarPainel(supabase, filtros, permissoes.gerir),
     buscarRanking(supabase, filtros),
     buscarNiveis(supabase),
@@ -212,8 +222,22 @@ export default async function PaginaMetas({
     permissoes.diretor ? buscarHistorico(supabase) : Promise.resolve([] as HistoricoNivel[]),
   ])
 
-  const fechadas = await buscarFechadas(supabase, [...new Set(painel.linhas.map((l) => l.vendedor_id))])
+  // Fotos só de quem aparece (painel + ranking), numa chamada de Storage só. A linha dona
+  // (usuarios) já foi lida pela sessão; o bucket privado confere de novo cada objeto.
+  const naTela = new Set([...painel.linhas.map((l) => l.vendedor_id), ...ranking.map((r) => r.vendedor_id)])
+  const [fechadas, fotos] = await Promise.all([
+    buscarFechadas(supabase, [...new Set(painel.linhas.map((l) => l.vendedor_id))]),
+    urlsDeLinhas(
+      'usuarios',
+      vendedoresLidos.filter((v) => naTela.has(v.id)).map((v) => ({ donoId: v.id, path: v.foto_path })),
+      300,
+    ),
+  ])
   const niveisPorId = new Map(niveis.map((n) => [n.id, n]))
+  const vendedores: Vendedor[] = vendedoresLidos.map(({ foto_path, ...v }) => ({
+    ...v,
+    foto: foto_path ? (fotos.get(foto_path) ?? null) : null,
+  }))
 
   const linhas: LinhaMeta[] = painel.linhas.map((l) => {
     const nivel = l.nivel_id ? niveisPorId.get(l.nivel_id) : undefined

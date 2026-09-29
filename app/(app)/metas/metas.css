@@ -1,245 +1,535 @@
-/* Tela de metas (Metas & Vendas).
- * Segue a tela-modelo (/cadastros, /produtos): título, filtros num cartão, itens em cartão
- * azul-claro com borda à esquerda, diálogos em <dialog>. Peças genéricas (campo, botão, selo,
- * aviso, diálogo, abas, esqueleto) vêm de estilos/componentes.css; aqui só o que é de metas.
- * Prefixos `metas-` (página) e `mt-` (peças) para não colidir com as outras telas. */
+/* Tela de metas (Metas & Vendas) — painel de gestão.
+ * Referência: a tela do Bubble (design/capturas/metas-01): período à esquerda e "Criar metas"
+ * à direita; pódio em brasões (2º · 1º · 3º) ao lado da meta da equipe e do ranking; tabela
+ * em largura total. Só NOMES de tokens (estilos/tokens.css); os metais do pódio são misturas
+ * deles, então acompanham o tema. Prefixos `metas-` (página) e `mt-` (peças). */
 
 .metas {
   display: flex;
   flex-direction: column;
-  gap: var(--e4);
-  max-width: 88rem;
-}
-
-.metas-topo {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--e2) var(--e4);
-}
-.metas-topo h1 {
-  margin: 0;
-}
-.metas-periodo {
-  margin: 0;
+  gap: var(--e5);
+  width: 100%;
   font-size: var(--t-md);
-  font-weight: var(--peso-medio);
-  color: var(--azul);
-}
-.metas-topo-acoes {
-  display: flex;
-  gap: var(--e3);
-}
-
-/* ------------------------------------------------------------------ filtros */
-.metas-filtros {
-  display: grid;
-  grid-template-columns: auto repeat(2, minmax(9rem, 11rem)) minmax(12rem, 1fr);
-  align-items: flex-end;
-  gap: var(--e3);
-  padding: var(--e4);
-  background: var(--superficie);
-  border: 1px solid var(--borda);
-  border-radius: var(--raio-g);
-  box-shadow: var(--sombra-1);
-}
-.metas-meses {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--e2);
-}
-/* ‹ › de mês: o glifo em 14px some dentro do botão; sobe para o tamanho de título. */
-.metas-meses .botao-secundario {
-  min-width: 2.5rem;
-  padding-inline: var(--e2);
-  font-size: var(--t-lg);
-  line-height: 1;
-}
-
-/* ------------------------------------------------------- equipe + ranking */
-.metas-painel-topo {
-  display: grid;
-  grid-template-columns: minmax(16rem, 1fr) minmax(0, 2fr);
-  gap: var(--e4);
-  transition: opacity var(--dur-2) var(--curva);
-}
-.metas-painel-topo[data-pendente] {
-  opacity: 0.55;
-}
-.metas-painel-topo:has(> .mt-ranking:only-child) {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.mt-cartao {
-  display: flex;
-  flex-direction: column;
-  gap: var(--e3);
-  min-width: 0;
-  padding: var(--e4);
-  background: var(--superficie);
-  border: 1px solid var(--borda);
-  border-radius: var(--raio-g);
-  box-shadow: var(--sombra-1);
-}
-.mt-cartao h2 {
-  margin: 0;
-  font-size: var(--t-md);
-  color: var(--roxo);
+  color: var(--texto);
 }
 
 .mt-num {
+  font-family: var(--fonte-numero);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .mt-nota {
   margin: 0;
   font-size: var(--t-xs);
+  line-height: 1.45;
   color: var(--texto-2);
 }
 .mt-sem-margem {
   margin: 0;
 }
+.mt-ok {
+  color: var(--verde);
+}
+.mt-alerta {
+  color: var(--vermelho);
+}
 
-.mt-numeros {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+/* ------------------------------------------------------------------ topo */
+.metas-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--e3) var(--e4);
+}
+.metas-periodo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
   gap: var(--e3);
-  margin: 0;
 }
-.mt-numeros dt {
-  font-size: var(--t-xs);
-  color: var(--texto-2);
+.metas-meses {
+  display: flex;
+  align-items: center;
+  gap: var(--e1);
 }
-.mt-numeros dd {
-  font-variant-numeric: tabular-nums;
-  margin: 0;
-  font-size: var(--t-lg);
+.metas-mes > input {
+  width: 11.5rem;
+  font-size: var(--t-md);
   font-weight: var(--peso-medio);
-  color: var(--roxo);
 }
-.mt-meses {
+.metas-data > input {
+  width: 10rem;
+}
+.metas-data > select {
+  width: 15rem;
+}
+.metas-topo-acoes {
+  display: flex;
+  gap: var(--e3);
+}
+.mt-botao-icone svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.mt-icone-botao {
+  display: inline-grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  color: var(--texto-2);
+  background: var(--superficie);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-1) var(--curva),
+    color var(--dur-1) var(--curva),
+    border-color var(--dur-1) var(--curva);
+}
+.mt-icone-botao svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.mt-icone-botao:hover {
+  color: var(--azul);
+  border-color: var(--azul);
+  background: var(--azul-claro);
+}
+.mt-icone-botao[data-tom='ok'] {
+  color: var(--verde);
+}
+.mt-icone-botao[data-tom='ok']:hover {
+  border-color: var(--verde);
+  background: var(--verde-fundo);
+}
+.mt-icone-botao[data-tom='perigo'] {
+  color: var(--vermelho);
+}
+.mt-icone-botao[data-tom='perigo']:hover {
+  border-color: var(--vermelho);
+  background: var(--vermelho-fundo);
+}
+.mt-icone-botao:focus-visible {
+  outline: var(--foco);
+  outline-offset: var(--foco-offset);
+}
+
+/* ------------------------------------------------------------------ painel (pódio + lateral) */
+.metas-painel {
+  display: grid;
+  grid-template-columns: minmax(30rem, 1.1fr) minmax(0, 1fr);
+  gap: var(--e5);
+  align-items: stretch;
+  transition: opacity var(--dur-2) var(--curva);
+}
+.metas-painel[data-pendente] {
+  opacity: 0.55;
+}
+.metas-lateral {
   display: flex;
   flex-direction: column;
-  gap: var(--e1);
-  margin: 0;
-  padding: var(--e2) 0 0;
-  list-style: none;
-  font-size: var(--t-sm);
-  border-top: 1px solid var(--borda);
-}
-.mt-meses li {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--e3);
-  color: var(--texto-2);
-}
-.mt-meses strong {
-  font-variant-numeric: tabular-nums;
-  color: var(--roxo);
-}
-
-.mt-ranking {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--e4);
+  gap: var(--e5);
   min-width: 0;
 }
-.mt-vazio-p {
+
+/* metais: ouro = laranja, prata = cinza claro, bronze = laranja + vermelho */
+[data-metal='ouro'],
+.mt-ranking-item[data-pos='1'] {
+  --mt-metal: var(--laranja);
+}
+[data-metal='prata'],
+.mt-ranking-item[data-pos='2'] {
+  --mt-metal: color-mix(in oklab, var(--texto-3) 45%, white);
+}
+[data-metal='bronze'],
+.mt-ranking-item[data-pos='3'] {
+  --mt-metal: color-mix(in oklab, var(--laranja) 50%, var(--vermelho));
+}
+
+/* ------------------------------------------------------------------ pódio */
+.mt-podio {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  min-width: 0;
+  padding: var(--e5) var(--e4) var(--e4);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
+}
+.mt-podio-lista {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr);
+  align-items: end;
+  gap: var(--e3);
+  max-width: 50rem;
+  width: 100%;
+  margin: auto;
+  padding: var(--e5) 0 var(--e3);
+  list-style: none;
+  border-bottom: 2px solid var(--borda);
+}
+.mt-podio-cabeca {
+  align-self: stretch;
+  padding-inline: var(--e2);
+}
+.mt-podio-cabeca h2 {
+  margin: 0;
+  font-size: var(--t-lg);
+  font-weight: var(--peso-forte);
+}
+.mt-podio-cabeca p {
   margin: 0;
   font-size: var(--t-sm);
   color: var(--texto-2);
 }
-.mt-podio {
+.mt-podio-vazio {
+  align-items: center;
+  justify-content: center;
+  min-height: 20rem;
+  color: var(--texto-2);
+  text-align: center;
+}
+.mt-podio-vazio svg {
+  width: 3rem;
+  height: 3rem;
+  color: var(--borda-forte);
+}
+.mt-podio-vazio p {
+  margin: 0;
+}
+
+.mt-brasao {
+  --mt-luz: color-mix(in oklab, var(--mt-metal) 72%, white);
+  --mt-sombra: color-mix(in oklab, var(--mt-metal) 90%, black);
+  --mt-aro: color-mix(in oklab, var(--mt-metal) 55%, black);
+  position: relative;
+  container-type: inline-size;
+  aspect-ratio: 200 / 250;
+  color: var(--sobre-laranja);
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 18%));
+}
+.mt-brasao[data-lugar='1'] {
+  margin-bottom: var(--e7);
+}
+.mt-brasao-forma {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.mt-brasao-aro {
+  fill: var(--mt-aro);
+}
+.mt-brasao-luz {
+  stop-color: var(--mt-luz);
+}
+.mt-brasao-sombra {
+  stop-color: var(--mt-sombra);
+}
+.mt-brasao-conteudo {
+  position: absolute;
+  inset: 11% 13% 16%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1.5cqi;
+  text-align: center;
+}
+.mt-brasao-lugar {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.5cqi;
+  font-size: 8cqi;
+  font-weight: var(--peso-forte);
+  line-height: 1;
+}
+.mt-brasao-lugar svg {
+  width: 8cqi;
+  height: 8cqi;
+}
+.mt-avatar-g {
+  width: 44cqi;
+  border: 2cqi solid var(--mt-aro);
+  font-size: 13cqi;
+}
+.mt-brasao-nome {
+  max-width: 100%;
+  margin-top: 1cqi;
+  font-size: 8.5cqi;
+  font-weight: var(--peso-forte);
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
+}
+.mt-brasao-nivel {
+  font-size: 7cqi;
+  font-weight: var(--peso-medio);
+  line-height: 1.1;
+}
+.mt-brasao-pct {
+  font-family: var(--fonte-numero);
+  font-variant-numeric: tabular-nums;
+  font-size: 13cqi;
+  font-weight: var(--peso-forte);
+  line-height: 1;
+}
+
+/* ------------------------------------------------------------------ avatar */
+.mt-avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  aspect-ratio: 1;
+  overflow: hidden;
+  font-weight: var(--peso-forte);
+  color: var(--roxo);
+  background: var(--lilas);
+  border-radius: 50%;
+}
+.mt-avatar-p {
+  width: 2.75rem;
+  font-size: var(--t-sm);
+}
+.mt-avatar-m {
+  width: 3rem;
+  font-size: var(--t-sm);
+  border: 2px solid var(--borda);
+}
+.mt-ranking-item[data-pos] .mt-avatar-m {
+  border-color: var(--mt-metal);
+}
+
+/* ------------------------------------------------------------------ anel */
+.mt-anel {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+}
+.mt-anel[data-tamanho='p'] {
+  width: 3.75rem;
+  height: 3.75rem;
+}
+.mt-anel[data-tamanho='g'] {
+  width: 8rem;
+  height: 8rem;
+}
+.mt-anel svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.mt-anel circle {
+  fill: none;
+  stroke-width: 9;
+}
+.mt-anel[data-tamanho='g'] circle {
+  stroke-width: 8;
+}
+.mt-anel-trilho {
+  stroke: var(--borda);
+}
+.mt-anel-arco {
+  stroke: var(--texto-3);
+  stroke-linecap: round;
+}
+.mt-anel[data-faixa='baixa'] .mt-anel-arco {
+  stroke: var(--laranja);
+}
+.mt-anel[data-faixa='media'] .mt-anel-arco {
+  stroke: var(--azul);
+}
+.mt-anel[data-faixa='batida'] .mt-anel-arco {
+  stroke: var(--verde);
+}
+.mt-anel-num {
+  position: relative;
+  font-family: var(--fonte-numero);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-sm);
+  font-weight: var(--peso-forte);
+  color: var(--texto);
+}
+.mt-anel[data-tamanho='g'] .mt-anel-num {
+  font-size: var(--t-lg);
+}
+
+/* ------------------------------------------------------------------ equipe */
+.mt-equipe,
+.mt-ranking {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+  min-width: 0;
+  padding: var(--e5);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
+}
+.mt-equipe h2,
+.mt-ranking h2 {
+  margin: 0;
+  font-size: var(--t-lg);
+  font-weight: var(--peso-forte);
+  color: var(--texto);
+}
+.mt-equipe-cabeca {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+}
+.mt-equipe-icone {
+  display: inline-grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--roxo);
+  background: var(--lilas);
+  border-radius: var(--raio);
+}
+.mt-equipe-icone svg {
+  width: 1.375rem;
+  height: 1.375rem;
+}
+.mt-equipe-corpo {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--e5);
+}
+.mt-equipe-numeros {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  margin: 0;
+}
+.mt-equipe-numeros div {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--e3);
+}
+.mt-equipe-numeros dt {
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+.mt-equipe-numeros dd {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  font-size: var(--t-lg);
+  font-weight: var(--peso-forte);
+  color: var(--texto);
+}
+.mt-equipe-numeros dd[data-destaque] {
+  color: var(--roxo);
+}
+.mt-equipe-numeros dd small {
+  font-size: var(--t-xs);
+  font-weight: 400;
+  color: var(--texto-2);
+}
+.mt-equipe-numeros dd .mt-ok,
+.mt-equipe-numeros dd .mt-alerta {
+  font-size: var(--t-md);
+}
+.mt-equipe-meses {
   display: flex;
   flex-direction: column;
   gap: var(--e2);
   margin: 0;
+  padding: 0 0 0 var(--e5);
+  list-style: none;
+  border-left: 1px solid var(--borda);
+}
+.mt-equipe-meses li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--e3);
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+.mt-equipe-meses li span::first-letter {
+  text-transform: uppercase;
+}
+.mt-equipe-meses strong {
+  font-size: var(--t-md);
+  color: var(--texto);
+}
+
+/* ------------------------------------------------------------------ ranking */
+.mt-vazio-p {
+  margin: 0;
+  color: var(--texto-2);
+}
+.mt-ranking-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+  gap: var(--e3);
+  margin: 0;
   padding: 0;
   list-style: none;
 }
-.mt-podio li {
+.mt-ranking-item {
   display: grid;
-  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  grid-template-columns: 2.25rem auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--e3);
-  padding: var(--e2) var(--e3);
+  padding: var(--e3) var(--e4) var(--e3) var(--e3);
   background: var(--fundo-2);
   border: 1px solid var(--borda);
   border-left: 4px solid var(--borda-forte);
   border-radius: var(--raio);
 }
-/* pódio: 1º laranja (ouro), 2º prata, 3º bronze — as cores do Bubble (02-telas-e-design) */
-.mt-podio li[data-pos='1'] {
-  border-left-color: var(--laranja);
-  background: var(--laranja-fundo);
+.mt-ranking-item[data-pos] {
+  border-left-color: var(--mt-metal);
 }
-.mt-podio li[data-pos='2'] {
-  border-left-color: var(--texto-3);
-}
-.mt-podio li[data-pos='3'] {
-  border-left-color: var(--vermelho);
-}
-.mt-posicao {
-  font-weight: var(--peso-forte);
+.mt-ranking-pos {
   font-size: var(--t-lg);
+  font-weight: var(--peso-forte);
   color: var(--texto-2);
+  text-align: center;
 }
-.mt-podio li[data-pos='1'] .mt-posicao {
+.mt-ranking-item[data-pos] .mt-ranking-pos {
   color: var(--texto);
 }
-.mt-quem {
+.mt-ranking-quem {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
-.mt-quem strong {
-  text-transform: uppercase;
-  overflow-wrap: anywhere;
+.mt-ranking-quem strong {
+  font-size: var(--t-md);
+  font-weight: var(--peso-forte);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.mt-quem small {
-  font-size: var(--t-xs);
+.mt-ranking-quem small {
+  font-size: var(--t-sm);
   color: var(--texto-2);
 }
-
-/* ------------------------------------------------------------------ barra */
-.mt-barra {
-  display: flex;
-  align-items: center;
-  gap: var(--e2);
-  min-width: 0;
+.mt-ranking-pct {
+  font-size: var(--t-lg);
+  font-weight: var(--peso-forte);
+  color: var(--texto);
 }
-.mt-barra-trilho {
-  position: relative;
-  flex: 1;
-  min-width: 3rem;
-  height: 0.5rem;
-  overflow: hidden;
-  background: var(--fundo-2);
-  border: 1px solid var(--borda);
-  border-radius: var(--raio-pilula);
-}
-.mt-barra-cheio {
-  position: absolute;
-  inset: 0 auto 0 0;
-  background: var(--texto-3);
-  border-radius: var(--raio-pilula);
-}
-/* faixas do Progress-Bar A (bTvpx): < 50% padrão, 50–100% primária, ≥ 100% destaque */
-.mt-barra[data-faixa='media'] .mt-barra-cheio {
-  background: var(--azul);
-}
-.mt-barra[data-faixa='batida'] .mt-barra-cheio {
-  background: var(--verde);
-}
-.mt-barra[data-faixa='baixa'] .mt-barra-cheio {
-  background: var(--laranja);
-}
-.mt-barra[data-faixa='batida'] > strong {
+.mt-ranking-pct[data-faixa='batida'] {
   color: var(--verde);
 }
 
-/* ------------------------------------------------------------------ painel */
+/* ------------------------------------------------------------------ tabela */
 .metas-corpo {
   display: flex;
   flex-direction: column;
@@ -259,71 +549,112 @@
   font-size: var(--t-xs);
   color: var(--texto-2);
 }
-
-.mt-painel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--e2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.mt-tabela-rolagem {
+  overflow-x: auto;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
+}
+.mt-tabela {
+  width: 100%;
+  min-width: 64rem;
+  border-collapse: collapse;
   transition: opacity var(--dur-2) var(--curva);
 }
-.mt-painel[data-pendente] {
+.mt-tabela[data-pendente] {
   opacity: 0.55;
 }
-.mt-linha {
-  display: grid;
-  grid-template-columns:
-    minmax(10rem, 1.4fr) minmax(7rem, 1fr) minmax(7rem, 1fr) minmax(9rem, 1.3fr)
-    minmax(8rem, 1fr) minmax(8rem, 1fr) minmax(9rem, auto);
+.mt-tabela thead th {
+  padding: var(--e3) var(--e4);
+  font-size: var(--t-sm);
+  font-weight: var(--peso-forte);
+  color: var(--texto-2);
+  text-align: left;
+  white-space: nowrap;
+  background: var(--lilas-cabeca);
+  border-bottom: 1px solid var(--borda);
+}
+.mt-tabela tbody th,
+.mt-tabela tbody td {
+  padding: var(--e3) var(--e4);
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--borda);
+}
+.mt-tabela tbody tr:last-child > * {
+  border-bottom: 0;
+}
+.mt-tabela tbody tr:hover {
+  background: var(--fundo-2);
+}
+.mt-tabela tbody td > strong,
+.mt-tabela tbody td > small {
+  display: block;
+}
+.mt-tabela tbody strong {
+  font-size: var(--t-md);
+  font-weight: var(--peso-forte);
+  color: var(--texto);
+}
+.mt-tabela tbody small {
+  margin-top: 2px;
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+.mt-tabela .mt-tipo {
+  font-weight: var(--peso-medio);
+}
+.mt-cel-vendedor {
+  display: flex;
   align-items: center;
   gap: var(--e3);
-  padding: var(--e3) var(--e4);
-  background: var(--azul-claro);
-  border: 1px solid transparent;
-  border-left: 4px solid var(--azul);
-  border-radius: var(--raio-g);
+  min-width: 15rem;
 }
-.mt-linha[data-fechada] {
-  border-left-color: var(--verde);
-}
-.mt-col {
+.mt-cel-vendedor > span:last-child {
   display: flex;
   flex-direction: column;
-  gap: 2px;
   min-width: 0;
 }
-.mt-col small {
-  font-size: var(--t-xs);
-  color: var(--texto-2);
-  overflow-wrap: anywhere;
+.mt-tabela .mt-cel-anel {
+  text-align: center;
 }
-.mt-rotulo {
-  font-size: var(--t-xs);
-  color: var(--texto-2);
+.mt-tabela .mt-cel-acoes {
+  text-align: right;
 }
-.mt-vendedor strong {
-  text-transform: uppercase;
-  overflow-wrap: anywhere;
+.mt-acoes,
+.mt-fechada {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--e2);
 }
-.mt-tipo {
-  font-weight: var(--peso-medio);
-  letter-spacing: 0.04em;
+.mt-fechada small {
+  flex-basis: 100%;
+  text-align: right;
 }
-.mt-selo-nivel {
-  align-self: flex-start;
-  color: var(--roxo);
-  background: var(--lilas);
-  border-color: transparent;
-}
-.mt-acoes {
-  align-items: flex-end;
+
+.mt-status {
+  display: inline-flex;
+  align-items: center;
   gap: var(--e1);
-}
-.mt-botao-pequeno {
   padding: var(--e1) var(--e3);
   font-size: var(--t-sm);
+  font-weight: var(--peso-medio);
+  white-space: nowrap;
+  color: var(--roxo);
+  background: var(--lilas);
+  border-radius: var(--raio-pilula);
+}
+.mt-status svg {
+  width: 1rem;
+  height: 1rem;
+}
+.mt-status[data-tom='subir'],
+.mt-status[data-tom='fechada'] {
+  color: var(--verde);
+  background: var(--verde-fundo);
 }
 
 /* ---------------------------------------------------------------- diálogos */
@@ -429,64 +760,78 @@
   color: var(--texto-2);
 }
 
+
 /* ------------------------------------------------------------------ larguras */
-@media (max-width: 80rem) {
-  .mt-linha {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+@media (max-width: 90rem) {
+  .mt-equipe-corpo {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
-  .mt-vendedor {
-    grid-column: 1 / -1;
-  }
-  .mt-acoes {
+  .mt-equipe-meses {
     grid-column: 1 / -1;
     flex-direction: row;
     flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: var(--e2) var(--e3);
+    padding: var(--e3) 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--borda);
+  }
+  .mt-equipe-meses li {
+    flex: 1 1 10rem;
+    flex-direction: column;
+    gap: 0;
+  }
+}
+
+@media (max-width: 75rem) {
+  .metas-painel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mt-podio {
+    padding-inline: max(var(--e5), calc((100% - 44rem) / 2));
   }
   .mt-nivel-form {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 64rem) {
-  .metas-painel-topo {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .metas-filtros {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .metas-meses {
-    grid-column: 1 / -1;
-  }
-  .metas-meses .campo {
-    flex: 1;
-  }
-}
-
 @media (max-width: 40rem) {
-  .metas-topo-acoes {
+  .metas-topo-acoes,
+  .metas-periodo,
+  .metas-data,
+  .metas-data > input,
+  .metas-data > select {
     width: 100%;
   }
   .metas-topo-acoes > * {
     flex: 1;
   }
-  .metas-filtros {
-    grid-template-columns: minmax(0, 1fr);
+  .metas-meses {
+    width: 100%;
   }
+  .metas-mes {
+    flex: 1;
+  }
+  .metas-mes > input {
+    width: 100%;
+  }
+  .mt-podio {
+    padding: var(--e5) var(--e3) var(--e3);
+  }
+  .mt-podio-lista {
+    gap: var(--e2);
+  }
+  .mt-brasao[data-lugar='1'] {
+    margin-bottom: var(--e5);
+  }
+  .mt-equipe,
   .mt-ranking {
+    padding: var(--e4);
+  }
+  .mt-equipe-corpo {
     grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
   }
-  .mt-linha {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding: var(--e3);
-  }
-  .mt-col-barra {
-    grid-column: 1 / -1;
-  }
-  .mt-acoes {
-    justify-content: flex-start;
+  .mt-equipe-numeros {
+    width: 100%;
   }
   .mt-campos,
   .mt-calculo,
@@ -496,5 +841,13 @@
   }
   .mt-abas {
     margin-inline: calc(-1 * var(--e4));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .metas-painel,
+  .mt-tabela,
+  .mt-icone-botao {
+    transition: none;
   }
 }

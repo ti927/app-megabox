@@ -113,3 +113,18 @@ recadastrada igual.
 carregado. Antes da carga ele acusa `unindexed_foreign_keys` e `unused_index` em tabela vazia, o que
 não quer dizer nada: índice em tabela de 0 linha nunca é usado. O que valeu desde já é a regra de
 `02` §6 — índice em toda FK e em toda coluna de filtro ou ordenação —, aplicada na própria migration.
+
+### `auth_rls_initplan` — corrigido na 020 (29/09/2026)
+
+As policies de leitura de cadastros e listas fixas (001, 003, 004, 006 e outras) chamavam
+`public.fn_usuario_ativo()` (e, em algumas, `fn_hierarquia()`, `fn_pode_acessar_pagina('…')` e
+`auth.uid()`) sem `(select …)`. Como as três primeiras são `security definer`, o Postgres não as
+embute: rodavam **uma vez por linha lida**, cada uma com uma consulta em `usuarios`. Com a base
+carregada, isso somado às subconsultas por linha das views do kanban levou a página `/vendas` a
+estourar o `statement_timeout` (57014) em rajadas.
+
+A `020_desempenho.sql` reescreve toda policy do esquema `public` com `(select f())` — mesma
+condição, calculada uma vez por consulta (initPlan) — e aborta se sobrar chamada solta.
+**Regra para policy nova:** função sem argumento de linha vai sempre dentro de `(select …)`.
+Função que recebe coluna da linha (ex.: `fn_pode_ver_tipo_anexo(tipo_anexo_id)`, 018) fica como
+está, porque ali o valor muda por linha.

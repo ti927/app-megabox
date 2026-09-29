@@ -9,10 +9,13 @@ import {
   formatarReaisExato,
   lerFiltros,
   lerNumeroNf,
+  lerResumo,
   lerValorExato,
   mesCorrente,
   paraCentavos,
   paraQuery,
+  parametrosResumo,
+  parametrosVencidos,
   resumoSelecao,
   somarReais,
   totalPaginas,
@@ -170,5 +173,60 @@ describe('entradas de texto', () => {
   it('número de NF vazio vira nulo', () => {
     expect(lerNumeroNf('  ')).toBeNull()
     expect(lerNumeroNf(' 123 ')).toBe('123')
+  })
+})
+
+describe('resumo do recorte (fn_resumo_financeiro, db/020)', () => {
+  const agora = new Date('2026-09-15T12:00:00-03:00')
+
+  it('leva à função o MESMO recorte da lista', () => {
+    const f = lerFiltros(
+      { aba: 'receber', data: 'pedido', de: '2026-09-01', ate: '2026-09-30', situacao: 'aberto', pedido: '1234', arquivados: 'sim' },
+      agora,
+    )
+    expect(parametrosResumo(f, { cliente: ['c1'], fornecedor: null })).toEqual({
+      p_aba: 'receber',
+      p_coluna_data: 'dt_pedido',
+      p_de: '2026-09-01',
+      p_ate: '2026-09-30',
+      p_situacao: 'aberto',
+      p_arquivados: true,
+      p_clientes: ['c1'],
+      p_fornecedores: null,
+      p_vendedor: null,
+      p_pedido: '1234',
+    })
+  })
+
+  it('a pagar: tipo de data que não existe na aba cai no vencimento; pedido vazio vira nulo', () => {
+    const f = lerFiltros({ aba: 'pagar', data: 'credito' }, agora)
+    const p = parametrosResumo(f, { cliente: null, fornecedor: null })
+    expect(p.p_aba).toBe('pagar')
+    expect(p.p_coluna_data).toBe('dt_vencimento')
+    expect(p.p_pedido).toBeNull()
+  })
+
+  it('vencidos ignora os filtros e não conta arquivada', () => {
+    expect(parametrosVencidos('pagar')).toMatchObject({
+      p_aba: 'pagar',
+      p_situacao: 'vencidas',
+      p_arquivados: false,
+      p_coluna_data: null,
+      p_clientes: null,
+      p_vendedor: null,
+    })
+  })
+
+  it('lê o dinheiro do banco como texto exato, sem float', () => {
+    expect(lerResumo({ qtd: 3, comissao: '123.46', saldo: '0.1' })).toEqual({ qtd: 3, comissao: '123.46', saldo: '0.10' })
+    expect(lerResumo({ qtd: 0, comissao: '0.00', saldo: '-3.70' })).toEqual({ qtd: 0, comissao: '0.00', saldo: '-3.70' })
+    expect(lerResumo({ qtd: 1, comissao: '10000000000.01', saldo: '9999999999.99' })?.comissao).toBe('10000000000.01')
+  })
+
+  it('linha ausente ou fora do formato é falha, não total zero', () => {
+    expect(lerResumo(null)).toBeNull()
+    expect(lerResumo({ qtd: 1, comissao: 12.5, saldo: '1.00' })).toBeNull()
+    expect(lerResumo({ qtd: 1, comissao: '1,5', saldo: '1.00' })).toBeNull()
+    expect(lerResumo({ qtd: -1, comissao: '1.00', saldo: '1.00' })).toBeNull()
   })
 })

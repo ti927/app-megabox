@@ -475,11 +475,15 @@ export async function definirVencedor(_anterior: EstadoAcao, form: FormData): Pr
   // security invoker: a RLS decide). No Bubble eram dois passos (bTOUa0/bTOUU0), e falhar no
   // meio deixava o item sem vencedor.
   const { error } = await supabase.rpc('fn_definir_vencedor', { p_orcamento: id })
+  // 23514 = a regra bTOUP0 recusou e a função desfez tudo: nada mudou, então não há o que
+  // recarregar (revalidar refaz as 4 colunas do kanban e a ficha — db/020). Os outros erros
+  // podem vir de mudança feita por outra pessoa (orçamento apagado, vencedor trocado), e aí a
+  // tela precisa da versão nova.
+  if (error?.code === '23514') {
+    return { erro: 'Para ser vencedor, informe valor unitário e comissão unitária (mínimo R$ 0,01).', id: o.cotacao_id }
+  }
   revalidatePath('/vendas')
   if (error) {
-    if (error.code === '23514') {
-      return { erro: 'Para ser vencedor, informe valor unitário e comissão unitária (mínimo R$ 0,01).', id: o.cotacao_id }
-    }
     if (error.code === 'P0002') return { erro: 'Este orçamento não existe mais. Recarregue a página.' }
     return {
       erro: traduzirErro('definir vencedor', error, 'Outro orçamento deste produto já é o vencedor.'),

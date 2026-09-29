@@ -42,6 +42,9 @@ const COLUNAS_ENTREGA =
   'dt_entrega, saiu_entrega, nf_fornecedor_numero, valor_venda_bruto::text, cliente_nome, ' +
   'produto_nome, vendedor_id, vendedor_substituto_id, papel, vendedor_nome'
 
+/** Ver `buscarKanban`: exato em recorte pequeno, estimativa do planejador acima do max-rows. */
+const CONTAGEM = 'estimated' as const
+
 function coluna<T>(
   nome: string,
   r: { data: unknown; count: number | null; error: { message: string } | null },
@@ -57,9 +60,14 @@ function coluna<T>(
  * As 4 colunas do quadro, em paralelo, filtradas e LIMITADAS no servidor (spec §3.1–3.4).
  *
  * No Bubble são 4 RepeatingGroups que trazem a coluna inteira, mais uma busca repetida só
- * para o contador. Aqui cada coluna é UMA consulta com `count: 'exact'` e `range`: o contador
- * sai da mesma busca (o do Bubble para pedidos filtrava por Created By e divergia da lista,
- * spec §3.2), e "Mostrar mais" amplia o range pela URL.
+ * para o contador. Aqui cada coluna é UMA consulta com contagem e `range`: o contador sai da
+ * mesma busca (o do Bubble para pedidos filtrava por Created By e divergia da lista, spec
+ * §3.2), e "Mostrar mais" amplia o range pela URL.
+ *
+ * Contagem `estimated` (db/020): o PostgREST conta EXATO até o max-rows do projeto (1.000) e,
+ * acima disso, usa a estimativa do planejador. Um mês de kanban fica bem abaixo — o número
+ * mostrado é o exato de antes —, e um recorte enorme não paga mais uma contagem inteira a cada
+ * abertura (era parte das rajadas de 57014 com a base cheia).
  *
  * Quem enxerga o quê é a RLS (db/007–009): Analista/Operador só leem o que é seu. O filtro de
  * vendedor daqui só repete a regra do Bubble para as colunas mostrarem o mesmo recorte.
@@ -76,7 +84,7 @@ async function buscarKanban(supabase: Supabase, f: FiltrosVendas, u: UsuarioAtua
     .select(
       'id, numero, criado_em, arquivado, etapa_id, cliente_nome, vendedor_nome, motivo_nome, ' +
         'qtd_itens, qtd_vencedores, qtd_propostas, total_bruto_vencedores::text, pode_propor',
-      { count: 'exact' },
+      { count: CONTAGEM },
     )
     .eq('rascunho', false)
     .eq('arquivado', r.cotacao.arquivado)
@@ -98,7 +106,7 @@ async function buscarKanban(supabase: Supabase, f: FiltrosVendas, u: UsuarioAtua
         'vendedor_nome, valor_total::text, todas_concluidas, ' +
         'entregas(id, qtd::text, dt_prev_entrega, status_id, nf_fornecedor_numero, saiu_entrega, ' +
           'orcamento:orcamentos_fornecedor(produto:produtos(nome)))',
-      { count: 'exact' },
+      { count: CONTAGEM },
     )
     .eq('finalizado', r.pedido.finalizado)
     .eq('etapa_id', r.pedido.etapa)
@@ -111,7 +119,7 @@ async function buscarKanban(supabase: Supabase, f: FiltrosVendas, u: UsuarioAtua
   // ------------------------------------------------------- Entregas Próprias
   let ent = supabase
     .from('v_kanban_entregas')
-    .select(COLUNAS_ENTREGA, { count: 'exact' })
+    .select(COLUNAS_ENTREGA, { count: CONTAGEM })
     .eq('saiu_entrega', true)
     .eq('status_id', r.entrega.status)
     .gte(r.entrega.dataPeriodo, f.de)
@@ -126,7 +134,7 @@ async function buscarKanban(supabase: Supabase, f: FiltrosVendas, u: UsuarioAtua
   // toda entrega aberta, o que não é entrega de substituto nenhum.
   let sub = supabase
     .from('v_kanban_entregas')
-    .select(COLUNAS_ENTREGA, { count: 'exact' })
+    .select(COLUNAS_ENTREGA, { count: CONTAGEM })
     .not('status_id', 'in', `(${r.substitutoExcluiStatus.join(',')})`)
     .gte('dt_pedido', f.de)
     .lte('dt_pedido', f.ate)

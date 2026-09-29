@@ -280,6 +280,85 @@ export const STATUS = {
   pagar: { aberto: 3, quitado: 4 },
 } as const
 
+// ------------------------------------------------------------------ resumo (db/020)
+
+/** Argumentos de `fn_resumo_financeiro` (db/020). Nomes = parâmetros da função. */
+export type ParametrosResumo = {
+  p_aba: 'receber' | 'pagar'
+  p_coluna_data: string | null
+  p_de: string | null
+  p_ate: string | null
+  p_situacao: Situacao
+  p_arquivados: boolean
+  p_clientes: string[] | null
+  p_fornecedores: string[] | null
+  p_vendedor: string | null
+  p_pedido: string | null
+}
+
+/**
+ * Filtros da tela → argumentos da função de resumo. É o MESMO recorte da lista
+ * (`consulta()` em app/(app)/financeiro/page.tsx): a soma e a contagem saem do banco, numa
+ * consulta, em vez de a página percorrer o recorte em lotes de 1.000.
+ * `ids` null = sem filtro de cliente/fornecedor.
+ */
+export function parametrosResumo(
+  f: FiltrosFinanceiro,
+  ids: { cliente: string[] | null; fornecedor: string[] | null },
+): ParametrosResumo {
+  const aba = f.aba === 'pagar' ? 'pagar' : 'receber'
+  return {
+    p_aba: aba,
+    p_coluna_data: colunaData(f.data, aba),
+    p_de: f.de,
+    p_ate: f.ate,
+    p_situacao: f.situacao,
+    p_arquivados: f.arquivados,
+    p_clientes: ids.cliente,
+    p_fornecedores: ids.fornecedor,
+    p_vendedor: f.vendedor,
+    p_pedido: f.pedido || null,
+  }
+}
+
+/**
+ * Card "vencidos" (§3.4): ignora todos os filtros da tela, não conta arquivada (a receber)
+ * nem cancelada.
+ */
+export function parametrosVencidos(aba: 'receber' | 'pagar'): ParametrosResumo {
+  return {
+    p_aba: aba,
+    p_coluna_data: null,
+    p_de: null,
+    p_ate: null,
+    p_situacao: 'vencidas',
+    p_arquivados: false,
+    p_clientes: null,
+    p_fornecedores: null,
+    p_vendedor: null,
+    p_pedido: null,
+  }
+}
+
+export type Resumo = { qtd: number; comissao: string; saldo: string }
+
+/**
+ * Linha devolvida pela função → resumo. O dinheiro vem como TEXTO (db/020 D8) e passa por
+ * `somarReais` só para sair no formato exato de sempre ("1234.50"); valor fora do formato
+ * (ou linha ausente) é `null` — a tela mostra a falha em vez de um total errado.
+ */
+export function lerResumo(linha: unknown): Resumo | null {
+  if (!linha || typeof linha !== 'object') return null
+  const { qtd, comissao, saldo } = linha as Record<string, unknown>
+  if (typeof qtd !== 'number' || !Number.isInteger(qtd) || qtd < 0) return null
+  if (typeof comissao !== 'string' || typeof saldo !== 'string') return null
+  try {
+    return { qtd, comissao: somarReais([comissao]), saldo: somarReais([saldo]) }
+  } catch {
+    return null
+  }
+}
+
 /** Faixa do `range` do PostgREST para a página (0-based, inclusivo). */
 export function faixa(pagina: number, porPagina = POR_PAGINA): { de: number; ate: number } {
   const de = (pagina - 1) * porPagina

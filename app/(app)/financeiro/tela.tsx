@@ -593,7 +593,7 @@ function PainelContas({
           titulo={receber ? 'A receber vencidos' : 'A pagar vencidos'}
           qtd={vencidos.qtd}
           valor={vencidos.saldo}
-          detalhe={vencidos.falhou ? 'soma parcial — use o filtro' : 'saldo em aberto, sem filtros'}
+          detalhe={vencidos.falhou ? 'não foi possível somar' :'saldo em aberto, sem filtros'}
           tom="roxo"
           ativo={filtros.situacao === 'vencidas'}
           aoClicar={() => navegar({ situacao: 'vencidas', pagina: 1, sel: null })}

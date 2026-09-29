@@ -452,6 +452,38 @@ async function main() {
   const cob = await D.rpc('fn_registrar_cobranca', { p_contas: [p1?.id], p_endereco_fornecedor: d.origem })
   caso('cobrança: número por sequence, fornecedor da filial', `true/${d.fornecedor}`, `${Number.isInteger(cob.data?.numero)}/${cob.data?.fornecedor_id}`, cob.error?.message)
 
+  // ------------------------------------------------- resumo do recorte (db/020)
+  // A função tem de devolver o MESMO que a view, somada linha a linha, para quem pergunta —
+  // inclusive o Operador, que só enxerga o que a RLS deixa.
+  const recorte = { p_aba: 'receber', p_coluna_data: 'dt_vencimento', p_de: '2030-01-01', p_ate: '2030-12-31', p_situacao: '', p_arquivados: false }
+  const pelaView = async (cliente) => {
+    const { data } = await cliente
+      .from('v_contas_receber')
+      .select('valor_comissao::text, saldo::text')
+      .is('cancelada_em', null)
+      .eq('arquivado', false)
+      .gte('dt_vencimento', recorte.p_de)
+      .lte('dt_vencimento', recorte.p_ate)
+    // texto do numeric → centavos em BigInt, sem passar por float
+    const cent = (v) => {
+      const [i, f = ''] = v.replace('-', '').split('.')
+      const c = BigInt(i) * 100n + BigInt(f.padEnd(2, '0').slice(0, 2))
+      return v.startsWith('-') ? -c : c
+    }
+    const soma = (k) => (data ?? []).reduce((a, r) => a + cent(r[k]), 0n)
+    const txt = (c) => `${c < 0n ? '-' : ''}${(c < 0n ? -c : c) / 100n}.${String((c < 0n ? -c : c) % 100n).padStart(2, '0')}`
+    return `${(data ?? []).length}/${txt(soma('valor_comissao'))}/${txt(soma('saldo'))}`
+  }
+  const resumoDe = async (cliente) => {
+    const { data, error } = await cliente.rpc('fn_resumo_financeiro', recorte).maybeSingle()
+    return error ? `erro ${error.code}` : `${data?.qtd}/${data?.comissao}/${data?.saldo}`
+  }
+  caso('fn_resumo_financeiro = soma da view (perfil 1)', await pelaView(D), await resumoDe(D))
+  caso('fn_resumo_financeiro = soma da view (Operador, pela RLS dele)', await pelaView(O), await resumoDe(O))
+  caso('fn_resumo_financeiro devolve dinheiro como texto', 'string', typeof (await D.rpc('fn_resumo_financeiro', recorte).maybeSingle()).data?.saldo)
+  caso('fn_resumo_financeiro recusa coluna fora da lista', '22023', codigo(await D.rpc('fn_resumo_financeiro', { ...recorte, p_coluna_data: 'valor_comissao' })))
+  caso('anon executa fn_resumo_financeiro', RECUSADO, codigo(await anonimo.rpc('fn_resumo_financeiro', recorte)))
+
   // --------------------------------------------------------------------------- metas
   console.log('\nMetas (perfil 1):')
   // entrega B confirmada SEM conta a pagar (a regra das duas origens é parâmetro)

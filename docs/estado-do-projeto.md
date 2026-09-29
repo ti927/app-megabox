@@ -43,7 +43,8 @@ Depois que o banco voltar, nesta ordem:
 | E-mail | fila + Resend, **desligado** (`EMAIL_MODO=registro`) |
 | Revisão de segurança | feita; 1 achado médio (redirect pós-login) corrigido |
 | Visual | redesenho em andamento no branch `wip/redesenho-visual` |
-| Deploy / corte | não iniciado |
+| Deploy | Vercel, equipe **Lure TI's projects**, projeto **`app-megabox-1qwe`** ligado a `ti927/app-megabox` (push no `main` = deploy). Variáveis de produção e preview configuradas; `vercel.json` força `gru1`. (Existe também um projeto `app-megabox` vazio, sem git, criado antes do import — pode ser apagado.) |
+| Corte | checklist em `docs/plano-de-corte.md` |
 
 Verificações: `npm run verify`; as suítes `scripts/testar-rls*.mjs`; `python tools/conferir-cobertura.py`.
 Aplicar migration: `node scripts/aplicar-migration.mjs db/0XX.sql --seco`, depois sem `--seco`,

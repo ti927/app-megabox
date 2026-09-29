@@ -1,6 +1,8 @@
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import { Casca } from '@/componentes/casca'
+import { COOKIE_TEMA, lerTema } from '@/componentes/tema'
 import { minhasConfiguracoes, minhasPaginas, usuarioAtual } from '@/lib/autorizacao'
 
 import './casca.css'
@@ -18,10 +20,19 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
   const usuario = await usuarioAtual()
   if (!usuario) redirect('/entrar')
 
-  const [paginas, configuracoes] = await Promise.all([minhasPaginas(), minhasConfiguracoes()])
+  const [paginas, configuracoes, jar] = await Promise.all([
+    minhasPaginas(),
+    minhasConfiguracoes(),
+    cookies(),
+  ])
 
   return (
-    <Casca usuario={usuario} paginas={paginas} configuracoes={configuracoes}>
+    <Casca
+      usuario={usuario}
+      paginas={paginas}
+      configuracoes={configuracoes}
+      tema={lerTema(jar.get(COOKIE_TEMA)?.value)}
+    >
       {children}
     </Casca>
   )

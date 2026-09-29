@@ -1,6 +1,7 @@
 /* Login. Bubble (index-02/03): página clara, logo grande centralizado e, abaixo,
  * cartão branco com sombra leve, "Bem-vindo de volta", campos e botão azul de largura total. */
 .entrar {
+  position: relative;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -13,8 +14,14 @@
     var(--fundo-2);
 }
 
-.entrar-marca .marca-nome {
-  font-size: 2.25rem;
+.entrar-tema {
+  position: absolute;
+  top: var(--e4);
+  right: var(--e4);
+}
+
+.entrar-marca img {
+  height: 4.5rem;
 }
 
 .entrar-cartao {
@@ -67,5 +74,8 @@
   }
   .entrar-cartao {
     padding: var(--e5) var(--e4) var(--e4);
+  }
+  .entrar-marca img {
+    height: 3.25rem;
   }
 }

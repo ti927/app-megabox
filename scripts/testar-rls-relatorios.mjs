@@ -63,7 +63,14 @@ const FUNCOES = {
   fn_rel_cotacoes_motivos: MARCO,
   fn_rel_prospeccao_vendedor: MARCO,
   fn_rel_prospeccao_diario: MARCO,
+  // 021 — o conteúdo dos blocos HTML do Bubble
+  fn_rel_cotacao_painel: { p_ano: 2031, p_mes: 3 },
+  fn_rel_prospeccao_painel: { p_ano: 2031, p_mes: 3 },
+  fn_rel_entregas_produtos: { p_inicio: INICIO, p_fim: FIM },
+  fn_rel_entregas_mes: { p_eixo: 'cliente', p_inicio: INICIO, p_fim: FIM },
+  fn_rel_entregas_detalhe: { p_inicio: INICIO, p_fim: FIM },
 }
+const MARCO_MES = { p_ano: 2031, p_mes: 3 }
 
 const admin = createClient(URL, SERVICE, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -212,8 +219,18 @@ async function preparar(idDir, idOp) {
     admin
       .from('propostas')
       .insert([
-        { cotacao_id: c1.cot, numero: 1, vendedor_id: idDir, enviada: true, enviada_em: '2031-03-10T10:00:00-03:00' },
-        { cotacao_id: c2.cot, numero: 1, vendedor_id: idOp, enviada: true, enviada_em: '2031-03-11T10:00:00-03:00' },
+        // criado_em e faturar_para: a 021 conta a proposta pela criação (R7) e o cliente pelo
+        // endereço → grupo → carteira (R8), como o HTML D.
+        {
+          cotacao_id: c1.cot, numero: 1, vendedor_id: idDir, enviada: true, enviada_em: '2031-03-10T10:00:00-03:00',
+          criado_em: '2031-03-10T10:00:00-03:00', faturar_para_endereco_id: destDir,
+        },
+        {
+          cotacao_id: c2.cot, numero: 1, vendedor_id: idOp, enviada: true, enviada_em: '2031-03-11T10:00:00-03:00',
+          criado_em: '2031-03-11T10:00:00-03:00', faturar_para_endereco_id: destOp,
+        },
+        // Não enviada: não conta em nada.
+        { cotacao_id: c1.cot, numero: 2, vendedor_id: idDir, enviada: false, criado_em: '2031-03-12T10:00:00-03:00' },
       ])
       .select('id'),
     'propostas',
@@ -374,6 +391,67 @@ async function main() {
   caso('Prospecção: um dia por dia do período', 31, dias.length)
   caso('Prospecção: volume do dia 10/03', 1, Number(dias.find((x) => x.dia === '2031-03-10')?.propostas))
 
+  // ---------------------------------------- 021: fórmulas do HTML original (R1–R9, O1–O3)
+  console.log('\n  021 — conteúdo dos blocos HTML do Bubble:')
+  const cot = await rpc(dir.cliente, 'fn_rel_cotacao_painel', MARCO_MES)
+  const k = cot.kpis
+  caso('Painel Cotação: total do mês', 4, k.total)
+  caso('Painel Cotação: em cotação = etapa Cotação, arquivada ou não (R2)', 2, k.em_cotacao)
+  caso('Painel Cotação: virou pedido = etapa Pedir (R2)', 2, k.virou_pedido)
+  caso('Painel Cotação: arquivadas', 1, k.arquivadas)
+  caso('Painel Cotação: conversão = pedidos ativos ÷ ativas = 2 ÷ 3 (R3)', '0.6667', fixo(k.taxa_conversao, 4))
+  caso('Painel Cotação: faturamento como TEXTO exato', '163.40', k.faturamento)
+  caso('Painel Cotação: ticket médio', '81.70', k.ticket_medio)
+  caso('Painel Cotação: tempo médio de fechamento', '2.5', fixo(k.tempo_medio_dias, 1))
+  caso('Painel Cotação: ranking ordenado por conversão (perfil 1: 1 ÷ 1)', dir.id, cot.vendedores[0]?.vendedor_id)
+  caso('Painel Cotação: ativas do perfil 1 (a arquivada sai)', 1, cot.vendedores[0]?.ativas)
+  caso('Painel Cotação: faturamento do perfil 1', '123.40', cot.vendedores[0]?.faturamento)
+  caso('Painel Cotação: um motivo de arquivamento', 1, cot.motivos.reduce((s, m) => s + m.qtd, 0))
+  caso('Painel Cotação: histórico jan → mar (R5)', 3, cot.historico.length)
+  caso('Painel Cotação: conversão de março no histórico', '0.6667', fixo(cot.historico[2]?.conversao, 4))
+  const cotArq = await rpc(dir.cliente, 'fn_rel_cotacao_painel', { ...MARCO_MES, p_arquivado: true })
+  caso('Painel Cotação: filtro Arquivado = sim', 1, cotArq.kpis.total)
+  caso('Painel Cotação: histórico ignora o filtro Arquivado (R5)', 3, cotArq.historico[2]?.ativas)
+  const mesRuim = await dir.cliente.rpc('fn_rel_cotacao_painel', { p_ano: 2031, p_mes: 13 })
+  caso('Painel Cotação: mês 13 é recusado', '22023', mesRuim.error?.code)
+
+  const pro = await rpc(dir.cliente, 'fn_rel_prospeccao_painel', MARCO_MES)
+  const proDir = pro.vendedores.find((v) => v.vendedor_id === dir.id)
+  caso('Painel Prospecção: dias úteis de março/2031', 21, pro.dias_uteis)
+  caso('Painel Prospecção: enviadas pela CRIAÇÃO, não enviada fica fora (R7)', 1, proDir?.enviadas)
+  caso('Painel Prospecção: cliente da carteira prospectado (R8)', 1, proDir?.clientes)
+  caso('Painel Prospecção: carteira conta o grupo do cenário', true, (proDir?.carteira ?? 0) >= 1)
+  caso('Painel Prospecção: média/dia = 1 ÷ 21', '0.05', fixo(proDir?.media_dia))
+  caso('Painel Prospecção: total de enviadas = soma das linhas', 2, pro.totais.enviadas)
+  caso('Painel Prospecção: volume diário só com dias úteis', 21, pro.diario.length)
+  caso('Painel Prospecção: dia 11/03', 1, pro.diario.find((x) => x.dia === '2031-03-11')?.propostas)
+
+  const prods = await rpc(dir.cliente, 'fn_rel_entregas_produtos', periodo)
+  const [prodLinha] = nivel(prods, 0)
+  caso('Por produto (HTML B): uma linha por produto', 1, nivel(prods, 0).length)
+  caso('Por produto: total de venda', '112.04', fixo(nivel(prods, 1)[0]?.valor_venda_bruto))
+  caso('Por produto: UFs distintas do produto', 'GO,MG', (prodLinha?.ufs ?? []).join(','))
+  const prodMg = await rpc(dir.cliente, 'fn_rel_entregas_produtos', { ...periodo, p_uf: 'mg' })
+  caso('Por produto: filtro de UF exato, antes de agregar (O1)', '50.00', fixo(nivel(prodMg, 1)[0]?.valor_venda_bruto))
+  const prodNada = await rpc(dir.cliente, 'fn_rel_entregas_produtos', { ...periodo, p_fornecedor: 'nao-existe-xyz' })
+  caso('Por produto: filtro de fornecedor sem acerto zera', 0, nivel(prodNada, 0).length)
+  const prodAcento = await rpc(dir.cliente, 'fn_rel_entregas_produtos', { ...periodo, p_produto: 'TESTE_RLS_RELATÓRIOS' })
+  caso('Por produto: "contém" sem acento e sem caixa', 1, nivel(prodAcento, 0).length)
+
+  const mesGo = await rpc(dir.cliente, 'fn_rel_entregas_mes', { p_eixo: 'cliente', ...periodo, p_uf: 'go' })
+  caso('Cliente × Mês (HTML A): total geral do recorte de UF (O2)', '5.81', fixo(nivel(mesGo, 3)[0]?.valor_comissao))
+  const mesForn = await rpc(dir.cliente, 'fn_rel_entregas_mes', { p_eixo: 'fornecedor', ...periodo })
+  caso('Fornecedor × Mês: total geral', '11.36', fixo(nivel(mesForn, 3)[0]?.valor_comissao))
+  const eixoRuim = await dir.cliente.rpc('fn_rel_entregas_mes', { p_eixo: 'x', ...periodo })
+  caso('eixo inválido é recusado', '22023', eixoRuim.error?.code)
+
+  const det = await rpc(dir.cliente, 'fn_rel_entregas_detalhe', {
+    ...periodo, p_eixo: 'cliente', p_endereco_id: d.destDir, p_mes: '2031-03-01',
+  })
+  caso('Detalhamento (O3): a célula perfil 1 / março tem 1 entrega', 1, det.length)
+  caso('Detalhamento: comissão da entrega', '3.33', fixo(det[0]?.valor_comissao))
+  caso('Detalhamento: traz o número da cotação para o link', true, Number.isInteger(det[0]?.cotacao_numero))
+
   // ------------------------------------------------------------------------ Operador
   console.log('\nOperador (perfil 4 — só o agregado do que é dele):')
   const o = op.cliente
@@ -399,6 +477,18 @@ async function main() {
   caso('Cotação: faturamento do Operador', '40.00', fixo(resOp?.faturamento))
   const rankOp = await rpc(o, 'fn_rel_cotacoes_vendedor', MARCO)
   caso('SIGILO: ranking de cotação só com o próprio Operador', true, rankOp.length === 1 && rankOp[0].vendedor_id === op.id)
+
+  const cotOp = await rpc(o, 'fn_rel_cotacao_painel', MARCO_MES)
+  caso('021 Painel Cotação: total do Operador', 2, cotOp.kpis.total)
+  caso('021 SIGILO: vendedores do painel só com o Operador', true, cotOp.vendedores.length === 1 && cotOp.vendedores[0].vendedor_id === op.id)
+  const proOp = await rpc(o, 'fn_rel_prospeccao_painel', MARCO_MES)
+  caso('021 SIGILO: prospecção só com o Operador', true, proOp.vendedores.every((v) => v.vendedor_id === op.id))
+  const proOpDir = await rpc(o, 'fn_rel_prospeccao_painel', { ...MARCO_MES, p_vendedor: dir.id })
+  caso('021 SIGILO: filtrar pelo perfil 1 não revela nada', 0, proOpDir.vendedores.length)
+  const prodsOp = await rpc(o, 'fn_rel_entregas_produtos', periodo)
+  caso('021 Por produto: total do Operador', '50.00', fixo(nivel(prodsOp, 1)[0]?.valor_venda_bruto))
+  const detOp = await rpc(o, 'fn_rel_entregas_detalhe', periodo)
+  caso('021 SIGILO: detalhamento só com a entrega do Operador', 1, detOp.length)
   const prospAll = await rpc(o, 'fn_rel_prospeccao_vendedor', MARCO)
   caso(
     'SIGILO: prospecção sem linha de outro vendedor (nem carteira)',

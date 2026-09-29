@@ -1,11 +1,14 @@
 import type { LinhaMes } from '@/lib/relatorios'
+import type { PainelCotacao, PainelProspeccao } from '@/lib/relatorios-paineis'
 
 /** numeric do Postgres chega como número ou string; nunca somamos aqui. */
 type Num = string | number
 
-/** fn_rel_entregas_produto (017). */
+export type { LinhaMes, PainelCotacao, PainelProspeccao }
+
+/** fn_rel_entregas_produto (017) — ainda usado pelo CSV antigo e pelo teste de RLS. */
 export type LinhaProduto = {
-  nivel: number // 0 linha · 1 subtotal do produto · 2 total geral
+  nivel: number
   produto_id: string | null
   produto: string | null
   fornecedor_endereco_id: string | null
@@ -21,79 +24,55 @@ export type LinhaProduto = {
   qtd_entregas: Num
 }
 
-export type { LinhaMes }
-
-/** fn_rel_cotacoes_resumo (017 D7). */
-export type ResumoCotacoes = {
-  total: Num
-  em_cotacao: Num
-  virou_pedido: Num
-  arquivadas: Num
-  taxa_conversao: Num | null
-  faturamento: Num
-  ticket_medio: Num | null
-  tempo_medio_fechamento_dias: Num | null
-  total_anterior: Num
-  virou_pedido_anterior: Num
-  taxa_conversao_anterior: Num | null
+/** fn_rel_entregas_produtos (021 O1) — uma linha por produto, como o HTML B. */
+export type LinhaProdutoGrupo = {
+  nivel: number // 0 produto · 1 total do recorte
+  produto_id: string | null
+  produto: string | null
+  qtd: Num
+  valor_venda_bruto: Num
+  valor_comissao: Num
+  fornecedores: string[]
+  ufs: string[]
+  clientes: string[]
+  qtd_entregas: Num
 }
 
-export type RankingCotacao = {
-  posicao: Num
-  vendedor_id: string
-  vendedor: string
-  cotacoes: Num
-  ativas: Num
-  pedidos: Num
-  arquivadas: Num
-  taxa_conversao: Num | null
-  faturamento: Num
+/** fn_rel_entregas_detalhe (021 O3). */
+export type LinhaDetalhe = {
+  entrega_id: string
+  cotacao_id: string | null
+  cotacao_numero: number | null
+  dt_entrega: string
+  produto: string | null
+  cliente: string | null
+  uf_destino: string | null
+  fornecedor: string | null
+  uf_origem: string | null
+  qtd: Num
+  valor_venda_bruto_unit: Num | null
+  valor_venda_bruto: Num
+  valor_comissao: Num
 }
 
-export type CotacaoMes = { mes: string; total: Num; virou_pedido: Num; arquivadas: Num; taxa_conversao: Num | null }
-export type MotivoArquivamento = { motivo_id: number | null; motivo: string; qtd: Num }
-
+/** Linha da tabela "Cotações do Período" (HTML C, Detalhamento). */
 export type CotacaoDetalhe = {
   id: string
   numero: number
   criado_em: string
   arquivado: boolean
   data_validade: string | null
+  etapa_id: number
   etapa: { nome: string } | null
   status: { nome: string } | null
   motivo: { nome: string } | null
   vendedor: { nome: string } | null
 }
 
-/** fn_rel_prospeccao_vendedor (017 D8). */
-export type LinhaProspeccao = {
-  nivel: number // 0 vendedor · 1 total
-  posicao: Num | null
-  vendedor_id: string | null
-  vendedor: string
-  propostas: Num
-  clientes: Num
-  carteira: Num
-  carteira_atingida: Num
-  cobertura: Num | null
-  media_dia: Num | null
-  dias_uteis: number
-}
-
-export type DiaProspeccao = { dia: string; util: boolean; propostas: Num }
-
 export type DadosRelatorio =
-  | { aba: 'outros'; modelo: 'produtos'; produtos: LinhaProduto[] }
+  | { aba: 'outros'; modelo: 'produtos'; produtos: LinhaProdutoGrupo[] }
   | { aba: 'outros'; modelo: 'clientes' | 'fornecedores'; mes: LinhaMes[] }
-  | {
-      aba: 'cotacao'
-      resumo: ResumoCotacoes | null
-      ranking: RankingCotacao[]
-      porMes: CotacaoMes[]
-      motivos: MotivoArquivamento[]
-      detalhe: CotacaoDetalhe[]
-      totalDetalhe: number
-    }
-  | { aba: 'prospeccao'; vendedores: LinhaProspeccao[]; diario: DiaProspeccao[] }
+  | { aba: 'cotacao'; painel: PainelCotacao | null; detalhe: CotacaoDetalhe[]; totalDetalhe: number }
+  | { aba: 'prospeccao'; painel: PainelProspeccao | null }
 
 export type Vendedor = { id: string; nome: string }

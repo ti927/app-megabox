@@ -2,20 +2,17 @@ import type { Metadata } from 'next'
 
 import { exigirAcesso } from '@/lib/autorizacao'
 import { type FiltrosRelatorio, hojeSaoPaulo, lerFiltros, limitesSaoPaulo } from '@/lib/relatorios'
+import { type Extras, lerExtras, limitesDoMes, mesAnoDe } from '@/lib/relatorios-paineis'
 import { clienteServidor } from '@/lib/supabase/servidor'
 
 import { TelaRelatorios } from './tela'
 import type {
   CotacaoDetalhe,
-  CotacaoMes,
   DadosRelatorio,
-  DiaProspeccao,
   LinhaMes,
-  LinhaProduto,
-  LinhaProspeccao,
-  MotivoArquivamento,
-  RankingCotacao,
-  ResumoCotacoes,
+  LinhaProdutoGrupo,
+  PainelCotacao,
+  PainelProspeccao,
   Vendedor,
 } from './tipos'
 
@@ -25,37 +22,57 @@ export const metadata: Metadata = { title: 'Relatórios — MegaBox' }
 
 type Supabase = Awaited<ReturnType<typeof clienteServidor>>
 
-const DETALHE_MAX = 50
+/** Linhas por página da tabela "Cotações do Período" (PAGE_SIZE do HTML C). */
+const POR_PAGINA = 25
 
 /**
- * Uma chamada ao banco por bloco da aba aberta — só a aba aberta (no Bubble as três abas
- * carregavam juntas e o HTML somava no navegador; spec §8.4). Toda soma é das funções fn_rel_*
- * da 017, com o cliente da SESSÃO: a RLS de quem lê decide o que entra no agregado.
+ * Uma chamada ao banco por bloco da aba ABERTA (no Bubble as três abas carregavam juntas e o
+ * JavaScript dos blocos HTML baixava tabelas inteiras). Toda soma é das funções da 021, com o
+ * cliente da SESSÃO: a RLS de quem lê decide o que entra no agregado.
  */
-async function buscar(supabase: Supabase, f: FiltrosRelatorio): Promise<{ dados: DadosRelatorio; falhou: boolean }> {
-  const periodo = { p_inicio: f.inicio, p_fim: f.fim, p_vendedor: f.vendedor }
-  const arquivado = f.arquivado === null ? null : f.arquivado === 'sim'
-
+async function buscar(
+  supabase: Supabase,
+  f: FiltrosRelatorio,
+  x: Extras,
+): Promise<{ dados: DadosRelatorio; falhou: boolean }> {
   if (f.aba === 'outros') {
+    const periodo = { p_inicio: f.inicio, p_fim: f.fim, p_vendedor: f.vendedor }
     if (f.modelo === 'produtos') {
-      const r = await supabase.rpc('fn_rel_entregas_produto', periodo)
+      const r = await supabase.rpc('fn_rel_entregas_produtos', {
+        ...periodo,
+        p_produto: x.produto || null,
+        p_fornecedor: x.fornecedor || null,
+        p_uf: x.uf || null,
+        p_cliente: x.cliente || null,
+      })
       if (r.error) console.error('relatorios: produtos', r.error)
-      return { dados: { aba: 'outros', modelo: 'produtos', produtos: (r.data ?? []) as LinhaProduto[] }, falhou: !!r.error }
+      return {
+        dados: { aba: 'outros', modelo: 'produtos', produtos: (r.data ?? []) as LinhaProdutoGrupo[] },
+        falhou: !!r.error,
+      }
     }
-    const fn = f.modelo === 'clientes' ? 'fn_rel_entregas_cliente_mes' : 'fn_rel_entregas_fornecedor_mes'
-    const r = await supabase.rpc(fn, periodo)
+    const r = await supabase.rpc('fn_rel_entregas_mes', {
+      p_eixo: f.modelo === 'clientes' ? 'cliente' : 'fornecedor',
+      ...periodo,
+      p_nome: (f.modelo === 'clientes' ? x.cliente : x.fornecedor) || null,
+      p_uf: x.uf || null,
+    })
     if (r.error) console.error(`relatorios: ${f.modelo}`, r.error)
     return { dados: { aba: 'outros', modelo: f.modelo, mes: (r.data ?? []) as LinhaMes[] }, falhou: !!r.error }
   }
 
+  // Cotação e Prospecção são painéis de UM mês (R1): o do início do período da URL.
+  const { ano, mes } = mesAnoDe(f.inicio)
+
   if (f.aba === 'cotacao') {
-    const comArq = { ...periodo, p_arquivado: arquivado }
-    const { de, ate } = limitesSaoPaulo(f.inicio, f.fim)
+    const arquivado = f.arquivado === null ? null : f.arquivado === 'sim'
+    const { inicio, fim } = limitesDoMes(ano, mes)
+    const { de, ate } = limitesSaoPaulo(inicio, fim)
     let detalhe = supabase
       .from('cotacoes')
       .select(
-        'id, numero, criado_em, arquivado, data_validade, etapa:etapas(nome), status:cotacao_status(nome), ' +
-          'motivo:motivos_arquivamento(nome), vendedor:usuarios!vendedor_id(nome)',
+        'id, numero, criado_em, arquivado, data_validade, etapa_id, etapa:etapas(nome), ' +
+          'status:cotacao_status(nome), motivo:motivos_arquivamento(nome), vendedor:usuarios!vendedor_id(nome)',
         { count: 'exact' },
       )
       .eq('rascunho', false)
@@ -63,43 +80,31 @@ async function buscar(supabase: Supabase, f: FiltrosRelatorio): Promise<{ dados:
       .lt('criado_em', ate)
     if (f.vendedor) detalhe = detalhe.eq('vendedor_id', f.vendedor)
     if (arquivado !== null) detalhe = detalhe.eq('arquivado', arquivado)
+    const desde = (x.pagina - 1) * POR_PAGINA
 
-    const [resumo, ranking, porMes, motivos, lista] = await Promise.all([
-      supabase.rpc('fn_rel_cotacoes_resumo', comArq),
-      supabase.rpc('fn_rel_cotacoes_vendedor', comArq),
-      supabase.rpc('fn_rel_cotacoes_mes', comArq),
-      supabase.rpc('fn_rel_cotacoes_motivos', periodo),
-      detalhe.order('criado_em', { ascending: false }).order('id').limit(DETALHE_MAX),
+    const [painel, lista] = await Promise.all([
+      supabase.rpc('fn_rel_cotacao_painel', { p_ano: ano, p_mes: mes, p_vendedor: f.vendedor, p_arquivado: arquivado }),
+      // Ordem da Data API do Bubble: criação crescente (captura relatorios-02: 5761, 5762…).
+      detalhe.order('criado_em', { ascending: true }).order('numero').range(desde, desde + POR_PAGINA - 1),
     ])
-    const erros = [resumo, ranking, porMes, motivos, lista].filter((r) => r.error)
-    for (const e of erros) console.error('relatorios: cotação', e.error)
+    if (painel.error) console.error('relatorios: cotação', painel.error)
+    if (lista.error) console.error('relatorios: cotações do período', lista.error)
     return {
       dados: {
         aba: 'cotacao',
-        resumo: ((resumo.data ?? []) as ResumoCotacoes[])[0] ?? null,
-        ranking: (ranking.data ?? []) as RankingCotacao[],
-        porMes: (porMes.data ?? []) as CotacaoMes[],
-        motivos: (motivos.data ?? []) as MotivoArquivamento[],
+        painel: (painel.data ?? null) as PainelCotacao | null,
         detalhe: (lista.data ?? []) as unknown as CotacaoDetalhe[],
         totalDetalhe: lista.count ?? 0,
       },
-      falhou: erros.length > 0,
+      falhou: !!(painel.error || lista.error),
     }
   }
 
-  const [vendedores, diario] = await Promise.all([
-    supabase.rpc('fn_rel_prospeccao_vendedor', periodo),
-    supabase.rpc('fn_rel_prospeccao_diario', periodo),
-  ])
-  if (vendedores.error) console.error('relatorios: prospecção', vendedores.error)
-  if (diario.error) console.error('relatorios: prospecção diária', diario.error)
+  const painel = await supabase.rpc('fn_rel_prospeccao_painel', { p_ano: ano, p_mes: mes, p_vendedor: f.vendedor })
+  if (painel.error) console.error('relatorios: prospecção', painel.error)
   return {
-    dados: {
-      aba: 'prospeccao',
-      vendedores: (vendedores.data ?? []) as LinhaProspeccao[],
-      diario: (diario.data ?? []) as DiaProspeccao[],
-    },
-    falhou: !!(vendedores.error || diario.error),
+    dados: { aba: 'prospeccao', painel: (painel.data ?? null) as PainelProspeccao | null },
+    falhou: !!painel.error,
   }
 }
 
@@ -110,14 +115,17 @@ export default async function PaginaRelatorios({
 }) {
   // Trava no servidor. No Bubble a página não tinha guarda nenhuma (spec §7.1).
   const usuario = await exigirAcesso('relatorios')
-  const { filtros, aviso } = lerFiltros(await searchParams, hojeSaoPaulo())
+  const params = await searchParams
+  const hoje = hojeSaoPaulo()
+  const { filtros, aviso } = lerFiltros(params, hoje)
+  const extras = lerExtras(params)
 
   // Analista/Operador vê só o que é dele (RLS, [DÚVIDA 8]); o filtro de vendedor seria inócuo.
   if (!usuario.ehGerenciaOuAcima) filtros.vendedor = null
 
   const supabase = await clienteServidor()
   const [resultado, vendedores] = await Promise.all([
-    buscar(supabase, filtros),
+    buscar(supabase, filtros, extras),
     usuario.ehGerenciaOuAcima
       ? supabase.from('usuarios').select('id, nome').eq('ativo', true).order('nome')
       : Promise.resolve({ data: [{ id: usuario.id, nome: usuario.nome }] }),
@@ -126,12 +134,15 @@ export default async function PaginaRelatorios({
   return (
     <TelaRelatorios
       filtros={filtros}
+      extras={extras}
       aviso={aviso}
       dados={resultado.dados}
       falhou={resultado.falhou}
       vendedores={(vendedores.data ?? []) as Vendedor[]}
       veTodos={usuario.ehGerenciaOuAcima}
-      detalheMax={DETALHE_MAX}
+      porPagina={POR_PAGINA}
+      hoje={hoje}
+      geradoEm={new Date().toISOString()}
     />
   )
 }

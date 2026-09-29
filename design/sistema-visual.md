@@ -13,6 +13,18 @@ Leitura dessa frase, que orienta todas as decisões abaixo:
 - **O que muda é a execução:** tipografia, espaçamento, estados (hover, foco, desabilitado,
   carregando), tema escuro e layout de celular, que o Bubble não tem.
 
+### Revisão de 29/09/2026 — feedback do Diretor
+
+| Pedido (literal) | O que virou |
+|---|---|
+| "não tem tema claro e escuro (apenas escuro)" | seletor claro / escuro / sistema no cabeçalho, gravado em cookie (seção **Tema**) |
+| "tema escuro deve ser preto com roxo e não esse azul neon horrível" | escuro refeito: fundos preto/grafite quase neutros e **roxo MegaBox** como cor de ação (seção **Paleta → Escuro**) |
+| "não tenha medo dos componentes se expandirem para a tela toda … aplicativo web, não mobile" | desktop-first: casca sem `max-width`, menu aberto por padrão em tela larga, margem de página pequena (seção **Layout**) |
+| "faça os menus ocuparem mais espaço na tela" | menu lateral 18rem, itens de 46 px com ícone da página, fonte 16 px |
+| fonte "pouco clara nas metas" | IBM Plex Sans no lugar da Source Sans 3 (seção **Tipografia**) |
+| "não use emojis, use ícones" | `lucide-react` + `componentes/icone.tsx` (seção **Ícones**) |
+| "colete todas as logos do site oficial" | `public/marca/` com origem em `public/marca/LEIA-ME.md`; logo real no cabeçalho, login e favicon |
+
 Fonte da verdade do código: `estilos/tokens.css` (tokens), `estilos/base.css` (elementos),
 `estilos/componentes.css` (peças compartilhadas), `app/(app)/casca.css` (cabeçalho e menu) e um
 CSS por rota. Sem Tailwind (CLAUDE.md, Stack). Referência do Bubble:
@@ -28,9 +40,11 @@ CSS por rota. Sem Tailwind (CLAUDE.md, Stack). Referência do Bubble:
    `aria-label`; o cartão cancelado diz "Cancelado".
 4. **Claro e escuro são o mesmo sistema.** O escuro redefine os mesmos nomes; `tokens.css` tem
    duas cópias idênticas (`[data-tema='escuro']` e `prefers-color-scheme`) — mantê-las iguais.
-5. **Ícone é SVG**, nunca emoji: emoji não obedece à paleta nem ao tema. Onde o markup ainda
-   tem emoji (troféu da ficha de vendas), o CSS esconde o glifo (`font-size: 0`) e desenha o
-   SVG por `mask` na cor do token, sem mexer no markup nem no nome acessível.
+   **`--azul` é o nome do token de AÇÃO, não uma promessa de matiz:** no claro é azul (Bubble),
+   no escuro é roxo. Rota nunca testa o tema para escolher cor; usa o token.
+5. **Ícone é `lucide-react`**, nunca emoji nem glifo de texto (seção **Ícones**).
+6. **Nada de `max-width` em contêiner de página.** Largura limitada só em texto corrido
+   (`max-width: var(--medida)`) e em diálogo.
 
 ## Paleta
 
@@ -45,7 +59,8 @@ CSS por rota. Sem Tailwind (CLAUDE.md, Stack). Referência do Bubble:
 | `--azul-medio` | #dfe8f8 | linha em hover / selecionada | — |
 | `--lilas` | #e4e0f6 | chip, selo de status, avatar | lilás dos chips |
 | `--lilas-cabeca` | #e7e5f0 | cabeçalho de tabela e de coluna do kanban | cinza-lilás das tabelas |
-| `--roxo` | #7030a0 | marca (cubo), número de meta | cubo do logo |
+| `--roxo` | #720187 | ícone de atalho, número de meta, selo "info" | roxo do cubo medido no logo oficial |
+| `--marca` / `--sobre-marca` | #720187 / #fff | avatar, opção ligada do seletor de tema | idem |
 | `--verde` / `--verde-fundo` | #177a45 / #e5f4eb | líquido, vencedor, concluído | verde |
 | `--vermelho` / `--vermelho-fundo` | #c0362c / #fbeceb | vencido, tributo, cancelado, destrutivo | vermelho |
 | `--laranja` | #f5a623 | preenchimento de "Salvar"/"Arquivar", borda de alerta | #F5A623 (igual) |
@@ -56,10 +71,26 @@ CSS por rota. Sem Tailwind (CLAUDE.md, Stack). Referência do Bubble:
 | `--texto` / `--texto-2` / `--texto-3` | #1c2230 / #4f586a / #626b7e | texto, secundário, terciário | — |
 | `--borda` / `--borda-forte` / `--borda-campo` | #e1e5ec / #c3cad6 / #8c95a6 | divisória, contorno, campo | — |
 
-### Escuro
+### Escuro — preto/grafite + roxo MegaBox
 
-Mesmos nomes. Azul vira #7aa5ff com texto **escuro** por cima (`--sobre-azul` #0b1220), porque
-branco sobre azul claro não passa; superfícies #11141b (fundo), #161a23 (calha), #1b202a (cartão).
+Mesmos nomes. O escuro anterior (fundos azulados #11141b e ação #7aa5ff) foi o "azul neon" que o
+Diretor recusou. Agora:
+
+| Token | Valor | Papel |
+|---|---|---|
+| `--fundo` / `--fundo-2` / `--superficie` | #0f0f11 / #141417 / #1a1a1e | página, calha, cartão — cinzas quase neutros, sem tinta azul |
+| `--cabecalho-fundo` / `--menu-fundo` | #121214 / #131316 | casca |
+| `--borda` / `--borda-forte` / `--borda-campo` | #2a2a30 / #3b3b43 / #6e6e7a | divisória, contorno, campo |
+| `--texto` / `--texto-2` / `--texto-3` | #ececf1 / #b6b6c0 / #9696a2 | — |
+| `--azul` (ação) | **#a66be3** | roxo MegaBox clareado para ler sobre preto |
+| `--azul-escuro` (hover) | #bb8cee | no escuro o hover CLAREIA |
+| `--azul-vivo` (foco) | #b07ce8 | anel de foco |
+| `--sobre-azul` | #160a22 | texto sobre o roxo: branco sobre roxo claro não passa AA |
+| `--azul-claro` / `--azul-medio` | #231a2e / #2e2240 | linha tingida de roxo / hover e selecionado |
+| `--lilas` / `--lilas-cabeca` | #2c2238 / #1f1d25 | chip / cabeçalho de tabela (grafite com fio de lilás) |
+| `--roxo` / `--marca` | #cfa6f2 / #a66be3 | — |
+
+Verde, vermelho e laranja continuam os mesmos do escuro anterior (já passavam).
 
 ## Contraste medido
 
@@ -98,26 +129,31 @@ arredondar antes do fim). Texto normal exige 4,5:1; texto grande e componente de
 
 | Primeiro plano | Fundo | Razão |
 |---|---|---|
-| `--texto` #e7eaf0 | `--fundo` #11141b / `--superficie` #1b202a | **15,29** / **13,54** |
-| `--texto-2` #aab1c0 | `--superficie` | **7,59** |
-| `--texto-2` | `--lilas-cabeca` #262a3a | **6,62** |
-| `--texto-3` #8f97a8 | `--superficie` / `--fundo-2` | **5,56** / **5,94** |
-| `--sobre-azul` #0b1220 | `--azul` #7aa5ff | **7,72** |
-| `--azul` | `--superficie` / `--azul-claro` #1a2438 | **6,73** / **6,39** |
-| `--roxo` #c197e6 | `--lilas` #2d2946 | **5,82** |
+| `--texto` #ececf1 | `--fundo` #0f0f11 / `--superficie` #1a1a1e | **16,26** / **14,73** |
+| `--texto` | `--lilas-cabeca` #1f1d25 / `--azul-medio` #2e2240 | **14,15** / **12,57** |
+| `--texto-2` #b6b6c0 | `--superficie` / `--lilas-cabeca` | **8,63** / **8,28** |
+| `--texto-3` #9696a2 | `--superficie` / `--fundo-2` / `--azul-claro` | **5,93** / **6,29** / **5,71** |
+| `--sobre-azul` #160a22 | `--azul` #a66be3 / `--azul-escuro` #bb8cee | **5,30** / **7,36** |
+| `--azul` #a66be3 | `--fundo` / `--superficie` / `--menu-fundo` / `--azul-claro` | **5,32** / **4,82** / **5,15** / **4,63** |
+| `--azul-escuro` #bb8cee | `--azul-medio` / `--lilas` | **5,71** / **5,81** |
+| `--roxo` #cfa6f2 | `--lilas` #2c2238 / `--superficie` | **7,46** / **8,58** |
 | `--verde` #5cc98c | `--verde-fundo` #14291d | **7,47** |
 | `--vermelho` #ff8a80 | `--vermelho-fundo` #321c1a | **6,99** |
 | `--laranja-texto` #f3bf6a | `--laranja-fundo` #2f2515 | **8,93** |
 | `--sobre-laranja` | `--laranja` #f0b453 | **8,88** |
-| `--borda-campo` #687186 | `--superficie` | **3,34** |
-| `--azul-vivo` #7aa5ff | `--fundo` | **7,59** |
+| `--borda-campo` #6e6e7a | `--superficie` | **3,45** |
+| `--azul-vivo` #b07ce8 | `--fundo` | **6,29** |
+| logo escuro: cubo #b07ce8 | `--cabecalho-fundo` #121214 | **6,14** (o roxo original #720187 daria 1,84) |
+
+No claro, o roxo novo: `--roxo` #720187 sobre #fff / `--lilas` / `--cabecalho-fundo` /
+`--azul-claro` = **10,15** / **7,87** / **9,30** / **9,11**; branco sobre `--marca` = **10,15**.
 
 ### Pares que NÃO passam — e o que se faz
 
 | Par | Razão | Tratamento |
 |---|---|---|
-| `--azul` sobre `--azul-medio` | 4,17 | a linha em hover redefine `--azul: var(--azul-escuro)` (produtos, sac); o botão "Sair" usa `--azul-escuro` no hover |
-| `--azul` sobre `--lilas` | 3,99 | linha selecionada de cadastros usa `--azul-escuro` na carteira |
+| `--azul` sobre `--azul-medio` | 4,17 (claro) / 4,11 (escuro) | a linha em hover redefine `--azul: var(--azul-escuro)` (produtos, sac); o botão "Sair" usa `--azul-escuro` no hover |
+| `--azul` sobre `--lilas` | 3,99 (claro) / 4,19 (escuro) | linha selecionada de cadastros usa `--azul-escuro` na carteira |
 | `--laranja` sobre claro | ~2 | laranja nunca é texto sobre claro: texto usa `--laranja-texto` |
 | branco sobre `--laranja` | ~2 | o texto do botão laranja é `--sobre-laranja` |
 
@@ -126,9 +162,12 @@ Correções desta revisão: `--texto-3` desceu de #677083 para #626b7e (dava 4,4
 
 ## Tipografia
 
-**Source Sans 3** (via `next/font`, `app/layout.tsx`): humanista como o Lato do Bubble, mais
-legível em corpo pequeno e com algarismos tabulares de verdade — dinheiro alinha na coluna sem
-fonte monoespaçada (`font-variant-numeric: tabular-nums` em valores, contadores e pílulas).
+**IBM Plex Sans** (via `next/font`, `app/layout.tsx`, pesos 400/500/600/700). Troca feita na
+revisão de 29/09: o Diretor achou a fonte "pouco clara" nas metas. A Source Sans 3 tem
+traço fino e algarismos estreitos; a Plex foi desenhada para interface de sistema — I, l e 1
+distintos, 0 e O distintos, aberturas largas, algarismos tabulares de verdade — e fica firme em
+13–14 px, que é o corpo das tabelas. Dinheiro alinha na coluna sem fonte monoespaçada
+(`font-variant-numeric: tabular-nums` em valores, contadores e pílulas).
 
 Escala 1,2 (terça menor), ancorada em 16 px:
 
@@ -184,3 +223,93 @@ azul à direita. O que o CSS novo faz:
   `--verde-fundo` (também no hover); troféu em círculo — contorno cinza ou verde cheio;
 - celular: o quadro rola na horizontal dentro de si, uma coluna por vez com encaixe (o Bubble
   espreme as colunas até o texto ficar vertical).
+
+## Tema (claro / escuro / sistema)
+
+- **Seletor:** `componentes/seletor-tema.tsx`, três botões de ícone (sol, lua, monitor) num
+  `role="radiogroup"` no cabeçalho, à esquerda do avatar. No celular (≤ 48rem) ele sai do
+  cabeçalho e aparece no rodapé do menu lateral. Também está no canto de `/entrar`.
+- **Persistência:** cookie `mb-tema` = `claro` | `escuro`, `Path=/`, `SameSite=Lax`, 1 ano.
+  "Sistema" apaga o cookie. Lógica pura e testada em `componentes/tema.ts` (+ `tema.test.ts`).
+- **Sem piscar:** `app/layout.tsx` lê o cookie no servidor e já escreve
+  `<html data-tema="claro|escuro">`. Sem cookie, não há atributo e vale `prefers-color-scheme`.
+  O clique só troca o atributo e grava o cookie — sem recarregar.
+- **CSS:** `:root[data-tema='escuro']` e `@media (prefers-color-scheme: dark) :root:not([data-tema='claro'])`
+  carregam a mesma lista de tokens (`estilos/tokens.css`). Regra de tela que precise diferir por
+  tema (não deveria) segue o mesmo par de seletores — veja a troca de logo em
+  `estilos/componentes.css`, seção "marca".
+
+## Layout (desktop-first)
+
+O app é de mesa (pedido do Diretor). A casca:
+
+- **Cabeçalho** 60 px: hambúrguer à esquerda, logo oficial (44 px de altura, link para o início)
+  ao centro, seletor de tema + avatar + nome/perfil + engrenagem à direita.
+- **Menu lateral** `--largura-menu` (18rem), **aberto por padrão** em tela > 64rem e fechado em
+  tela estreita; o hambúrguer alterna. Itens de 46 px, 16 px, com o ícone da página.
+- **Conteúdo** ocupa toda a largura restante, com `--margem-pagina` (24 px) de respiro.
+  **Nenhum `max-width` na casca nem em `estilos/`.** As telas não devem pôr `max-width` no
+  contêiner da página (`.cadastros`, `.metas` etc.) — tabelas e kanban usam a largura toda.
+  Limite só texto corrido (`max-width: var(--medida)`, 72ch) e diálogos.
+
+Pendência (fora da casca): `produtos.css`, `sac.css`, `rotinas.css` (80rem) e
+`cadastros.css`/`metas.css`/`relatorios.css` (80–90rem) ainda limitam o contêiner da página;
+quem é dono de cada rota remove.
+
+## Ícones
+
+Biblioteca única: **`lucide-react`** (traço de 2 px, grade de 24, licença ISC). Emoji e glifo de
+texto (☰ ⚙ ✕ ▾ ▴ ← → 🏆 🛒 🚚 ⚠ ✓) estão proibidos como ícone de interface: não obedecem à
+paleta nem ao tema e cada sistema operacional os desenha de um jeito. (Em texto de dados, "×" de
+multiplicação e "→" de intervalo são tipografia, não ícone — podem ficar.)
+
+**Como usar:** `componentes/icone.tsx`.
+
+```tsx
+import { Pencil, Trophy, X } from 'lucide-react'
+import { Icone } from '@/componentes/icone'
+
+<button className="botao-texto"><Icone icone={Pencil} tamanho={16} /> Editar</button>
+<button className="dialogo-fechar" aria-label="Fechar"><Icone icone={X} tamanho={20} /></button>
+<span className="item-vencedor"><Icone icone={Trophy} rotulo="Vencedor" /> {nome}</span>
+```
+
+- **Tamanho:** 16 em botão/pílula/tabela, 18 padrão, 20 em menu e botão só-ícone, 24 no
+  cabeçalho e em título (o tipo de `tamanho` só aceita 14/16/18/20/24).
+- **Cor:** o ícone herda `currentColor`; pinte o elemento pai com token.
+- **Acessibilidade:** decorativo por padrão (`aria-hidden`). Botão só com ícone leva
+  `aria-label` no BOTÃO. Ícone que é a única informação fora de botão leva `rotulo`.
+- **Mesmo conceito, mesmo ícone** em todo o app:
+
+| Conceito | lucide | Glifo que substitui |
+|---|---|---|
+| fechar diálogo | `X` | ✕ × |
+| abrir / fechar menu | `Menu` / `PanelLeftClose` | ☰ |
+| configurações | `Settings` + `ChevronDown` | ⚙ ▾ |
+| expandir / recolher | `ChevronDown` / `ChevronUp` | ▾ ▴ |
+| anterior / próxima | `ChevronLeft` / `ChevronRight` | ← → |
+| editar | `Pencil` | ✎ |
+| adicionar (+ Cotação, + Cliente) | `Plus` | + |
+| vencedor | `Trophy` | 🏆 |
+| itens da cotação | `ShoppingCart` | 🛒 |
+| entrega / NF de saída | `Truck` | 🚚 |
+| documento / proposta | `FileText` | 📄 |
+| alerta | `TriangleAlert` | ⚠ |
+| concluído / copiado | `Check` | ✓ |
+| arquivar | `Archive` | — |
+| cancelar pedido | `Ban` | — |
+| ordenar por data | `ArrowUpDown` | — |
+| período / data | `CalendarDays` | — |
+| sair | `LogOut` | — |
+| páginas do menu | `iconePagina(slug)` em `componentes/icones-paginas.ts` | — |
+
+- **`.dialogo-fechar` com "✕" antigo:** enquanto a tela não troca o markup, o CSS compartilhado
+  esconde o glifo e desenha o `X` do lucide por máscara. Ao pôr `<Icone icone={X} />` dentro do
+  botão, a máscara desliga sozinha (`:not(:has(svg))`).
+
+## Marca
+
+`componentes/marca.tsx` mostra o logo oficial (`public/marca/`, origem e derivações em
+`public/marca/LEIA-ME.md`): uma imagem por tema, trocada por CSS. `tamanho` = altura em px
+(cabeçalho 44, login 72, formulário público 32). Favicon e ícone iOS em `app/layout.tsx`.
+O cubo SVG desenhado à mão da v2 saiu: logo é arquivo oficial, não redesenho.

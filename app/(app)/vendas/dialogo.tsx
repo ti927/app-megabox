@@ -16,6 +16,7 @@ import {
   validadePadrao,
 } from '@/lib/vendas'
 
+import { AbaPedidos, AbaPropostas } from './fluxo'
 import {
   adicionarItem,
   adicionarOrcamento,
@@ -605,141 +606,6 @@ function AbaCotacao({
   )
 }
 
-// ------------------------------------------------------------ propostas e pedidos
-
-function AbaPropostas({ ficha }: { ficha: Ficha }) {
-  return (
-    <div>
-      <p className="aviso vendas-aviso-topo">
-        Criar, gravar e enviar proposta por e-mail fica para a próxima versão desta tela. Aqui você consulta
-        o histórico.
-      </p>
-      {ficha.propostas.length === 0 ? (
-        <p className="vendas-vazio">Nenhuma proposta nesta cotação.</p>
-      ) : (
-        <div className="orc-rolagem">
-          <table className="orc-tabela vendas-propostas" data-teste="lista-propostas">
-            <thead>
-              <tr>
-                <th scope="col">Núm</th>
-                <th scope="col">Situação</th>
-                <th scope="col">Criada em</th>
-                <th scope="col">Itens</th>
-                <th scope="col">Condição de pagamento</th>
-                <th scope="col">Prev. entrega</th>
-                <th scope="col">Vendedor</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ficha.propostas.map((p) => (
-                <tr key={p.id}>
-                  <th scope="row">
-                    {ficha.cotacao.numero}/{p.numero}
-                  </th>
-                  <td>
-                    <span className="selo" data-tom={p.enviada ? 'ok' : undefined}>
-                      {p.enviada ? `Enviada ${formatarData(p.enviada_em)}` : 'Não enviada'}
-                    </span>
-                  </td>
-                  <td>{formatarData(p.criado_em)}</td>
-                  <td>{p.itens[0]?.count ?? 0}</td>
-                  <td>{p.condicao_pagamento || '—'}</td>
-                  <td>{formatarDia(p.data_prev_entrega)}</td>
-                  <td>{p.vendedor?.nome ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function AbaPedidos({ ficha, etapas }: { ficha: Ficha; etapas: Opcao[] }) {
-  const nomeEtapa = (id: number) => etapas.find((e) => e.id === id)?.nome ?? '—'
-  if (ficha.pedidos.length === 0) return <p className="vendas-vazio">Esta cotação ainda não virou pedido.</p>
-  return (
-    <ul className="itens" data-teste="lista-pedidos">
-      {ficha.pedidos.map((p) => {
-        const entregas = ficha.entregas.filter((e) => e.pedido_id === p.id)
-        return (
-          <li key={p.id} className="item">
-            <div className="item-topo">
-              <div className="item-nome">
-                <strong>
-                  Pedido nº {p.numero}
-                  {p.proposta ? ` (proposta ${ficha.cotacao.numero}/${p.proposta.numero})` : ''}
-                </strong>
-                <small>Criado em {formatarData(p.criado_em)}</small>
-              </div>
-              <span className="selo" data-tom={p.etapa_id === ETAPA.CANCELADO ? 'erro' : undefined}>
-                {p.etapa?.nome ?? nomeEtapa(p.etapa_id)}
-              </span>
-              <span className="selo" data-tom={p.formalizado ? 'ok' : 'alerta'}>
-                {p.formalizado ? 'Formalizado' : 'Não formalizado'}
-              </span>
-              {p.finalizado ? <span className="selo">Finalizado</span> : null}
-            </div>
-            <dl className="vendas-dados">
-              <div>
-                <dt>Forma de pagamento</dt>
-                <dd>{p.forma?.nome ?? '—'}</dd>
-              </div>
-              <div>
-                <dt>Ordem de compra</dt>
-                <dd>{p.ordem_compra_numero || '—'}</dd>
-              </div>
-              {p.motivo_cancelamento ? (
-                <div>
-                  <dt>Cancelado</dt>
-                  <dd>{p.motivo_cancelamento}</dd>
-                </div>
-              ) : null}
-            </dl>
-            {entregas.length === 0 ? (
-              <p className="vendas-vazio">Nenhuma entrega lançada.</p>
-            ) : (
-              <div className="orc-rolagem">
-                <table className="orc-tabela">
-                  <thead>
-                    <tr>
-                      <th scope="col">Produto</th>
-                      <th scope="col">Dt prev. entrega</th>
-                      <th scope="col">Qtd entrega</th>
-                      <th scope="col">Valor bruto</th>
-                      <th scope="col">Etapa</th>
-                      <th scope="col">NF</th>
-                      <th scope="col">Dt entrega</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {entregas.map((e) => (
-                      <tr key={e.id} data-status={e.status_id}>
-                        <th scope="row">
-                          <strong>{e.produto_nome}</strong>
-                          <small>{e.papel === 'substituto' ? 'Você é o substituto' : ''}</small>
-                        </th>
-                        <td>{formatarDia(e.dt_prev_entrega)}</td>
-                        <td>{formatarQuantidade(e.qtd)}</td>
-                        <td>{formatarReais(e.valor_venda_bruto)}</td>
-                        <td>{nomeEtapa(e.status_id)}</td>
-                        <td>{e.nf_fornecedor_numero ?? '—'}</td>
-                        <td>{formatarDia(e.dt_entrega)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </li>
-        )
-      })}
-      <li className="vendas-nota">Editar pedido, entregas e confirmar entrega ficam para a próxima versão desta tela.</li>
-    </ul>
-  )
-}
-
 // --------------------------------------------------------------- arquivamento
 
 function Arquivamento({ ficha, motivos }: { ficha: Ficha; motivos: Opcao[] }) {
@@ -784,9 +650,9 @@ function Arquivamento({ ficha, motivos }: { ficha: Ficha; motivos: Opcao[] }) {
 
 /**
  * Ficha da cotação: dados e carrinho (itens × orçamentos com os valores do banco e o
- * vencedor por item), propostas e pedidos com as entregas. Substitui, nesta primeira
- * versão, os popups `pop add edita cotacao`, `pop add edita propostas` (só consulta) e
- * `pop add edita pedido` (só consulta) — spec §2.6–2.9.
+ * vencedor por item), propostas e pedidos com as entregas. Substitui os popups
+ * `pop add edita cotacao`, `pop add edita propostas` e `pop add edita pedido` — spec
+ * §2.6–2.9. Proposta, pedido e entregas moram em ./fluxo.tsx.
  */
 export function FichaCotacao({
   ficha,
@@ -866,8 +732,10 @@ export function FichaCotacao({
           <p className="aviso vendas-aviso-topo">Cotação arquivada: só o Diretor altera. Desarquive para editar.</p>
         ) : null}
         {aba === 'cotacao' ? <AbaCotacao ficha={ficha} opcoesFicha={opcoesFicha} editavel={editavel} /> : null}
-        {aba === 'propostas' ? <AbaPropostas ficha={ficha} /> : null}
-        {aba === 'pedidos' ? <AbaPedidos ficha={ficha} etapas={opcoes.etapas} /> : null}
+        {aba === 'propostas' ? (
+          <AbaPropostas ficha={ficha} editavel={!c.arquivado || permissoes.ehDiretor} irParaPedidos={() => setAba('pedidos')} />
+        ) : null}
+        {aba === 'pedidos' ? <AbaPedidos ficha={ficha} etapas={opcoes.etapas} opcoesFicha={opcoesFicha} /> : null}
       </div>
 
       <footer className="dialogo-rodape">

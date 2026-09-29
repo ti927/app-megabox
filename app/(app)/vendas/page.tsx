@@ -19,6 +19,7 @@ import type {
   CartaoPedido,
   ColunaDados,
   Cotacao,
+  EntregaFicha,
   Ficha,
   Item,
   Kanban,
@@ -204,7 +205,7 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
     supabase
       .from('orcamentos_fornecedor')
       .select(
-        'id, criado_em, fornecedor:grupos_clifor(nome), frete:tipos_frete(nome), ' +
+        'id, criado_em, fornecedor_id, fornecedor:grupos_clifor(nome), frete:tipos_frete(nome), ' +
           'origem:enderecos_clifor!endereco_origem_id(nome_endereco, uf, regime:regimes_tributarios(nome))',
       )
       .eq('cotacao_id', id),
@@ -212,23 +213,37 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
       .from('propostas')
       .select(
         'id, numero, enviada, enviada_em, criado_em, data_prev_entrega, condicao_pagamento, ' +
-          'vendedor:usuarios!vendedor_id(nome), itens:proposta_itens(count)',
+          'info_adicional, emails_copia, corpo_email, enviar_para_contato_id, faturar_para_endereco_id, ' +
+          'vendedor:usuarios!vendedor_id(nome), ' +
+          'itens:proposta_itens(id, qtd::text, valor_venda_unit::text, valor_frete::text, ' +
+          'orcamento:orcamentos_fornecedor(id, fornecedor_id, produto:produtos(nome), fornecedor:grupos_clifor(nome)))',
       )
       .eq('cotacao_id', id)
       .order('criado_em', { ascending: false }),
     supabase
       .from('pedidos')
       .select(
-        'id, numero, criado_em, etapa_id, formalizado, finalizado, motivo_cancelamento, ' +
-          'ordem_compra_numero, proposta:propostas(numero), forma:formas_pagamento(nome), etapa:etapas(nome)',
+        'id, numero, criado_em, etapa_id, formalizado, formalizado_em, finalizado, motivo_cancelamento, ' +
+          'ordem_compra_numero, info_adicional, proposta_id, forma_pagamento_id, contato_cliente_id, ' +
+          'contato_fornecedor_id, emails_copia_cliente, emails_copia_fornecedor, corpo_email_cliente, ' +
+          'corpo_email_fornecedor, proposta:propostas(numero), forma:formas_pagamento(nome), etapa:etapas(nome), ' +
+          'prazos:pedido_prazos(prazo_id)',
       )
       .eq('cotacao_id', id)
       .order('criado_em', { ascending: false }),
+    // Tabela, não a view do kanban: a ficha precisa de NF, motivo e arquivos, e não do join
+    // de nomes. A RLS de entregas (009) decide o que aparece.
     supabase
-      .from('v_kanban_entregas')
-      .select(COLUNAS_ENTREGA)
+      .from('entregas')
+      .select(
+        'id, pedido_id, orcamento_fornecedor_id, status_id, qtd::text, dt_prev_entrega, dt_entrega, ' +
+          'saiu_entrega, nao_emite_nf, nf_fornecedor_numero, dt_emissao_nf, nota_boleto_enviada, ' +
+          'motivo_cancelamento, valor_venda_bruto::text, valor_comissao::text, valor_venda_liquido::text, ' +
+          'vendedor_substituto_id, arquivos:entrega_arquivos(id, tipo, nome_arquivo, path, enviado_em)',
+      )
       .eq('cotacao_id', id)
-      .order('dt_prev_entrega', { ascending: true, nullsFirst: false }),
+      .order('dt_prev_entrega', { ascending: true, nullsFirst: false })
+      .order('criado_em'),
     supabase
       .from('enderecos_clifor')
       .select('id, nome_endereco, uf, municipio')
@@ -241,6 +256,7 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
   type Nomes = {
     id: string
     criado_em: string
+    fornecedor_id: string
     fornecedor: { nome: string } | null
     frete: { nome: string } | null
     origem: Orcamento['origem']
@@ -260,19 +276,33 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
       }
     })
 
+  // Agenda de contatos (bTPJB, bTbnk, bTcZi): contatos ATIVOS com e-mail do cliente e dos
+  // fornecedores orçados. É daqui que sai o destinatário: a action relê pelo id, no banco.
+  const grupos = [...new Set([c.cliente_id, ...[...porId.values()].map((n) => n.fornecedor_id)])]
+  const { data: contatos, error: eContatos } = await supabase
+    .from('contatos_clifor')
+    .select('id, grupo_id, nome, email')
+    .in('grupo_id', grupos)
+    .eq('ativo', true)
+    .not('email', 'is', null)
+    .order('nome')
+    .limit(500)
+  if (eContatos) console.error('vendas: contatos da ficha', eContatos)
+
   return {
     cotacao: c,
+    contatos: ((contatos ?? []) as Ficha['contatos']).filter((x) => x.email.trim() !== ''),
     itens: (itens.data ?? []) as unknown as Item[],
     orcamentos,
     propostas: (propostas.data ?? []) as unknown as Proposta[],
     pedidos: (pedidos.data ?? []) as unknown as Pedido[],
-    entregas: (entregas.data ?? []) as unknown as CartaoEntrega[],
+    entregas: (entregas.data ?? []) as unknown as EntregaFicha[],
     destinos: (destinos.data ?? []) as Ficha['destinos'],
   }
 }
 
 async function buscarOpcoesFicha(supabase: Supabase): Promise<OpcoesFicha> {
-  const [produtos, condicoes, linhas, fretes] = await Promise.all([
+  const [produtos, condicoes, linhas, fretes, prazos, formas] = await Promise.all([
     supabase
       .from('produtos')
       .select('id, nome, grupo:produto_grupos(nome), condicoes:produto_condicoes(condicao_id), linhas:produto_linhas(linha_id)')
@@ -281,12 +311,16 @@ async function buscarOpcoesFicha(supabase: Supabase): Promise<OpcoesFicha> {
     supabase.from('condicoes_produto').select('id, nome').order('id'),
     supabase.from('linhas_produto').select('id, nome').order('id'),
     supabase.from('tipos_frete').select('id, nome').order('id'),
+    supabase.from('prazos_recebimento').select('id, nome').eq('ativo', true).order('dias_prazo').order('id'),
+    supabase.from('formas_pagamento').select('id, nome').order('id'),
   ])
   return {
     produtos: (produtos.data ?? []) as unknown as OpcoesFicha['produtos'],
     condicoes: condicoes.data ?? [],
     linhas: linhas.data ?? [],
     fretes: fretes.data ?? [],
+    prazos: prazos.data ?? [],
+    formas: formas.data ?? [],
   }
 }
 

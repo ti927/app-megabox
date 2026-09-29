@@ -139,6 +139,20 @@ export type Orcamento = {
   frete_nome: string
 }
 
+/** Item da proposta: SNAPSHOT de proposta_itens (008 D1), valores como texto. */
+export type PropostaItem = {
+  id: string
+  qtd: string
+  valor_venda_unit: string
+  valor_frete: string
+  orcamento: {
+    id: string
+    fornecedor_id: string
+    produto: Nome
+    fornecedor: Nome
+  } | null
+}
+
 export type Proposta = {
   id: string
   numero: number
@@ -147,8 +161,13 @@ export type Proposta = {
   criado_em: string
   data_prev_entrega: string | null
   condicao_pagamento: string | null
+  info_adicional: string | null
+  emails_copia: string | null
+  corpo_email: string | null
+  enviar_para_contato_id: string | null
+  faturar_para_endereco_id: string | null
   vendedor: Nome
-  itens: [{ count: number }]
+  itens: PropostaItem[]
 }
 
 export type Pedido = {
@@ -157,13 +176,57 @@ export type Pedido = {
   criado_em: string
   etapa_id: number
   formalizado: boolean
+  formalizado_em: string | null
   finalizado: boolean
   motivo_cancelamento: string | null
   ordem_compra_numero: string | null
+  info_adicional: string | null
+  proposta_id: string | null
+  forma_pagamento_id: number | null
+  contato_cliente_id: string | null
+  contato_fornecedor_id: string | null
+  emails_copia_cliente: string | null
+  emails_copia_fornecedor: string | null
+  corpo_email_cliente: string | null
+  corpo_email_fornecedor: string | null
   proposta: { numero: number } | null
   forma: Nome
   etapa: Nome
+  prazos: { prazo_id: number }[]
 }
+
+export type ArquivoEntrega = {
+  id: string
+  tipo: 'nf_fornecedor' | 'boleto' | 'comprovante' | 'nf_megabox'
+  nome_arquivo: string
+  path: string
+  enviado_em: string | null
+}
+
+/** Entrega na ficha (tabela `entregas`, pela RLS): dinheiro e qtd como texto, do banco. */
+export type EntregaFicha = {
+  id: string
+  pedido_id: string
+  orcamento_fornecedor_id: string
+  status_id: number
+  qtd: string
+  dt_prev_entrega: string | null
+  dt_entrega: string | null
+  saiu_entrega: boolean
+  nao_emite_nf: boolean
+  nf_fornecedor_numero: string | null
+  dt_emissao_nf: string | null
+  nota_boleto_enviada: boolean
+  motivo_cancelamento: string | null
+  valor_venda_bruto: string
+  valor_comissao: string
+  valor_venda_liquido: string
+  vendedor_substituto_id: string | null
+  arquivos: ArquivoEntrega[]
+}
+
+/** Contato ATIVO com e-mail, do cliente ou de um fornecedor da cotação. */
+export type Contato = { id: string; grupo_id: string; nome: string; email: string }
 
 export type Ficha = {
   cotacao: Cotacao
@@ -171,7 +234,9 @@ export type Ficha = {
   orcamentos: Orcamento[]
   propostas: Proposta[]
   pedidos: Pedido[]
-  entregas: CartaoEntrega[]
+  entregas: EntregaFicha[]
+  /** contatos ativos com e-mail do cliente e dos fornecedores orçados (agenda de contatos) */
+  contatos: Contato[]
   /** endereços ativos do cliente — destino do item */
   destinos: { id: string; nome_endereco: string; uf: string; municipio: string | null }[]
 }
@@ -201,6 +266,9 @@ export type OpcoesFicha = {
   condicoes: Opcao[]
   linhas: Opcao[]
   fretes: Opcao[]
+  /** prazos_recebimento ativos (Opt.ParcelasReceber) e formas_pagamento (Opt.FormaPgto) */
+  prazos: Opcao[]
+  formas: Opcao[]
 }
 
 export type FornecedorParaItem = {
@@ -219,6 +287,8 @@ export type EstadoAcao = {
   ok?: string
   /** id gravado — a tela usa para abrir a ficha recém-criada */
   id?: string
+  /** registro criado DENTRO da ficha (proposta nova) — a ficha abre o diálogo dele */
+  alvo?: string
 }
 
 export type Permissoes = {

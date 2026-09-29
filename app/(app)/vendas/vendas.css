@@ -688,6 +688,111 @@ button.trofeu:disabled {
   opacity: 0.55;
 }
 
+/* ------------------------------------------- proposta, pedido e entregas (fluxo.tsx)
+ * Diálogos abertos POR CIMA da ficha (top layer do <dialog>). */
+.fluxo-dialogo {
+  width: min(60rem, calc(100vw - 2 * var(--e4)));
+}
+.fluxo-dialogo-estreito {
+  width: min(36rem, calc(100vw - 2 * var(--e4)));
+}
+.fluxo-corpo,
+.fluxo-aba {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+}
+/* Coluna flex que ROLA: sem isto a tabela de itens (overflow próprio) encolhe até 0. */
+.fluxo-corpo > *,
+.fluxo-aba > * {
+  flex-shrink: 0;
+}
+.fluxo-bloco {
+  min-width: 0;
+  margin: 0;
+  padding: var(--e3) var(--e4) var(--e4);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+.fluxo-bloco > legend,
+.fluxo-prazos > legend {
+  padding: 0 var(--e1);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--texto-2);
+}
+.fluxo-colunas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--e3);
+  align-items: start;
+}
+.fluxo-prazos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2) var(--e4);
+  min-width: 0;
+  margin: 0;
+  padding: var(--e2) var(--e3);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+.fluxo-formalizar,
+.fluxo-saiu {
+  font-weight: 600;
+}
+.fluxo-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2);
+  margin-left: auto;
+}
+.orc-tabela .fluxo-acoes {
+  margin-left: 0;
+}
+.fluxo-confirma {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2);
+  font-size: var(--t-sm);
+}
+.fluxo-produto {
+  display: block;
+  white-space: nowrap;
+}
+.fluxo-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  padding-top: var(--e3);
+  border-top: 1px dashed var(--borda);
+}
+.orc-tabela tr[data-status='7'] .fluxo-valor {
+  text-decoration: line-through;
+  color: var(--texto-2);
+}
+.fluxo-motivo,
+.orc-tabela td small {
+  display: block;
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.fluxo-arquivos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fluxo-arquivos small {
+  margin-left: var(--e2);
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+
 /* ------------------------------------------------------------------ celular
  * No Bubble as 4 colunas ficam com ~45 px e os cartões viram texto vertical
  * (vendas-17-mobile-390). Aqui o quadro rola na horizontal DENTRO de si, uma coluna
@@ -713,8 +818,13 @@ button.trofeu:disabled {
   /* A largura própria dos diálogos desta rota não pode vencer a tela cheia do celular
      (estilos/componentes.css). */
   .ficha-vendas,
-  .vendas-nova-dialogo {
+  .vendas-nova-dialogo,
+  .fluxo-dialogo,
+  .fluxo-dialogo-estreito {
     width: 100vw;
+  }
+  .fluxo-colunas {
+    grid-template-columns: minmax(0, 1fr);
   }
   .vendas-arquivo,
   .vendas-arquivo-form {

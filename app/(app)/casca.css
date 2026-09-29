@@ -7,7 +7,7 @@
 
 .casca {
   --altura-cabecalho: 3.75rem;
-  min-height: 100dvh;
+  min-height: calc(100dvh / var(--escala));
   display: flex;
   flex-direction: column;
 }
@@ -174,7 +174,7 @@
   position: sticky;
   top: var(--altura-cabecalho);
   align-self: flex-start;
-  height: calc(100dvh - var(--altura-cabecalho));
+  height: calc(calc(100dvh / var(--escala)) - var(--altura-cabecalho));
   display: flex;
   flex-direction: column;
   padding: var(--e5) var(--e3) var(--e4);
@@ -213,7 +213,7 @@
   font-size: var(--t-md);
   font-weight: var(--peso-medio);
   line-height: 1.25;
-  color: var(--azul);
+  color: var(--texto); /* branco no escuro, escuro no claro: pedido do dono */
   text-decoration: none;
   border-radius: var(--raio);
   transition: background-color var(--dur-1) var(--curva);
@@ -229,11 +229,12 @@
   background: transparent;
 }
 .menu a:hover {
-  color: var(--azul-escuro);
+  color: var(--texto);
   background: var(--azul-claro);
 }
 .menu a[aria-current='page'] {
-  color: var(--azul-escuro);
+  color: var(--texto);
+  font-weight: var(--peso-forte, 700);
   background: var(--azul-claro);
 }
 .menu a[aria-current='page']::before {
@@ -298,7 +299,7 @@
     position: fixed;
     inset: var(--altura-cabecalho) 0 auto 0;
     z-index: 15;
-    height: calc(100dvh - var(--altura-cabecalho));
+    height: calc(calc(100dvh / var(--escala)) - var(--altura-cabecalho));
     border-right: none;
     box-shadow: var(--sombra-3);
   }

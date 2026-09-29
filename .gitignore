@@ -17,3 +17,6 @@ next-env.d.ts
 
 # Worktrees e estado local de agentes do Claude Code: outra cópia do repositório
 .claude/
+
+# Vinculo local com o projeto da Vercel (vercel link)
+.vercel

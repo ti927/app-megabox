@@ -2,7 +2,7 @@
  * cartão branco com sombra leve, "Bem-vindo de volta", campos e botão azul de largura total. */
 .entrar {
   position: relative;
-  min-height: 100dvh;
+  min-height: calc(100dvh / var(--escala));
   display: flex;
   flex-direction: column;
   align-items: center;

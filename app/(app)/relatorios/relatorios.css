@@ -1240,7 +1240,7 @@
   color: var(--texto-2);
 }
 .rel-matriz-rolagem {
-  max-height: 72vh;
+  max-height: calc(72vh / var(--escala));
   overflow: auto;
   background: var(--superficie);
   border: 1px solid var(--borda);
@@ -1377,7 +1377,7 @@ th.valor .rel-ordenar {
   color: var(--texto-2);
 }
 .rel-detalhe-rolagem {
-  max-height: 65vh;
+  max-height: calc(65vh / var(--escala));
   overflow: auto;
 }
 .rel-tabela-detalhe td,

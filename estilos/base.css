@@ -1,3 +1,21 @@
+/*
+ * Escala do app em telas de computador. O dono aprovou o visual com o navegador em 75% e pediu que
+ * esse fosse o padrão a 100%: `zoom` reproduz exatamente o zoom do navegador (texto, espaços, bordas,
+ * ícones). No celular a escala é 1. Alturas em vh/dvh são divididas por --escala para continuar
+ * ocupando a tela inteira (com zoom, calc(100dvh / var(--escala)) encolheria junto).
+ */
+:root {
+  --escala: 1;
+}
+@media (min-width: 64rem) {
+  :root {
+    --escala: 0.75;
+  }
+}
+html {
+  zoom: var(--escala);
+}
+
 @import './tokens.css';
 @import './componentes.css';
 

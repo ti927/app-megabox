@@ -4,7 +4,7 @@
  * azul de largura total; no celular o cartão ocupa a largura e os círculos quebram linha. */
 
 .pesq {
-  min-height: 100dvh;
+  min-height: calc(100dvh / var(--escala));
   display: flex;
   flex-direction: column;
   background: var(--fundo-2);

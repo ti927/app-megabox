@@ -12,6 +12,7 @@ import {
   regrasColunas,
 } from '@/lib/vendas'
 
+import { buscarOpcoesFicha } from './consultas'
 import { TelaVendas } from './tela'
 import type {
   CartaoCotacao,
@@ -24,7 +25,6 @@ import type {
   Item,
   Kanban,
   Opcoes,
-  OpcoesFicha,
   Orcamento,
   Pedido,
   Proposta,
@@ -158,7 +158,7 @@ async function buscarKanban(supabase: Supabase, f: FiltrosVendas, u: UsuarioAtua
   }
 }
 
-async function buscarOpcoes(supabase: Supabase, filtrarVendedor: boolean): Promise<Opcoes> {
+async function buscarOpcoes(supabase: Supabase, filtrarVendedor: boolean, eu: string): Promise<Opcoes> {
   const [etapas, vendedores, empresas, motivos] = await Promise.all([
     supabase.from('etapas').select('id, nome').order('id'),
     filtrarVendedor
@@ -172,6 +172,7 @@ async function buscarOpcoes(supabase: Supabase, filtrarVendedor: boolean): Promi
     vendedores: vendedores.data ?? [],
     empresas: empresas.data ?? [],
     motivos: motivos.data ?? [],
+    eu,
   }
 }
 
@@ -188,6 +189,7 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
     .from('cotacoes')
     .select(
       'id, numero, criado_em, data_validade, amostra, arquivado, etapa_id, vendedor_id, cliente_id, ' +
+        'empresa_emissora_id, rascunho, ' +
         'cliente:grupos_clifor(nome), vendedor:usuarios!vendedor_id(nome), ' +
         'empresa:empresas_emissoras(nome), status:cotacao_status(nome), etapa:etapas(nome), ' +
         'motivo:motivos_arquivamento(nome)',
@@ -203,7 +205,8 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
     supabase
       .from('cotacao_itens')
       .select(
-        'id, qtd::text, medida, produto_id, produto:produtos(nome), condicao:condicoes_produto(nome), ' +
+        'id, qtd::text, medida, produto_id, condicao_id, linha_id, endereco_destino_id, ' +
+          'produto:produtos(nome, grupo_id), condicao:condicoes_produto(nome), ' +
           'linha:linhas_produto(nome), destino:enderecos_clifor(nome_endereco, uf, municipio)',
       )
       .eq('cotacao_id', id)
@@ -297,8 +300,15 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
     .limit(500)
   if (eContatos) console.error('vendas: contatos da ficha', eContatos)
 
+  // Parte da ficha que falhou (timeout, rede) NÃO vira lista vazia calada: o carrinho sem itens
+  // seria lido como "os produtos sumiram". A tela avisa e pede para recarregar.
+  const partes = { itens, valores, nomes, propostas, pedidos, entregas, destinos }
+  const falhas = Object.entries(partes).filter(([, r]) => r.error)
+  for (const [nome, r] of falhas) console.error(`vendas: ficha (${nome})`, r.error)
+
   return {
     cotacao: c,
+    incompleta: falhas.length > 0,
     contatos: ((contatos ?? []) as Ficha['contatos']).filter((x) => x.email.trim() !== ''),
     itens: (itens.data ?? []) as unknown as Item[],
     orcamentos,
@@ -306,29 +316,6 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
     pedidos: (pedidos.data ?? []) as unknown as Pedido[],
     entregas: (entregas.data ?? []) as unknown as EntregaFicha[],
     destinos: (destinos.data ?? []) as Ficha['destinos'],
-  }
-}
-
-async function buscarOpcoesFicha(supabase: Supabase): Promise<OpcoesFicha> {
-  const [produtos, condicoes, linhas, fretes, prazos, formas] = await Promise.all([
-    supabase
-      .from('produtos')
-      .select('id, nome, grupo:produto_grupos(nome), condicoes:produto_condicoes(condicao_id), linhas:produto_linhas(linha_id)')
-      .eq('ativo', true)
-      .order('nome'),
-    supabase.from('condicoes_produto').select('id, nome').order('id'),
-    supabase.from('linhas_produto').select('id, nome').order('id'),
-    supabase.from('tipos_frete').select('id, nome').order('id'),
-    supabase.from('prazos_recebimento').select('id, nome').eq('ativo', true).order('dias_prazo').order('id'),
-    supabase.from('formas_pagamento').select('id, nome').order('id'),
-  ])
-  return {
-    produtos: (produtos.data ?? []) as unknown as OpcoesFicha['produtos'],
-    condicoes: condicoes.data ?? [],
-    linhas: linhas.data ?? [],
-    fretes: fretes.data ?? [],
-    prazos: prazos.data ?? [],
-    formas: formas.data ?? [],
   }
 }
 
@@ -347,9 +334,12 @@ export default async function PaginaVendas({
 
   // Cliente da SESSÃO: quem lê é o usuário, e a RLS decide. Nunca service_role aqui.
   const supabase = await clienteServidor()
+  // Com a cotação aberta em TELA CHEIA o quadro fica coberto: não se consulta. Cada gravação na
+  // ficha (revalidatePath) refazia as 4 colunas — no banco Micro isso gerava rajadas de 57014.
+  // A tela mantém o último quadro recebido e o refaz ao fechar a ficha.
   const [kanban, opcoes, ficha, opcoesFicha] = await Promise.all([
-    buscarKanban(supabase, filtros, usuario),
-    buscarOpcoes(supabase, filtrarVendedor),
+    filtros.sel ? Promise.resolve(null) : buscarKanban(supabase, filtros, usuario),
+    buscarOpcoes(supabase, filtrarVendedor, usuario.nome),
     filtros.sel ? buscarFicha(supabase, filtros.sel) : Promise.resolve(null),
     filtros.sel ? buscarOpcoesFicha(supabase) : Promise.resolve(null),
   ])

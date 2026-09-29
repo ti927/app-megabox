@@ -1,6 +1,7 @@
 'use client'
 
 import type { Route } from 'next'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
 
@@ -19,7 +20,7 @@ import {
   primeiroNome,
 } from '@/lib/vendas'
 
-import { FichaCotacao, NovaCotacao } from './dialogo'
+import { TelaCotacao } from './cotacao'
 import type {
   CartaoCotacao,
   CartaoEntrega,
@@ -60,7 +61,8 @@ function BotaoDetalhe({ aberto, aoAlternar }: { aberto: boolean; aoAlternar: () 
       aria-expanded={aberto}
       onClick={aoAlternar}
     >
-      {aberto ? 'Menos ▴' : 'Detalhes ▾'}
+      {aberto ? 'Menos' : 'Detalhes'}
+      {aberto ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
     </button>
   )
 }
@@ -327,7 +329,10 @@ function ColunaKanban<T>({
 
 // ---------------------------------------------------------------------- tela
 
-const PILULAS: { chave: 'arquivadas' | 'expandir' | 'concluidos' | 'cancelados'; rotulo: string }[] = [
+const COLUNA_VAZIA = { cartoes: [], total: 0, falhou: false }
+const KANBAN_VAZIO: Kanban = { cotacoes: COLUNA_VAZIA, pedidos: COLUNA_VAZIA, entregas: COLUNA_VAZIA, substituto: COLUNA_VAZIA }
+
+const PILULAS:{ chave: 'arquivadas' | 'expandir' | 'concluidos' | 'cancelados'; rotulo: string }[] = [
   { chave: 'arquivadas', rotulo: 'cotações arquivadas' },
   { chave: 'expandir', rotulo: 'expandir cartões' },
   { chave: 'concluidos', rotulo: 'exibe concluídos' },
@@ -336,7 +341,7 @@ const PILULAS: { chave: 'arquivadas' | 'expandir' | 'concluidos' | 'cancelados';
 
 export function TelaVendas({
   filtros,
-  kanban,
+  kanban: kanbanDoServidor,
   opcoes,
   ficha,
   opcoesFicha,
@@ -344,16 +349,26 @@ export function TelaVendas({
   permissoes,
 }: {
   filtros: FiltrosVendas
-  kanban: Kanban
+  /** null com a cotação aberta em tela cheia: o servidor não refaz o quadro coberto */
+  kanban: Kanban | null
   opcoes: Opcoes
   ficha: Ficha | null
   opcoesFicha: OpcoesFicha | null
   usuario: { id: string; perfilId: number }
   permissoes: Permissoes
 }) {
+  // Último quadro recebido: fica atrás da tela cheia enquanto a ficha está aberta.
+  const [ultimoKanban, setUltimoKanban] = useState<Kanban>(kanbanDoServidor ?? KANBAN_VAZIO)
+  if (kanbanDoServidor && kanbanDoServidor !== ultimoKanban) setUltimoKanban(kanbanDoServidor)
+  const kanban = kanbanDoServidor ?? ultimoKanban
   const router = useRouter()
   const [pendente, iniciar] = useTransition()
-  const [nova, setNova] = useState(false)
+  /**
+   * Cotação NOVA aberta: `null` fechada; `'nova'` sem carrinho ainda; o id do rascunho depois do
+   * primeiro produto. A mesma instância da tela cheia continua montada quando o rascunho chega
+   * pela URL — o que a pessoa escolheu no cabeçalho não se perde.
+   */
+  const [nova, setNova] = useState<string | null>(null)
   const [numero, setNumero] = useState(filtros.numero)
   const [cliente, setCliente] = useState(filtros.cliente)
   const espera = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -482,7 +497,7 @@ export function TelaVendas({
           ))}
         </div>
 
-        <button type="button" className="botao-primario vendas-nova" onClick={() => setNova(true)} data-teste="nova-cotacao">
+        <button type="button" className="botao-primario vendas-nova" onClick={() => setNova('nova')} data-teste="nova-cotacao">
           + Cotação
         </button>
       </section>
@@ -564,25 +579,32 @@ export function TelaVendas({
       </div>
 
       {nova ? (
-        <NovaCotacao
-          empresas={opcoes.empresas}
-          aoCriar={(id) => {
-            setNova(false)
+        <TelaCotacao
+          key="nova"
+          ficha={ficha && ficha.cotacao.id === nova ? ficha : null}
+          abaInicial="cotacao"
+          opcoes={opcoes}
+          opcoesFicha={ficha && ficha.cotacao.id === nova ? opcoesFicha : null}
+          permissoes={permissoes}
+          aoCriarRascunho={(id) => {
+            setNova(id)
             abrir(id, 'cotacao')
           }}
-          aoFechar={() => setNova(false)}
+          aoFechar={() => {
+            setNova(null)
+            navegar({ sel: null, aba: 'cotacao' })
+          }}
         />
-      ) : null}
-
-      {ficha && opcoesFicha ? (
-        <FichaCotacao
-          // key: trocar de cotação remonta o diálogo e zera formulários e aba.
+      ) : ficha && opcoesFicha ? (
+        <TelaCotacao
+          // key: trocar de cotação remonta a tela e zera formulários e aba.
           key={ficha.cotacao.id}
           ficha={ficha}
           abaInicial={filtros.aba}
           opcoes={opcoes}
           opcoesFicha={opcoesFicha}
           permissoes={permissoes}
+          aoCriarRascunho={() => undefined}
           aoFechar={() => navegar({ sel: null, aba: 'cotacao' })}
         />
       ) : filtros.sel ? (

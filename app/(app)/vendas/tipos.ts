@@ -97,6 +97,9 @@ export type Cotacao = {
   etapa_id: number
   vendedor_id: string
   cliente_id: string
+  empresa_emissora_id: number
+  /** carrinho da cotação nova ainda não gravada (db/007: substitui User.TempOrcamentoProdutos) */
+  rascunho: boolean
   cliente: Nome
   vendedor: Nome
   empresa: Nome
@@ -110,7 +113,10 @@ export type Item = {
   qtd: string
   medida: string | null
   produto_id: string
-  produto: Nome
+  condicao_id: number | null
+  linha_id: number | null
+  endereco_destino_id: string
+  produto: { nome: string; grupo_id: string | null } | null
   condicao: Nome
   linha: Nome
   destino: { nome_endereco: string; uf: string; municipio: string | null } | null
@@ -239,6 +245,8 @@ export type Ficha = {
   contatos: Contato[]
   /** endereços ativos do cliente — destino do item */
   destinos: { id: string; nome_endereco: string; uf: string; municipio: string | null }[]
+  /** alguma parte não carregou (timeout/rede): a tela avisa em vez de mostrar lista vazia */
+  incompleta: boolean
 }
 
 // ------------------------------------------------------------------------ opções
@@ -248,6 +256,8 @@ export type Opcao = { id: number; nome: string }
 export type ProdutoOpcao = {
   id: string
   nome: string
+  /** produto_grupos — o "Tipo Produto" do carrinho (Bubble ProdutosGrupo) */
+  grupo_id: string | null
   grupo: Nome
   condicoes: { condicao_id: number }[]
   linhas: { linha_id: number }[]
@@ -257,11 +267,15 @@ export type Opcoes = {
   etapas: Opcao[]
   vendedores: { id: string; nome: string }[]
   empresas: Opcao[]
+  /** nome de quem está logado: o "Vendedor" da cotação nova */
+  eu: string
   motivos: Opcao[]
 }
 
 /** Carregadas só com a ficha aberta: os selects de item e de orçamento. */
 export type OpcoesFicha = {
+  /** produto_grupos: o select "Tipo Produto" que filtra o de produto */
+  grupos: { id: string; nome: string }[]
   produtos: ProdutoOpcao[]
   condicoes: Opcao[]
   linhas: Opcao[]
@@ -295,3 +309,6 @@ export type Permissoes = {
   filtrarVendedor: boolean
   ehDiretor: boolean
 }
+
+/** Endereço ativo do cliente: o "Endereço de entrega" do cabeçalho. */
+export type Destino = Ficha['destinos'][number]

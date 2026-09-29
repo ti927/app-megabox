@@ -30,7 +30,7 @@
 .rel-filtros {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
+  align-items: flex-end;
   gap: var(--e3);
   padding: var(--e4);
   background: var(--superficie);
@@ -76,7 +76,7 @@
 }
 .rel-conteudo[aria-busy='true'] {
   opacity: 0.6;
-  transition: opacity 0.2s;
+  transition: opacity var(--dur-2) var(--curva);
 }
 
 .rel-bloco {
@@ -183,12 +183,12 @@
   position: sticky;
   top: 0;
   font-size: var(--t-xs);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--sobre-azul);
   background: var(--azul);
 }
 .rel-tabela tbody th {
-  font-weight: 600;
+  font-weight: var(--peso-medio);
 }
 .rel-tabela tbody tr:hover {
   background: var(--azul-claro);
@@ -198,17 +198,17 @@
 }
 .rel-tabela tr[data-nivel='subtotal'] th,
 .rel-tabela tr[data-nivel='subtotal'] td {
-  font-weight: 600;
+  font-weight: var(--peso-medio);
 }
 .rel-tabela tfoot th,
 .rel-tabela tfoot td {
-  font-weight: 700;
+  font-weight: var(--peso-forte);
   background: var(--fundo-2);
   border-top: 2px solid var(--borda-forte);
   border-bottom: none;
 }
 .rel-total {
-  font-weight: 700;
+  font-weight: var(--peso-forte);
 }
 
 /* Matriz: primeira coluna presa ao rolar para os meses. */
@@ -253,7 +253,7 @@
   margin: 0;
 }
 .rel-definicoes dt {
-  font-weight: 600;
+  font-weight: var(--peso-medio);
 }
 .rel-definicoes dd {
   margin: 0;

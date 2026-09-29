@@ -66,7 +66,7 @@
   font-weight: var(--peso-forte);
   letter-spacing: 0.02em;
   color: #fff;
-  background: linear-gradient(135deg, #3d78f3, #7030a0);
+  background: linear-gradient(135deg, #2c66e0, #7030a0); /* branco sobre o tom mais claro: 5,14:1 */
   border-radius: 50%;
   box-shadow: 0 0 0 2px var(--superficie);
 }
@@ -254,6 +254,7 @@
   transition: background-color var(--dur-1) var(--curva);
 }
 .menu-sair:hover {
+  color: var(--azul-escuro); /* --azul sobre --azul-medio dá 4,17:1; o escuro, 5,47:1 */
   background: var(--azul-medio);
 }
 

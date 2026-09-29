@@ -49,7 +49,7 @@
   --borda-campo: #8c95a6; /* contorno de campo: 3,02:1 (WCAG 1.4.11) */
   --texto: #1c2230;
   --texto-2: #4f586a;
-  --texto-3: #677083;
+  --texto-3: #626b7e; /* 4,80:1 sobre --azul-claro, 5,35:1 sobre branco */
   --veu: rgb(17 20 27 / 52%); /* fundo de diálogo */
 
   /* --- espaço (escala de 4) --- */

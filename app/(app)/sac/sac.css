@@ -17,7 +17,7 @@
 }
 /* As abas do SAC são navegação (aria-current), não tablist: repete o destaque de .abas. */
 .sac-abas button[aria-current='page'] {
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--azul);
   border-bottom-color: var(--azul);
 }
@@ -51,7 +51,7 @@
 .sac-filtros {
   display: grid;
   grid-template-columns: minmax(14rem, 2fr) repeat(4, minmax(8rem, 1fr));
-  align-items: end;
+  align-items: flex-end;
   gap: var(--e3);
   padding: var(--e4);
   background: var(--superficie);
@@ -144,6 +144,7 @@
     box-shadow var(--dur-1) var(--curva);
 }
 .sac-linha:hover {
+  --azul: var(--azul-escuro); /* texto azul da linha sobre --azul-medio: 5,47:1 */
   background: var(--azul-medio);
   box-shadow: var(--sombra-1);
 }
@@ -238,7 +239,7 @@
 .sf-tipo {
   margin: 0 0 var(--e1);
   font-size: var(--t-xs);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--roxo);
 }
 .sf-subtitulo {
@@ -298,7 +299,7 @@
 }
 .sf-dados dd {
   margin: 0;
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   overflow-wrap: anywhere;
 }
 .sf-marcas {
@@ -533,7 +534,7 @@
 .nps-adicionar-form {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.5fr) auto;
-  align-items: end;
+  align-items: flex-end;
   gap: var(--e3);
 }
 .nps-busca {

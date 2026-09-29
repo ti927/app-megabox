@@ -41,7 +41,7 @@
   transition: background-color var(--dur-1) var(--curva);
   font: inherit;
   font-size: var(--t-sm);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--azul);
   background: var(--superficie);
   border: none;
@@ -63,7 +63,7 @@
 .fin-filtros {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.25rem), 1fr));
-  align-items: end;
+  align-items: flex-end;
   gap: var(--e3);
   padding: var(--e4);
   background: var(--superficie);
@@ -139,7 +139,7 @@ button.fin-card:hover {
 }
 .fin-card-titulo {
   font-size: var(--t-sm);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
 }
 .fin-card-valor {
   font-size: 1.5rem;
@@ -262,7 +262,7 @@ td.fin-num > * {
 /* A data usada no filtro fica marcada (no Bubble, rótulo laranja). O laranja de texto
  * (--laranja-texto, 5,7:1) passa AA; o sublinhado laranja reforça sem depender só da cor. */
 .financeiro [data-destaque] {
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--laranja-texto);
   text-decoration: underline;
   text-decoration-color: var(--laranja);
@@ -270,7 +270,7 @@ td.fin-num > * {
   text-underline-offset: 3px;
 }
 .financeiro [data-vencida] {
-  font-weight: 700;
+  font-weight: var(--peso-forte);
   color: var(--vermelho);
 }
 .fin-rot {
@@ -281,7 +281,7 @@ td.fin-num > * {
   color: var(--texto-2);
 }
 .fin-saldo {
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--vermelho);
 }
 .fin-status {
@@ -298,7 +298,7 @@ td.fin-num > * {
 .fin-abrir {
   padding: 0;
   font: inherit;
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   text-align: left;
   color: var(--azul);
   text-decoration: underline;
@@ -375,7 +375,7 @@ td.fin-num > * {
 .fin-dialogo-tipo {
   margin: 0 0 var(--e1);
   font-size: var(--t-xs);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--roxo);
 }
 .fin-selos {
@@ -498,7 +498,7 @@ td.fin-num > * {
 .fin-estorno {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
+  align-items: flex-end;
   gap: var(--e3);
   margin-top: var(--e2);
 }

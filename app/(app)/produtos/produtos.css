@@ -31,7 +31,7 @@
 .produtos-filtros {
   display: grid;
   grid-template-columns: minmax(14rem, 2fr) repeat(3, minmax(8rem, 1fr)) auto;
-  align-items: end;
+  align-items: flex-end;
   gap: var(--e3);
   padding: var(--e4);
   background: var(--superficie);
@@ -100,6 +100,7 @@
     box-shadow var(--dur-1) var(--curva);
 }
 .produto-linha:hover {
+  --azul: var(--azul-escuro); /* texto azul da linha sobre --azul-medio: 5,47:1 */
   background: var(--azul-medio);
   box-shadow: var(--sombra-1);
 }
@@ -159,7 +160,7 @@
 .pf-tipo {
   margin: 0 0 var(--e1);
   font-size: var(--t-xs);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--roxo);
 }
 .pf-selos {

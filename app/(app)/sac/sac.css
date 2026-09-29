@@ -1,6 +1,7 @@
 /* Tela do SAC (chamados e Gestão NPS).
- * Segue a tela-modelo (/cadastros, /produtos): título, filtros num cartão, itens em cartão
- * azul-claro com borda à esquerda, ficha em <dialog>. Peças genéricas (campo, botão, selo,
+ * Aplicativo de mesa (design/sistema-visual.md, Layout): a página usa a largura toda; filtros
+ * numa faixa só; chamados numa tabela densa (cabeçalho --lilas-cabeca, uma linha por
+ * protocolo, prioridade na borda esquerda); ficha em <dialog>. Peças genéricas (campo, botão, selo,
  * aviso, diálogo, abas, paginação, esqueleto) vêm de estilos/componentes.css; aqui só o que
  * é do SAC. Prefixos: `sac-` (lista), `sf-` (ficha/diálogos), `nps-` (painel NPS). */
 
@@ -8,7 +9,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--e4);
-  max-width: 80rem;
   min-width: 0;
 }
 
@@ -44,31 +44,49 @@
 .sac-contador {
   margin: 0;
   font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+.sac-contador strong {
+  font-variant-numeric: tabular-nums;
   color: var(--roxo);
 }
 
-/* ------------------------------------------------------------------ filtros */
+/* ------------------------------------------------------------------ filtros
+ * Uma faixa só: busca que cresce, filtros de largura fixa, ações no fim da linha. */
 .sac-filtros {
-  display: grid;
-  grid-template-columns: minmax(14rem, 2fr) repeat(4, minmax(8rem, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--e3);
-  padding: var(--e4);
+  padding: var(--e3) var(--e4);
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
-  box-shadow: var(--sombra-1);
+}
+.sac-filtros > .campo {
+  flex: 0 1 10rem;
+  min-width: 0;
+}
+.sac-filtros > .sac-busca {
+  flex: 1 1 18rem;
 }
 .sac-acoes {
-  grid-column: span 3;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--e3);
+  min-height: 2.5rem;
+  margin-left: auto;
 }
-.nps-filtros {
-  grid-template-columns: minmax(14rem, 2fr) repeat(2, minmax(9rem, 1fr));
+.sac-limpar {
+  min-height: 2.5rem;
+}
+.nps-filtros > .campo {
+  flex: 0 1 12rem;
+}
+.nps-filtros > .sac-busca {
+  flex: 0 1 28rem;
 }
 
 /* -------------------------------------------------------------------- lista */
@@ -88,36 +106,38 @@
   border-radius: var(--raio-g);
 }
 
+/* Tabela: um cartão só, cabeçalho em --lilas-cabeca e linhas separadas por fio. */
+.sac-tabela {
+  min-width: 0;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  overflow: hidden;
+}
+
 /* Colunas da lista: a mesma grade no cabeçalho e nas linhas. */
 .sac-cabecalho,
 .sac-linha {
   display: grid;
   grid-template-columns:
-    minmax(6rem, 0.7fr) minmax(0, 2fr) minmax(5rem, 0.7fr) minmax(0, 1fr)
-    minmax(0, 1.3fr) minmax(0, 1fr);
+    minmax(6.5rem, 0.6fr) minmax(14rem, 2.4fr) minmax(5.5rem, 0.6fr) minmax(8rem, 1.1fr)
+    minmax(6.5rem, 0.7fr) minmax(8rem, 0.9fr) minmax(9rem, 1.1fr);
   align-items: center;
   gap: var(--e3);
 }
 
-/* Cabeçalho em pílula azul, como a tabela do Bubble (design sac-01). */
 .sac-cabecalho {
-  min-height: 2.5rem;
-  padding: var(--e2) var(--e4);
+  min-height: 2.25rem;
+  padding: var(--e1) var(--e4);
   padding-left: calc(var(--e4) + 3px);
   font-size: var(--t-xs);
-  font-weight: var(--peso-forte);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--sobre-azul);
-  background: var(--azul);
-  border-radius: var(--raio-pilula);
-  box-shadow: 0 1px 2px rgb(28 34 48 / 12%);
+  font-weight: var(--peso-medio);
+  color: var(--texto-2);
+  background: var(--lilas-cabeca);
+  border-bottom: 1px solid var(--borda);
 }
 
 .sac-lista {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -126,31 +146,36 @@
 .sac-lista[data-pendente] {
   opacity: 0.55;
 }
+.sac-lista > li + li {
+  border-top: 1px solid var(--borda);
+}
 
 .sac-linha {
   width: 100%;
-  padding: var(--e3) var(--e4);
+  min-height: 3.25rem;
+  padding: var(--e2) var(--e4);
   font: inherit;
   font-size: var(--t-sm);
   text-align: left;
   color: var(--texto);
-  background: var(--azul-claro);
-  border: 1px solid transparent;
+  background: var(--superficie);
+  border: none;
   border-left: 3px solid var(--azul);
-  border-radius: var(--raio);
   cursor: pointer;
-  transition:
-    background-color var(--dur-1) var(--curva),
-    box-shadow var(--dur-1) var(--curva);
+  transition: background-color var(--dur-1) var(--curva);
 }
+/* Texto azul da linha sobre fundo tingido: --azul-escuro (5,47:1 sobre --azul-medio). */
 .sac-linha:hover {
-  --azul: var(--azul-escuro); /* texto azul da linha sobre --azul-medio: 5,47:1 */
-  background: var(--azul-medio);
-  box-shadow: var(--sombra-1);
+  --azul: var(--azul-escuro);
+  background: var(--azul-claro);
+}
+.sac-linha:focus-visible {
+  outline: var(--foco);
+  outline-offset: -3px;
 }
 .sac-linha[aria-current='true'] {
-  background: var(--lilas);
-  border-color: color-mix(in srgb, var(--azul) 45%, transparent);
+  --azul: var(--azul-escuro);
+  background: var(--azul-medio);
 }
 /* A borda esquerda carrega a prioridade; o texto do selo diz qual é. */
 .sac-linha[data-prioridade='3'] {
@@ -178,14 +203,27 @@
 .sac-col-numero strong {
   color: var(--azul);
   font-family: var(--fonte-numero);
+  font-variant-numeric: tabular-nums;
+}
+.sac-col-numero small {
+  font-variant-numeric: tabular-nums;
 }
 .sac-col-cliente strong {
+  font-weight: var(--peso-medio);
   text-transform: uppercase;
 }
+.sac-col-pedido {
+  font-variant-numeric: tabular-nums;
+}
+.sac-col-prioridade,
 .sac-col-selos {
   flex-direction: row !important;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--e1) !important;
+}
+.sac-col-responsavel {
+  color: var(--texto-2);
 }
 .sac-rotulo {
   display: none;
@@ -622,18 +660,13 @@
   font-size: var(--t-xs);
 }
 
-/* ------------------------------------------------------------------ celular */
-@media (max-width: 64rem) {
-  .sac-filtros {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .sac-busca,
-  .sac-acoes {
-    grid-column: 1 / -1;
-  }
+/* ------------------------------------------------------------- tela estreita */
+@media (max-width: 80rem) {
   .nps-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+@media (max-width: 64rem) {
   /* Sem espaço para colunas: a linha vira cartão e cada campo diz o que é. */
   .sac-cabecalho {
     display: none;
@@ -647,27 +680,26 @@
   }
   .sac-rotulo {
     display: block;
+    flex-basis: 100%;
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
 }
 
 @media (max-width: 40rem) {
-  .sac-filtros,
-  .nps-filtros {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .sac-filtros > .campo,
+  .nps-filtros > .campo {
+    flex: 1 1 100%;
   }
   .sac-acoes {
     justify-content: space-between;
+    margin-left: 0;
   }
   .sac-topo > .botao-primario {
     flex: 1 1 100%;
   }
   .sac-linha {
     padding: var(--e3);
-  }
-  .sac-col-selos {
-    grid-column: 1 / -1;
   }
   .sf-campos,
   .sf-tres {

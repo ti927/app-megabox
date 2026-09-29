@@ -7,8 +7,11 @@ import {
   faixa,
   type FiltrosFinanceiro,
   lerFiltros,
+  lerResumo,
+  type ParametrosResumo,
+  parametrosResumo,
+  parametrosVencidos,
   STATUS,
-  somarReais,
 } from '@/lib/financeiro'
 import { clienteServidor } from '@/lib/supabase/servidor'
 
@@ -45,10 +48,6 @@ const COLUNAS_CP =
   'dt_entrega, nf_fornecedor_numero, valor_base::text, percentual::text, valor_comissao::text, ' +
   'valor_pago::text, saldo::text, ultima_dt_baixa, dt_vencimento, status_id, vencida'
 
-/** Teto da soma dos cartões: 50 lotes de 1.000 (o max-rows do PostgREST). */
-const LOTE = 1000
-const MAX_LOTES = 50
-
 const TOTAIS_VAZIOS: Totais = { qtd: 0, comissao: '0.00', saldo: '0.00', falhou: false }
 
 /**
@@ -73,12 +72,12 @@ type Filtro = { cliente: string[] | null; fornecedor: string[] | null }
  * A busca-base parametrizada: UMA consulta no lugar das 12 variações por tipo de data do
  * `pop oculto` (financeiro.md §3.1, §8.1). Cancelada nunca aparece (D8).
  */
-function consulta(supabase: Supabase, f: FiltrosFinanceiro, ids: Filtro, colunas: string, contar: boolean) {
+function consulta(supabase: Supabase, f: FiltrosFinanceiro, ids: Filtro, colunas: string) {
   const aba = f.aba === 'pagar' ? 'pagar' : 'receber'
   const status = STATUS[aba]
   let q = supabase
     .from(aba === 'pagar' ? 'v_contas_pagar' : 'v_contas_receber')
-    .select(colunas, contar ? { count: 'exact' } : undefined)
+    .select(colunas)
     .is('cancelada_em', null)
 
   // Vencidas (card bTpVD) independem do período; o resto filtra pela data escolhida.
@@ -100,33 +99,20 @@ function consulta(supabase: Supabase, f: FiltrosFinanceiro, ids: Filtro, colunas
 }
 
 /**
- * Totais do filtro inteiro, não só da página: somados em STRING EXATA (lib/financeiro, BigInt).
- * O PostgREST deste projeto não tem agregados ligados e não há função de resumo na 010, então
- * a soma percorre o recorte em lotes. No Bubble o "listado" soma a tabela com os selecionados
- * unidos e a contagem não bate com a soma (§3.4) — aqui os dois saem do mesmo recorte.
+ * Totais do filtro inteiro, não só da página: `fn_resumo_financeiro` (db/020) conta e soma no
+ * banco, em numeric, com a RLS de quem lê e o MESMO recorte de `consulta()`. Antes a página
+ * percorria o recorte em lotes de 1.000 e somava aqui (commit 84f1055). No Bubble o "listado"
+ * soma a tabela com os selecionados unidos e a contagem não bate com a soma (§3.4) — aqui os
+ * dois saem do mesmo recorte, e a contagem também é o total da paginação.
  */
-async function somar(supabase: Supabase, f: FiltrosFinanceiro, ids: Filtro, total: number): Promise<Totais> {
-  const comissoes: string[] = []
-  const saldos: string[] = []
-  for (let lote = 0; lote * LOTE < total && lote < MAX_LOTES; lote++) {
-    const { data, error } = await consulta(supabase, f, ids, 'valor_comissao::text, saldo::text', false)
-      .order('id')
-      .range(lote * LOTE, lote * LOTE + LOTE - 1)
-    if (error) {
-      console.error('financeiro: totais', error)
-      return { ...TOTAIS_VAZIOS, falhou: true }
-    }
-    for (const r of (data ?? []) as unknown as { valor_comissao: string; saldo: string }[]) {
-      comissoes.push(r.valor_comissao)
-      saldos.push(r.saldo)
-    }
+async function resumir(supabase: Supabase, args: ParametrosResumo, contexto: string): Promise<Totais> {
+  const { data, error } = await supabase.rpc('fn_resumo_financeiro', args).maybeSingle()
+  const resumo = error ? null : lerResumo(data)
+  if (!resumo) {
+    console.error(`financeiro: ${contexto}`, error ?? data)
+    return { ...TOTAIS_VAZIOS, falhou: true }
   }
-  return {
-    qtd: comissoes.length,
-    comissao: somarReais(comissoes),
-    saldo: somarReais(saldos),
-    falhou: comissoes.length < total,
-  }
+  return { ...resumo, falhou: false }
 }
 
 async function nomesPorId(supabase: Supabase, tabela: string, coluna: string, ids: (string | null)[]) {
@@ -194,42 +180,35 @@ async function buscarContas(
 
   const { de, ate } = faixa(f.pagina)
   const pagar = f.aba === 'pagar'
-  const { data, count, error } = await consulta(supabase, f, ids, pagar ? COLUNAS_CP : COLUNAS_CR, true)
-    .order('dt_vencimento')
-    .order('id')
-    .range(de, ate)
+  // Lista da página e resumo do recorte em paralelo. A lista não pede contagem: o total da
+  // paginação é a `qtd` do resumo (mesmo recorte), e contar duas vezes era pagar duas vezes.
+  const [{ data, error }, totais] = await Promise.all([
+    consulta(supabase, f, ids, pagar ? COLUNAS_CP : COLUNAS_CR)
+      .order('dt_vencimento')
+      .order('id')
+      .range(de, ate),
+    resumir(supabase, parametrosResumo(f, ids), 'totais'),
+  ])
   if (error) {
     console.error('financeiro: lista', error)
     return { ...vazia, falhou: true }
   }
-  const total = count ?? 0
-  const [linhas, totais] = await Promise.all([
-    pagar
-      ? comNomesPagar(supabase, (data ?? []) as unknown as ContaPagar[])
-      : comNomesReceber(supabase, (data ?? []) as unknown as ContaReceber[]),
-    somar(supabase, f, ids, total),
-  ])
+  const linhas = pagar
+    ? await comNomesPagar(supabase, (data ?? []) as unknown as ContaPagar[])
+    : await comNomesReceber(supabase, (data ?? []) as unknown as ContaReceber[])
+  // Sem resumo, a paginação conta só o que se sabe que existe (até esta página).
+  const total = totais.falhou ? de + linhas.length : totais.qtd
   return { linhas, total, falhou: false, totais } as ListaContas<ContaReceber> | ListaContas<ContaPagar>
 }
 
 /**
  * Card "A receber vencidos" (§3.4): ignora todos os filtros, como no Bubble — mas NÃO conta
- * arquivada nem cancelada, e soma o SALDO (o que falta receber), não a comissão cheia.
+ * arquivada nem cancelada, e soma o SALDO (o que falta receber), não a comissão cheia. Mesma
+ * função de resumo (db/020): a soma deixou de parar nas primeiras 1.000 contas.
  */
 async function buscarVencidos(supabase: Supabase, aba: 'receber' | 'pagar'): Promise<Totais> {
-  let q = supabase
-    .from(aba === 'pagar' ? 'v_contas_pagar' : 'v_contas_receber')
-    .select('saldo::text', { count: 'exact' })
-    .eq('vencida', true)
-    .is('cancelada_em', null)
-  if (aba === 'receber') q = q.eq('arquivado', false)
-  const { data, count, error } = await q.order('id').range(0, LOTE - 1)
-  if (error) {
-    console.error('financeiro: vencidos', error)
-    return { ...TOTAIS_VAZIOS, falhou: true }
-  }
-  const saldos = ((data ?? []) as unknown as { saldo: string }[]).map((r) => r.saldo)
-  return { qtd: count ?? 0, comissao: '0.00', saldo: somarReais(saldos), falhou: (count ?? 0) > saldos.length }
+  const t = await resumir(supabase, parametrosVencidos(aba), 'vencidos')
+  return { ...t, comissao: '0.00' }
 }
 
 const COLUNAS_BAIXA =

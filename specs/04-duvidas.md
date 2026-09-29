@@ -364,6 +364,20 @@ o original, com as diferenças documentadas como R1–R9 no cabeçalho de `db/02
 
 ---
 
+### Cotação em tela cheia (29/09/2026)
+
+- **Rascunho no lugar do carrinho temporário.** O primeiro produto posto no carrinho cria a cotação com
+  `rascunho = true` (substitui `User.TempOrcamentoProdutos`); o rascunho fica fora do kanban e dos
+  relatórios. "Gravar/Salvar" faz `rascunho = false`; "Cancela" apaga em cascata (no Bubble os
+  orçamentos ficavam órfãos). Consequência: descartar deixa um buraco na numeração das cotações.
+- **Pendente:** rascunhos abandonados (navegador fechado no meio) ficam no banco, invisíveis. O Bubble
+  limpava ao abrir (bTcal) — falta uma rotina de limpeza de rascunho velho.
+- Com a ficha aberta o kanban não é consultado (recarrega ao fechar): cada gravação refazia 4 colunas.
+- Trocar o produto de um item que já tem orçamento é recusado: os fornecedores orçaram o produto antigo.
+- Alterar a quantidade faz dois UPDATEs sem transação (orçamentos, depois item) — candidato a RPC.
+
+---
+
 ### B5 foi respondida pela leitura do mapa — e a resposta era o contrário
 
 Registrado porque o erro custou caro e pode voltar. Três specs (`financeiro-reusables` 21,

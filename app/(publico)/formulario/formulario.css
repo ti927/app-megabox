@@ -30,14 +30,16 @@
 
 .pesq-cartao {
   width: 100%;
-  max-width: 37rem;
+  /* Coluna de leitura de um formulário de uma pergunta por vez, não contêiner de página:
+   * limitada pela medida de texto do sistema (design/sistema-visual.md, Layout). */
+  max-width: var(--medida);
   display: flex;
   flex-direction: column;
   gap: var(--e5);
   padding: var(--e6);
   background: var(--superficie);
   border: 1px solid var(--borda);
-  border-radius: 16px;
+  border-radius: var(--raio-g);
   box-shadow: var(--sombra-2);
 }
 
@@ -60,8 +62,38 @@
 }
 
 .pesq-aviso {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--e3);
   text-align: center;
   padding: var(--e4) 0;
+}
+/* Ícone do estado final, em círculo tingido: verde (enviado), azul (já respondida),
+ * laranja (expirado, limite) e vermelho (inválido, erro). O título diz o mesmo em texto. */
+.pesq-aviso-icone {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  color: var(--azul);
+  background: var(--azul-claro);
+  border-radius: 50%;
+}
+.pesq-aviso[data-resultado='ok'] .pesq-aviso-icone {
+  color: var(--verde);
+  background: var(--verde-fundo);
+}
+.pesq-aviso[data-resultado='expirado'] .pesq-aviso-icone,
+.pesq-aviso[data-resultado='limite'] .pesq-aviso-icone {
+  color: var(--laranja-texto);
+  background: var(--laranja-fundo);
+}
+.pesq-aviso[data-resultado='invalido'] .pesq-aviso-icone,
+.pesq-aviso[data-resultado='erro'] .pesq-aviso-icone,
+.pesq-aviso[data-resultado='dados_invalidos'] .pesq-aviso-icone {
+  color: var(--vermelho);
+  background: var(--vermelho-fundo);
 }
 
 /* ------------------------------------------------------------------ pergunta */
@@ -111,7 +143,7 @@
   place-items: center;
   width: 100%;
   height: 100%;
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   font-variant-numeric: tabular-nums;
   color: var(--azul);
   background: var(--superficie);
@@ -158,7 +190,7 @@
 /* ---------------------------------------------------------------- comentário */
 .pesq-comentario > span {
   font-size: var(--t-sm);
-  font-weight: 600;
+  font-weight: var(--peso-medio);
   color: var(--texto);
 }
 .pesq-contador {

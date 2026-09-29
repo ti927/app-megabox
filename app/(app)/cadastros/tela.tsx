@@ -4,10 +4,11 @@ import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
 
+import { Foto } from '@/componentes/foto'
 import { type FiltrosClifor, paraQuery, POR_PAGINA, type TipoClifor, totalPaginas } from '@/lib/clifor'
 import { formatarData } from '@/lib/datas'
 
-import { FichaGrupo } from './dialogo'
+import { FichaGrupo, iniciais } from './dialogo'
 import type { Ficha, LinhaGrupo, Opcoes, Permissoes } from './tipos'
 
 const ROTULO: Record<TipoClifor, { um: string; varios: string }> = {
@@ -15,18 +16,15 @@ const ROTULO: Record<TipoClifor, { um: string; varios: string }> = {
   fornecedor: { um: 'Fornecedor', varios: 'Fornecedores' },
 }
 
-function iniciais(nome: string) {
-  const partes = nome.trim().split(/\s+/)
-  return ((partes[0]?.[0] ?? '') + (partes.length > 1 ? (partes[1]?.[0] ?? '') : '')).toUpperCase()
-}
-
 function Linha({
   linha,
+  foto,
   indice,
   selecionada,
   aoAbrir,
 }: {
   linha: LinhaGrupo
+  foto: string | undefined
   indice: number
   selecionada: boolean
   aoAbrir: () => void
@@ -50,9 +48,7 @@ function Linha({
         <span className="clifor-indice" aria-hidden="true">
           {indice}
         </span>
-        <span className="clifor-avatar" aria-hidden="true">
-          {iniciais(linha.nome)}
-        </span>
+        <Foto url={foto} nome={linha.nome} className="clifor-avatar" iniciais={iniciais(linha.nome)} />
         <span className="clifor-principal">
           <strong className="clifor-nome">{linha.nome}</strong>
           <span className="clifor-meta">
@@ -90,6 +86,7 @@ function Linha({
 export function TelaCadastros({
   filtros,
   linhas,
+  fotos,
   total,
   falhou,
   contadores,
@@ -99,6 +96,8 @@ export function TelaCadastros({
 }: {
   filtros: FiltrosClifor
   linhas: LinhaGrupo[]
+  /** id do grupo → URL assinada da foto (só a página visível) */
+  fotos: Record<string, string>
   total: number
   falhou: boolean
   contadores: { clientes: number; fornecedores: number }
@@ -289,6 +288,7 @@ export function TelaCadastros({
               <Linha
                 key={l.id}
                 linha={l}
+                foto={fotos[l.id]}
                 indice={primeiro + i}
                 selecionada={filtros.sel === l.id}
                 aoAbrir={() => navegar({ sel: l.id })}

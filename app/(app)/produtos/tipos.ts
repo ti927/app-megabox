@@ -3,9 +3,19 @@
  * são as colunas do banco.
  */
 
+import type { ChaveFoto } from '@/lib/produtos-fotos'
+
 type Nome = { nome: string } | null
 
-export type LinhaProduto = {
+/** As quatro colunas de foto (bucket privado `produtos`, db/018) — caminho, nunca URL. */
+type Fotos = {
+  foto_frontal_path: string | null
+  foto_lateral_path: string | null
+  foto_superior_path: string | null
+  foto_inferior_path: string | null
+}
+
+export type LinhaProduto = Fotos & {
   id: string
   nome: string
   ativo: boolean
@@ -17,7 +27,7 @@ export type LinhaProduto = {
   versoes: [{ count: number }]
 }
 
-export type Produto = {
+export type Produto = Fotos & {
   id: string
   nome: string
   descricao: string | null
@@ -55,6 +65,8 @@ export type FilialLigada = {
 
 export type Ficha = {
   produto: Produto
+  /** URL assinada de vida curta de cada foto que existe */
+  fotos: Partial<Record<ChaveFoto, string>>
   versoes: Versao[]
   filiais: FilialLigada[]
 }

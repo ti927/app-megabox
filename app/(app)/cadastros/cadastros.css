@@ -143,6 +143,14 @@
   border: 1px solid var(--borda);
   border-radius: 50%;
 }
+/* Foto do grupo (bucket privado `clifor`, URL assinada): ocupa o círculo inteiro. */
+.clifor-avatar {
+  flex: none;
+  overflow: hidden;
+}
+.clifor-avatar[data-foto] {
+  background: var(--fundo-2);
+}
 .clifor-principal {
   display: flex;
   flex-direction: column;
@@ -413,6 +421,23 @@
   background: none;
   border: none;
   cursor: pointer;
+}
+
+/* ------------------------------------------------------------------ anexos */
+.ficha-avatar {
+  width: 3rem;
+  height: 3rem;
+}
+.ficha-titulo {
+  min-width: 0;
+}
+.anexo-nome {
+  min-width: 0;
+  font-size: var(--t-sm);
+  overflow-wrap: anywhere;
+}
+.anexo-apagar {
+  color: var(--vermelho);
 }
 
 /* ------------------------------------------------------------------ celular

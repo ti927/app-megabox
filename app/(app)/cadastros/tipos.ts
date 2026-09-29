@@ -17,6 +17,8 @@ export type LinhaGrupo = {
   ativo: boolean
   liberado: boolean
   criado_em: string
+  /** caminho no bucket `clifor` (db/018); a URL assinada vem à parte, em `fotos` */
+  foto_path: string | null
   carteira: Nome
   autor: Nome
   filiais: [{ count: number }]
@@ -37,6 +39,7 @@ export type Grupo = {
   nao_faz_contrato_parceria: boolean
   observacoes: string | null
   codigo_legado: number | null
+  foto_path: string | null
   criado_em: string
   alterado_em: string | null
   carteira: Nome
@@ -98,10 +101,29 @@ export type Duplicado = {
   ativo: boolean
 }
 
+/**
+ * Um anexo (documento) do grupo ou de uma filial dele — `pop.AnexosClifor` (bTjcT).
+ * Só chegam aqui os tipos que o departamento de quem vê pode ver: o filtro é a RLS de
+ * `anexos` (db/018 §4). O caminho do arquivo NÃO vem: a URL é assinada no clique.
+ */
+export type Anexo = {
+  id: string
+  nome_arquivo: string
+  tamanho_bytes: number | null
+  criado_em: string
+  endereco_id: string | null
+  tipo: Nome
+  autor: Nome
+  filial: { nome_endereco: string } | null
+}
+
 export type Ficha = {
   grupo: Grupo
+  /** URL assinada de vida curta da foto do grupo, ou null */
+  fotoUrl: string | null
   filiais: Filial[]
   contatos: Contato[]
+  anexos: Anexo[]
   /** documento → todas as filiais (de qualquer grupo, inclusive este) que o compartilham */
   duplicados: Record<string, Duplicado[]>
 }
@@ -115,6 +137,8 @@ export type Opcoes = {
   carteiras: Opcao[]
   regimes: { id: number; nome: string }[]
   fretes: { id: number; nome: string }[]
+  /** Opt.TipoAnexo com QualCadastro = Cliente/Fornecedor, por nome (`dd tipodocumento` bTjck) */
+  tiposAnexo: { id: number; nome: string }[]
 }
 
 export type Permissoes = {
@@ -122,6 +146,8 @@ export type Permissoes = {
   alterarAtivoFornecedor: boolean
   /** bloquear/liberar filial (filial-contato.podeBloquearFilial) */
   bloquearFilial: boolean
+  /** apagar UM anexo: hierarquia <= 2 (ícone bTjdn). Apagar todos (bTjeL) não existe aqui. */
+  apagarAnexo: boolean
 }
 
 export type EstadoAcao = {

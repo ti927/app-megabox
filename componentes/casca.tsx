@@ -8,6 +8,8 @@ import { useEffect, useRef, useState } from 'react'
 import { sair } from '@/app/(publico)/entrar/acoes'
 import type { Pagina, UsuarioAtual } from '@/lib/autorizacao'
 
+import { AvatarUsuario } from './avatar-usuario'
+
 const PERFIL: Record<number, string> = {
   1: 'Diretor',
   2: 'Gerente',
@@ -123,9 +125,7 @@ export function Casca({
         </span>
 
         <div className="cabecalho-usuario">
-          <span className="avatar" aria-hidden="true">
-            {iniciais(usuario.nome)}
-          </span>
+          <AvatarUsuario nome={usuario.nome} iniciais={iniciais(usuario.nome)} />
           <span className="cabecalho-identidade">
             <strong data-teste="usuario-nome">{usuario.nome}</strong>
             <small>{PERFIL[usuario.perfilId] ?? `Perfil ${usuario.perfilId}`}</small>

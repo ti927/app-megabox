@@ -1,6 +1,8 @@
 import type { Metadata, Route } from 'next'
 import { redirect } from 'next/navigation'
 
+import { filtroDonoAnexos, podeApagarAnexo } from '@/lib/anexos'
+import { urlsDeLinhas } from '@/lib/arquivos-lote'
 import { exigirAcesso } from '@/lib/autorizacao'
 import {
   escaparLike,
@@ -18,7 +20,7 @@ import { podeBloquearFilial } from '@/lib/filial-contato'
 import { clienteServidor } from '@/lib/supabase/servidor'
 
 import { TelaCadastros } from './tela'
-import type { Contato, Duplicado, Ficha, Filial, Grupo, LinhaGrupo, Opcoes } from './tipos'
+import type { Anexo, Contato, Duplicado, Ficha, Filial, Grupo, LinhaGrupo, Opcoes } from './tipos'
 
 import './cadastros.css'
 
@@ -37,7 +39,7 @@ type Supabase = Awaited<ReturnType<typeof clienteServidor>>
 async function buscarLista(supabase: Supabase, f: FiltrosClifor) {
   const documento = pareceDocumento(f.q)
   const colunas = [
-    'id, tipo, nome, ativo, liberado, criado_em',
+    'id, tipo, nome, ativo, liberado, criado_em, foto_path',
     'carteira:usuarios!carteira_id(nome)',
     'autor:usuarios!criado_por(nome)',
     'filiais:enderecos_clifor(count)',
@@ -99,7 +101,7 @@ async function contarAtivos(supabase: Supabase) {
 }
 
 async function buscarOpcoes(supabase: Supabase): Promise<Opcoes> {
-  const [ufs, captacoes, usuarios, regimes, fretes] = await Promise.all([
+  const [ufs, captacoes, usuarios, regimes, fretes, tiposAnexo] = await Promise.all([
     supabase.from('ufs').select('sigla, nome').order('sigla'),
     supabase.from('captacoes').select('id, nome').order('id'),
     supabase
@@ -109,16 +111,39 @@ async function buscarOpcoes(supabase: Supabase): Promise<Opcoes> {
       .order('nome'),
     supabase.from('regimes_tributarios').select('id, nome').order('id'),
     supabase.from('tipos_frete').select('id, nome').order('id'),
+    supabase.from('tipos_anexo').select('id, nome').eq('qual_cadastro', 'clifor').order('nome'),
   ])
   return {
     ufs: ufs.data ?? [],
     captacoes: captacoes.data ?? [],
     regimes: regimes.data ?? [],
     fretes: fretes.data ?? [],
+    tiposAnexo: tiposAnexo.data ?? [],
     carteiras: (usuarios.data ?? [])
       .filter((u) => podeTerCarteira(u.departamento_id))
       .map((u) => ({ id: u.id, nome: u.nome })),
   }
+}
+
+/**
+ * Anexos do grupo: os gravados no grupo E os gravados nas filiais dele. A cópia do Bubble
+ * ligou o anexo de cliente à FILIAL (`anexos.dono_unico` aceita um dono só; specs/04-duvidas,
+ * "Arquivos no Storage"), e o `pop.AnexosClifor` lista tudo do grupo (bTjcw).
+ * Tipo que o departamento de quem vê não pode ver simplesmente não vem: é a RLS (018 §4).
+ */
+async function buscarAnexos(supabase: Supabase, grupoId: string, filiais: string[]): Promise<Anexo[]> {
+  const { data, error } = await supabase
+    .from('anexos')
+    .select(
+      'id, nome_arquivo, tamanho_bytes, criado_em, endereco_id, tipo:tipos_anexo(nome), ' +
+        'autor:usuarios!criado_por(nome), filial:enderecos_clifor(nome_endereco)',
+    )
+    .or(filtroDonoAnexos(grupoId, filiais))
+    .is('usuario_id', null)
+    .order('criado_em', { ascending: false })
+    .limit(500)
+  if (error) console.error('cadastros: anexos', error)
+  return (data ?? []) as unknown as Anexo[]
 }
 
 /** A ficha do grupo aberto: dados, filiais, contatos e a fila de documento repetido. */
@@ -128,7 +153,7 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
       .from('grupos_clifor')
       .select(
         'id, tipo, nome, ativo, liberado, liberado_motivo, carteira_id, captacao_id, ' +
-          'email_principal, nao_faz_contrato_parceria, observacoes, codigo_legado, ' +
+          'email_principal, nao_faz_contrato_parceria, observacoes, codigo_legado, foto_path, ' +
           'criado_em, alterado_em, carteira:usuarios!carteira_id(nome), ' +
           'autor:usuarios!criado_por(nome), editor:usuarios!alterado_por(nome)',
       )
@@ -162,6 +187,11 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
   if (!grupo.data) return null
 
   const listaFiliais = (filiais.data ?? []) as unknown as Filial[]
+  const g = grupo.data as unknown as Grupo
+  const [anexos, foto] = await Promise.all([
+    buscarAnexos(supabase, id, listaFiliais.map((f) => f.id)),
+    urlsDeLinhas('clifor', [{ donoId: g.id, path: g.foto_path }]),
+  ])
 
   // A view é a fila de limpeza que substitui, por ora, o índice único de documento
   // (comentário de v_clifor_documento_duplicado, db/006). Aqui só se AVISA: bloquear
@@ -181,9 +211,11 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
   }
 
   return {
-    grupo: grupo.data as unknown as Grupo,
+    grupo: g,
+    fotoUrl: (g.foto_path && foto.get(g.foto_path)) || null,
     filiais: listaFiliais,
     contatos: (contatos.data ?? []) as unknown as Contato[],
+    anexos,
     duplicados,
   }
 }
@@ -206,10 +238,22 @@ export default async function PaginaCadastros({
     filtros.sel ? buscarFicha(supabase, filtros.sel) : Promise.resolve(null),
   ])
 
+  // Fotos só da página visível, assinadas numa chamada (lib/arquivos-lote).
+  const fotosLista = await urlsDeLinhas(
+    'clifor',
+    lista.linhas.map((l) => ({ donoId: l.id, path: l.foto_path })),
+  )
+  const fotos: Record<string, string> = {}
+  for (const l of lista.linhas) {
+    const url = l.foto_path ? fotosLista.get(l.foto_path) : undefined
+    if (url) fotos[l.id] = url
+  }
+
   return (
     <TelaCadastros
       filtros={filtros}
       linhas={lista.linhas}
+      fotos={fotos}
       total={lista.total}
       falhou={lista.falhou}
       contadores={contadores}
@@ -219,6 +263,7 @@ export default async function PaginaCadastros({
         escreverFornecedor: podeEscreverTipo(usuario, 'fornecedor'),
         alterarAtivoFornecedor: podeAlterarAtivo(usuario, 'fornecedor'),
         bloquearFilial: podeBloquearFilial(usuario),
+        apagarAnexo: podeApagarAnexo(usuario),
       }}
     />
   )

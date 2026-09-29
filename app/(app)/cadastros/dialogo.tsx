@@ -3,15 +3,17 @@
 import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
+import { Foto } from '@/componentes/foto'
 import type { TipoClifor } from '@/lib/clifor'
 import { formatarData } from '@/lib/datas'
 import { somenteDigitos } from '@/lib/documento'
 
 import { definirAtivoGrupo, salvarGrupo } from './acoes'
+import { AbaAnexos } from './anexos'
 import { AbaContatos, AbaFiliais } from './filiais-contatos'
 import type { EstadoAcao, Ficha, Opcoes, Permissoes } from './tipos'
 
-type Aba = 'dados' | 'filiais' | 'contatos'
+type Aba = 'dados' | 'filiais' | 'contatos' | 'anexos'
 
 /** Botão de envio DENTRO do form: useFormStatus só enxerga o form que o contém. */
 function BotaoEnviar({ children, className = 'botao-primario' }: {
@@ -42,6 +44,11 @@ function Mensagem({ estado }: { estado: EstadoAcao }) {
     )
   }
   return null
+}
+
+export function iniciais(nome: string) {
+  const partes = nome.trim().split(/\s+/)
+  return ((partes[0]?.[0] ?? '') + (partes.length > 1 ? (partes[1]?.[0] ?? '') : '')).toUpperCase()
 }
 
 // ----------------------------------------------------------------------- aba Dados
@@ -260,6 +267,7 @@ export function FichaGrupo({
         { id: 'dados', rotulo: 'Dados' },
         { id: 'filiais', rotulo: `Filiais (${ficha.filiais.length})` },
         { id: 'contatos', rotulo: `Contatos (${ficha.contatos.length})` },
+        { id: 'anexos', rotulo: `Anexos (${ficha.anexos.length})` },
       ]
     : []
 
@@ -273,7 +281,15 @@ export function FichaGrupo({
       data-teste="ficha-grupo"
     >
       <header className="dialogo-cabecalho">
-        <div>
+        {g ? (
+          <Foto
+            url={ficha?.fotoUrl}
+            nome={g.nome}
+            className="clifor-avatar ficha-avatar"
+            iniciais={iniciais(g.nome)}
+          />
+        ) : null}
+        <div className="ficha-titulo">
           <p className="ficha-tipo">{tipo === 'cliente' ? 'Cliente' : 'Fornecedor'}</p>
           <h2 id="ficha-titulo">{g ? g.nome : `Novo ${tipo}`}</h2>
           {g ? (
@@ -362,6 +378,9 @@ export function FichaGrupo({
           />
         ) : null}
         {ficha && aba === 'contatos' ? <AbaContatos ficha={ficha} /> : null}
+        {ficha && aba === 'anexos' ? (
+          <AbaAnexos ficha={ficha} opcoes={opcoes} podeApagar={permissoes.apagarAnexo} />
+        ) : null}
 
         <Mensagem estado={estadoAtivo} />
       </div>

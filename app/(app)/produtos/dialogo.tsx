@@ -14,9 +14,10 @@ import {
   salvarProduto,
   salvarVersao,
 } from './acoes'
+import { AbaFotos } from './fotos'
 import type { EstadoAcao, Ficha, FilialEncontrada, FilialLigada, Opcoes, Versao } from './tipos'
 
-type Aba = 'dados' | 'versoes' | 'fornecedores'
+type Aba = 'dados' | 'fotos' | 'versoes' | 'fornecedores'
 type Acao = (form: FormData) => void
 
 function BotaoEnviar({
@@ -188,8 +189,6 @@ function FormularioProduto({
         </div>
       ) : null}
       <Mensagem estado={estado} />
-
-      <p className="pf-nota">Fotos do produto ainda não são editadas aqui.</p>
 
       {p ? (
         <dl className="pf-rastro">
@@ -526,6 +525,7 @@ export function FichaProduto({
   const abas: { id: Aba; rotulo: string }[] = ficha
     ? [
         { id: 'dados', rotulo: 'Dados' },
+        { id: 'fotos', rotulo: `Fotos (${Object.keys(ficha.fotos).length})` },
         { id: 'versoes', rotulo: `Versões (${ficha.versoes.length})` },
         { id: 'fornecedores', rotulo: `Fornecedores (${ficha.filiais.length})` },
       ]
@@ -610,6 +610,7 @@ export function FichaProduto({
             enviar={(form) => startTransition(() => salvar(form))}
           />
         </div>
+        {ficha && aba === 'fotos' ? <AbaFotos ficha={ficha} /> : null}
         {ficha && aba === 'versoes' ? <AbaVersoes ficha={ficha} /> : null}
         {ficha && aba === 'fornecedores' ? <AbaFornecedores ficha={ficha} /> : null}
 

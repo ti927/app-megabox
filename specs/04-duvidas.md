@@ -301,6 +301,20 @@ com URL do CDN — o vazamento de `00` §2.2 está aberto hoje, para qualquer um
 
 ---
 
+### Anexos e fotos nas telas (29/09/2026)
+
+- Envio de anexo: a **filial é obrigatória** quando o grupo tem filial ativa (como no Bubble,
+  bTjdz); sem filial ativa, o anexo fica ligado ao próprio grupo.
+- Fotos de lista: assinadas **em lote** para a página visível (`lib/arquivos-lote.ts`, uma chamada
+  `createSignedUrls` com a sessão; a policy do bucket confere cada objeto). `urlsAssinadas` faria
+  duas chamadas por foto — ~100 por página na instância Micro.
+- Limite de envio: 4 MB (`bodySizeLimit` em `next.config.ts`), acima dos 3 MB do Bubble e dentro do
+  teto de 4,5 MB da Vercel.
+- Apagar anexo: um por vez, hierarquia ≤ 2, com confirmação. O "apagar todos" do Bubble (bTjeL) não
+  foi reproduzido.
+
+---
+
 ### B5 foi respondida pela leitura do mapa — e a resposta era o contrário
 
 Registrado porque o erro custou caro e pode voltar. Três specs (`financeiro-reusables` 21,

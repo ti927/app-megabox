@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
 
+import { urlsDeLinhas } from '@/lib/arquivos-lote'
 import { exigirAcesso } from '@/lib/autorizacao'
 import { escaparLike } from '@/lib/clifor'
 import { type FiltrosProduto, lerFiltros } from '@/lib/produtos'
+import { FOTOS_PRODUTO, fotoDaLista } from '@/lib/produtos-fotos'
 import { clienteServidor } from '@/lib/supabase/servidor'
 
 import { TelaProdutos } from './tela'
@@ -31,6 +33,7 @@ async function buscarLista(supabase: Supabase, f: FiltrosProduto) {
     .from('produtos')
     .select(
       'id, nome, ativo, tipo:produto_tipos(nome), grupo:produto_grupos(nome), ' +
+        'foto_frontal_path, foto_lateral_path, foto_superior_path, foto_inferior_path, ' +
         'linhas:produto_linhas(linha_id), condicoes:produto_condicoes(condicao_id), ' +
         'fornecedores:fornecedor_produtos(count), versoes:produto_versoes(count)',
       { count: 'exact' },
@@ -80,6 +83,7 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
       .from('produtos')
       .select(
         'id, nome, descricao, ativo, tipo_id, grupo_id, criado_em, alterado_em, ' +
+          'foto_frontal_path, foto_lateral_path, foto_superior_path, foto_inferior_path, ' +
           'autor:usuarios!criado_por(nome), editor:usuarios!alterado_por(nome), ' +
           'linhas:produto_linhas(linha_id), condicoes:produto_condicoes(condicao_id)',
       )
@@ -111,8 +115,20 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
       (a.endereco?.nome_endereco ?? '').localeCompare(b.endereco?.nome_endereco ?? '', 'pt-BR')
   })
 
+  const p = produto.data as unknown as Produto
+  const assinadas = await urlsDeLinhas(
+    'produtos',
+    FOTOS_PRODUTO.map((f) => ({ donoId: p.id, path: p[f.coluna] })),
+  )
+  const fotos: Ficha['fotos'] = {}
+  for (const f of FOTOS_PRODUTO) {
+    const url = p[f.coluna] ? assinadas.get(p[f.coluna]!) : undefined
+    if (url) fotos[f.chave] = url
+  }
+
   return {
-    produto: produto.data as unknown as Produto,
+    produto: p,
+    fotos,
     versoes: (versoes.data ?? []) as Versao[],
     filiais: listaFiliais,
   }
@@ -136,10 +152,20 @@ export default async function PaginaProdutos({
     filtros.sel ? buscarFicha(supabase, filtros.sel) : Promise.resolve(null),
   ])
 
+  // Miniatura da lista: uma foto por produto, assinadas numa chamada (lib/arquivos-lote).
+  const miniaturas = lista.linhas.map((l) => ({ donoId: l.id, path: fotoDaLista(l) }))
+  const assinadas = await urlsDeLinhas('produtos', miniaturas)
+  const fotos: Record<string, string> = {}
+  for (const m of miniaturas) {
+    const url = m.path ? assinadas.get(m.path) : undefined
+    if (url) fotos[m.donoId] = url
+  }
+
   return (
     <TelaProdutos
       filtros={filtros}
       linhas={lista.linhas}
+      fotos={fotos}
       total={lista.total}
       limite={LIMITE}
       falhou={lista.falhou}

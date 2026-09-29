@@ -6,6 +6,9 @@ const config: NextConfig = {
   // docs/plano-de-migracao.md achado nº 1.
   experimental: {
     typedRoutes: true,
+    // Anexo e foto sobem por server action. O padrão do Next é 1 MB, abaixo dos 3 MB que o Bubble
+    // aceitava. 4 MB fica dentro do teto de 4,5 MB do corpo de requisição na Vercel.
+    serverActions: { bodySizeLimit: '4mb' },
   },
   // Formulário público: o token de uso único está no caminho da URL. Cabeçalho HTTP de verdade
   // (e não só a <meta> da página), para valer também em resposta de erro e antes de qualquer

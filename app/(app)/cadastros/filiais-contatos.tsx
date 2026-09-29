@@ -28,7 +28,7 @@ import type { Contato, Duplicado, EstadoItem, Ficha, Filial, Opcoes, OutraFilial
  * é editável se a permissão deixa; a regra que vale é a do servidor (acoes-filial.ts).
  */
 
-function Retorno({ estado, teste }: { estado: EstadoItem; teste: string }) {
+export function Retorno({ estado, teste }: { estado: EstadoItem; teste: string }) {
   if (estado.erro) {
     return (
       <p className="aviso" data-tom="erro" role="alert" data-teste={`erro-${teste}`}>

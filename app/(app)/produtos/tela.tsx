@@ -4,6 +4,7 @@ import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
 
+import { Foto } from '@/componentes/foto'
 import { type FiltrosProduto, paraQuery } from '@/lib/produtos'
 
 import { FichaProduto } from './dialogo'
@@ -18,13 +19,21 @@ function nomesDe(ids: number[], lista: { id: number; nome: string }[]) {
     .filter((n): n is string => Boolean(n))
 }
 
+/** Duas letras do modelo, para a miniatura sem foto. */
+function iniciais(nome: string) {
+  const partes = nome.trim().split(/\s+/)
+  return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase()
+}
+
 function Linha({
   linha,
+  foto,
   opcoes,
   selecionada,
   aoAbrir,
 }: {
   linha: LinhaProduto
+  foto: string | undefined
   opcoes: Opcoes
   selecionada: boolean
   aoAbrir: () => void
@@ -43,6 +52,7 @@ function Linha({
         data-inativo={!linha.ativo || undefined}
         onClick={aoAbrir}
       >
+        <Foto url={foto} nome={linha.nome} className="produto-foto" iniciais={iniciais(linha.nome)} />
         <span className="produto-principal">
           <span className="produto-classe">
             {linha.tipo?.nome ?? 'sem tipo'} › {linha.grupo?.nome ?? 'sem grupo'}
@@ -83,6 +93,7 @@ function Linha({
 export function TelaProdutos({
   filtros,
   linhas,
+  fotos,
   total,
   limite,
   falhou,
@@ -92,6 +103,8 @@ export function TelaProdutos({
 }: {
   filtros: FiltrosProduto
   linhas: LinhaProduto[]
+  /** id do produto → URL assinada da miniatura */
+  fotos: Record<string, string>
   total: number
   limite: number
   falhou: boolean
@@ -228,6 +241,7 @@ export function TelaProdutos({
               <Linha
                 key={l.id}
                 linha={l}
+                foto={fotos[l.id]}
                 opcoes={opcoes}
                 selecionada={filtros.sel === l.id}
                 aoAbrir={() => navegar({ sel: l.id })}

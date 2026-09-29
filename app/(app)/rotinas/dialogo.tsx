@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { X } from 'lucide-react'
 
+import { Icone } from '@/componentes/icone'
 import { formatarDataHora, ROTULO_STATUS } from '@/lib/rotinas'
 
 import { lerExecucao } from './acoes'
@@ -101,7 +103,7 @@ export function DialogoExecucao({
           ) : null}
         </div>
         <button type="button" className="dialogo-fechar" aria-label="Fechar" onClick={() => ref.current?.close()}>
-          ✕
+          <Icone icone={X} tamanho={20} />
         </button>
       </header>
       <div className="dialogo-corpo">

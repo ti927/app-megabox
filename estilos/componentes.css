@@ -565,22 +565,96 @@
 }
 
 /* ------------------------------------------------------------------- marca
- * componentes/marca.tsx — cubo roxo + "megabox" (Bubble: logo do cabeçalho). */
+ * componentes/marca.tsx — logo oficial (public/marca). Uma imagem por tema; a troca
+ * segue as mesmas regras de tokens.css (data-tema vence; sem ele, o sistema). */
 .marca {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  color: var(--texto);
-  text-decoration: none;
+  line-height: 0;
 }
-.marca-cubo {
+.marca img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+}
+.marca-escuro {
+  display: none !important;
+}
+:root[data-tema='escuro'] .marca-claro {
+  display: none !important;
+}
+:root[data-tema='escuro'] .marca-escuro {
+  display: block !important;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema='claro']) .marca-claro {
+    display: none !important;
+  }
+  :root:not([data-tema='claro']) .marca-escuro {
+    display: block !important;
+  }
+}
+
+/* ------------------------------------------------------------------- ícone
+ * componentes/icone.tsx (lucide-react). Alinha com o texto e não encolhe no flex. */
+.icone {
   flex: none;
-  color: var(--roxo);
+  display: inline-block;
+  vertical-align: -0.15em;
 }
-.marca-nome {
-  font-size: 1.375rem;
-  font-weight: var(--peso-forte);
-  line-height: 1;
-  letter-spacing: -0.035em;
+
+/* ------------------------------------------------------------ seletor-tema
+ * componentes/seletor-tema.tsx — três botões de ícone num trilho (claro, escuro, sistema). */
+.seletor-tema {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--fundo-2);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-pilula);
+}
+.seletor-tema button {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  color: var(--texto-2);
+  background: none;
+  border: none;
+  border-radius: var(--raio-pilula);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-1) var(--curva),
+    color var(--dur-1) var(--curva);
+}
+.seletor-tema button:hover {
   color: var(--texto);
+  background: var(--borda);
+}
+.seletor-tema button[aria-checked='true'] {
+  color: var(--sobre-marca);
+  background: var(--marca);
+}
+
+/* ---------------------------------------------------------- fechar diálogo
+ * As telas escrevem "✕" dentro de .dialogo-fechar. O glifo depende da fonte e não segue
+ * o tema; aqui ele some (font-size 0, o aria-label do botão continua sendo o nome) e o X
+ * do lucide é desenhado por máscara na cor do botão. Tela nova: use <Icone icone={X} />
+ * dentro do botão — o ::before não aparece quando há um <svg>. */
+.dialogo-fechar:not(:has(svg)) {
+  font-size: 0;
+}
+.dialogo-fechar:not(:has(svg))::before {
+  content: '';
+  width: 1.25rem;
+  height: 1.25rem;
+  background: currentColor;
+  -webkit-mask: var(--icone-x) center / contain no-repeat;
+  mask: var(--icone-x) center / contain no-repeat;
+}
+:root {
+  /* lucide "x" (ISC), traço 2 */
+  --icone-x: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6 6 18'/%3E%3Cpath d='m6 6 12 12'/%3E%3C/svg%3E");
 }

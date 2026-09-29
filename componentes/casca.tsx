@@ -1,15 +1,20 @@
 'use client'
 
+import { ChevronDown, LogOut, Menu, PanelLeftClose, Settings } from 'lucide-react'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { sair } from '@/app/(publico)/entrar/acoes'
 import { Marca } from '@/componentes/marca'
 import type { Pagina, UsuarioAtual } from '@/lib/autorizacao'
 
 import { AvatarUsuario } from './avatar-usuario'
+import { Icone } from './icone'
+import { iconePagina } from './icones-paginas'
+import { SeletorTema } from './seletor-tema'
+import type { Tema } from './tema'
 
 const PERFIL: Record<number, string> = {
   1: 'Diretor',
@@ -65,19 +70,17 @@ function Engrenagem({ configuracoes }: { configuracoes: Pagina[] }) {
         aria-label="Configurações"
         onClick={() => setAberto((v) => !v)}
       >
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-          <path
-            fill="currentColor"
-            d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7 7 0 0 0-1.62-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.8a.5.5 0 0 0-.49.42l-.36 2.54c-.58.24-1.12.55-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.71 8.48a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.61.22l2.39-.96c.5.39 1.04.7 1.62.94l.36 2.54c.05.24.25.42.49.42h3.8c.24 0 .45-.18.49-.42l.36-2.54c.58-.24 1.12-.55 1.62-.94l2.39.96c.22.08.48 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"
-          />
-        </svg>
-        <span aria-hidden="true" className="engrenagem-caret">▾</span>
+        <Icone icone={Settings} tamanho={20} />
+        <Icone icone={ChevronDown} tamanho={14} className="engrenagem-caret" />
       </button>
       {aberto ? (
         <ul id="menu-configuracoes" className="engrenagem-menu" data-teste="menu-configuracoes">
           {itens.map((c) => (
             <li key={c.slug}>
-              <Link href={ROTA_CONFIG[c.slug]!}>{c.nome}</Link>
+              <Link href={ROTA_CONFIG[c.slug]!}>
+                <Icone icone={iconePagina(c.slug)} tamanho={16} />
+                {c.nome}
+              </Link>
             </li>
           ))}
         </ul>
@@ -93,22 +96,51 @@ function iniciais(nome: string) {
   return (a + b).toUpperCase()
 }
 
+/** Largura em que o menu fica aberto por padrão (casca.css usa o mesmo valor). */
+const CONSULTA_LARGA = '(min-width: 64.0625rem)'
+
+function assinarLargura(avisar: () => void) {
+  const mq = window.matchMedia(CONSULTA_LARGA)
+  mq.addEventListener('change', avisar)
+  return () => mq.removeEventListener('change', avisar)
+}
+
+/**
+ * Estado do menu lateral. "padrao" = ninguém mexeu: aberto no desktop, fechado em tela
+ * estreita — o CSS decide pela largura, então o HTML do servidor já sai certo nos dois.
+ * O hambúrguer troca para "aberto"/"fechado" explícitos.
+ */
+type EstadoMenu = 'padrao' | 'aberto' | 'fechado'
+
 export function Casca({
   usuario,
   paginas,
   configuracoes,
+  tema,
   children,
 }: {
   usuario: UsuarioAtual
   paginas: Pagina[]
   configuracoes: Pagina[]
+  tema: Tema
   children: React.ReactNode
 }) {
-  const [menuAberto, setMenuAberto] = useState(false)
+  const [menu, setMenu] = useState<EstadoMenu>('padrao')
+  const larga = useSyncExternalStore(
+    assinarLargura,
+    () => window.matchMedia(CONSULTA_LARGA).matches,
+    () => true, // servidor: o app é de mesa
+  )
+  const menuAberto = menu === 'padrao' ? larga : menu === 'aberto'
   const caminho = usePathname()
 
+  // Em tela estreita o menu é gaveta sobre o conteúdo: fecha ao navegar.
+  useEffect(() => {
+    if (!window.matchMedia(CONSULTA_LARGA).matches) setMenu('padrao')
+  }, [caminho])
+
   return (
-    <div className="casca" data-menu={menuAberto ? 'aberto' : 'fechado'}>
+    <div className="casca" data-menu={menu}>
       <header className="cabecalho">
         <button
           type="button"
@@ -116,26 +148,18 @@ export function Casca({
           aria-expanded={menuAberto}
           aria-controls="menu-paginas"
           aria-label={menuAberto ? 'Fechar menu' : 'Abrir menu'}
-          onClick={() => setMenuAberto((v) => !v)}
+          onClick={() => setMenu(menuAberto ? 'fechado' : 'aberto')}
         >
-          {/* Bubble: ícone Material "menu"; com o menu aberto, "menu_open". */}
-          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-            {menuAberto ? (
-              <path
-                fill="currentColor"
-                d="M3 18h13v-2H3v2Zm0-5h10v-2H3v2Zm0-7v2h13V6H3Zm18 9.59L17.42 12 21 8.41 19.59 7l-5 5 5 5L21 15.59Z"
-              />
-            ) : (
-              <path fill="currentColor" d="M3 18h18v-2H3v2Zm0-5h18v-2H3v2Zm0-7v2h18V6H3Z" />
-            )}
-          </svg>
+          {/* Bubble: ícone "menu"; com o menu aberto, "menu_open". */}
+          <Icone icone={menuAberto ? PanelLeftClose : Menu} tamanho={24} />
         </button>
 
-        <span className="cabecalho-marca">
-          <Marca />
-        </span>
+        <Link href="/inicio" className="cabecalho-marca" aria-label="MegaBox — Início">
+          <Marca tamanho={44} prioridade />
+        </Link>
 
         <div className="cabecalho-usuario">
+          <SeletorTema inicial={tema} className="cabecalho-tema" />
           <AvatarUsuario nome={usuario.nome} iniciais={iniciais(usuario.nome)} />
           <span className="cabecalho-identidade">
             <strong data-teste="usuario-nome">{usuario.nome}</strong>
@@ -154,7 +178,8 @@ export function Casca({
               return (
                 <li key={p.slug}>
                   <Link href={href} aria-current={ativa ? 'page' : undefined}>
-                    {p.nome}
+                    <Icone icone={iconePagina(p.slug)} tamanho={20} />
+                    <span>{p.nome}</span>
                   </Link>
                 </li>
               )
@@ -166,14 +191,11 @@ export function Casca({
             </p>
           ) : null}
           {/* Bubble: "Logout" fica no rodapé do menu lateral. */}
+          {/* No celular o seletor do cabeçalho não cabe: vem para o rodapé do menu. */}
+          <SeletorTema inicial={tema} className="menu-tema" />
           <form action={sair} className="menu-rodape">
             <button type="submit" className="menu-sair">
-              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M10.09 15.59 11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59ZM19 3H5a2 2 0 0 0-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2Z"
-                />
-              </svg>
+              <Icone icone={LogOut} tamanho={18} />
               Sair
             </button>
           </form>

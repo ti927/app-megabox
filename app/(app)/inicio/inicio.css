@@ -1,0 +1,64 @@
+/* Início: saudação e atalhos para as páginas liberadas (mesmos ícones do menu).
+ * Grade que preenche a largura toda (desktop-first); cada atalho é um link inteiro. */
+.inicio-sub {
+  margin: 0 0 var(--e5);
+  color: var(--texto-2);
+}
+
+.inicio-atalhos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--e3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.inicio-atalho {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  min-height: 4rem;
+  padding: var(--e3) var(--e4);
+  color: var(--texto);
+  text-decoration: none;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
+  transition:
+    border-color var(--dur-1) var(--curva),
+    background-color var(--dur-1) var(--curva);
+}
+.inicio-atalho:hover {
+  color: var(--texto);
+  text-decoration: none;
+  background: var(--azul-claro);
+  border-color: var(--azul);
+}
+
+.inicio-atalho-icone {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--roxo);
+  background: var(--lilas);
+  border-radius: var(--raio);
+}
+
+.inicio-atalho-nome {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--peso-medio);
+}
+
+.inicio-atalho-seta {
+  color: var(--texto-3);
+  transition: transform var(--dur-1) var(--curva);
+}
+.inicio-atalho:hover .inicio-atalho-seta {
+  color: var(--azul);
+  transform: translateX(2px);
+}

@@ -24,7 +24,12 @@
   --sobre-azul: #ffffff;
   --lilas: #e4e0f6; /* chips e status */
   --lilas-cabeca: #e7e5f0; /* cabeçalho de tabela "cinza-lilás" */
-  --roxo: #7030a0; /* marca (cubo do logo) */
+  --roxo: #720187; /* roxo do cubo do logo oficial (public/marca): 10,15:1 sobre branco */
+
+  /* --- marca --- cor própria da MegaBox, para o que é identidade (avatar, barra do item
+   * ativo no escuro, anel do seletor de tema). No claro é o roxo do logo com texto branco. */
+  --marca: #720187;
+  --sobre-marca: #ffffff;
 
   /* --- semântica de negócio ---
    * verde = líquido / vencedor / concluído; vermelho = vencido / cancelado /
@@ -62,10 +67,10 @@
   --e7: 3rem;
 
   /* --- tipografia ---
-   * Source Sans 3 (next/font, app/layout.tsx): humanista como o Lato do Bubble,
-   * mais legível em corpo pequeno e com algarismos tabulares de verdade — dinheiro
-   * alinha na coluna sem precisar de fonte monoespaçada. Escala 1,2 (terça menor). */
-  --fonte: var(--fonte-sans, 'Source Sans 3'), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+   * IBM Plex Sans (next/font, app/layout.tsx): desenhada para interface de sistema —
+   * I, l e 1 distintos, 0 e O distintos, aberturas largas e algarismos tabulares de
+   * verdade (dinheiro alinha na coluna). Escala 1,2 (terça menor). */
+  --fonte: var(--fonte-sans, 'IBM Plex Sans'), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --fonte-numero: var(--fonte);
   --t-xs: 0.8125rem; /* 13px — rótulo, meta, selo */
   --t-sm: 0.875rem; /* 14px — tabela, controles */
@@ -100,21 +105,35 @@
   --dur-1: 120ms;
   --dur-2: 200ms;
   --curva: cubic-bezier(0.2, 0, 0, 1);
+
+  /* --- layout (desktop-first) ---
+   * O app é de mesa: conteúdo ocupa a largura toda, com margem pequena. Nenhum contêiner
+   * compartilhado tem max-width; texto corrido é que limita a própria medida (--medida). */
+  --largura-menu: 18rem;
+  --margem-pagina: var(--e5);
+  --medida: 72ch;
 }
 
 /* ------------------------------------------------------------------ escuro
- * Duas cópias idênticas (data-tema e prefers-color-scheme). Mantê-las iguais. */
+ * Duas cópias idênticas: [data-tema='escuro'] (o usuário escolheu no seletor do cabeçalho,
+ * cookie mb-tema) e prefers-color-scheme (o usuário NÃO escolheu: segue o sistema).
+ * Mantê-las iguais. */
 :root[data-tema='escuro'] {
   color-scheme: dark;
-  --azul: #7aa5ff;
-  --azul-escuro: #9dbcff;
-  --azul-vivo: #7aa5ff;
-  --azul-claro: #1a2438;
-  --azul-medio: #22314d;
-  --sobre-azul: #0b1220; /* texto escuro sobre o azul claro: 7,72:1 */
-  --lilas: #2d2946;
-  --lilas-cabeca: #262a3a;
-  --roxo: #c197e6;
+  /* Escuro = preto/grafite quase neutro + roxo MegaBox como cor de ação.
+   * "--azul" é o NOME do token de ação (as rotas o usam); no escuro o valor é roxo,
+   * com texto escuro por cima (--sobre-azul), porque branco sobre roxo claro não passa. */
+  --azul: #a66be3; /* 4,82:1 sobre --superficie; --sobre-azul por cima: 5,30:1 */
+  --azul-escuro: #bb8cee; /* hover: um passo mais CLARO no escuro */
+  --azul-vivo: #b07ce8; /* anel de foco: 6,14:1 sobre o fundo */
+  --azul-claro: #231a2e; /* linha/cartão tingido de roxo */
+  --azul-medio: #2e2240; /* hover / selecionado */
+  --sobre-azul: #160a22;
+  --lilas: #2c2238;
+  --lilas-cabeca: #1f1d25; /* cabeçalho de tabela: grafite com um fio de lilás */
+  --roxo: #cfa6f2;
+  --marca: #a66be3;
+  --sobre-marca: #160a22;
 
   --verde: #5cc98c;
   --verde-fundo: #14291d;
@@ -125,37 +144,42 @@
   --laranja-fundo: #2f2515;
   --sobre-laranja: #2b1d00;
 
-  --fundo: #11141b;
-  --fundo-2: #161a23;
-  --superficie: #1b202a;
-  --cabecalho-fundo: #161c1f;
-  --menu-fundo: #151922;
-  --borda: #2a303c;
-  --borda-forte: #3a4252;
-  --borda-campo: #687186;
-  --texto: #e7eaf0;
-  --texto-2: #aab1c0;
-  --texto-3: #8f97a8;
-  --veu: rgb(0 0 0 / 62%);
+  --fundo: #0f0f11;
+  --fundo-2: #141417;
+  --superficie: #1a1a1e;
+  --cabecalho-fundo: #121214;
+  --menu-fundo: #131316;
+  --borda: #2a2a30;
+  --borda-forte: #3b3b43;
+  --borda-campo: #6e6e7a; /* 3,45:1 sobre --superficie */
+  --texto: #ececf1;
+  --texto-2: #b6b6c0;
+  --texto-3: #9696a2;
+  --veu: rgb(0 0 0 / 66%);
 
-  --sombra-1: 0 1px 2px rgb(0 0 0 / 40%);
-  --sombra-2: 0 2px 6px rgb(0 0 0 / 40%), 0 8px 20px rgb(0 0 0 / 30%);
-  --sombra-3: 0 8px 28px rgb(0 0 0 / 55%), 0 24px 60px rgb(0 0 0 / 45%);
-  --anel: 0 0 0 3px rgb(122 165 255 / 30%);
+  --sombra-1: 0 1px 2px rgb(0 0 0 / 50%);
+  --sombra-2: 0 2px 6px rgb(0 0 0 / 50%), 0 8px 20px rgb(0 0 0 / 40%);
+  --sombra-3: 0 8px 28px rgb(0 0 0 / 60%), 0 24px 60px rgb(0 0 0 / 50%);
+  --anel: 0 0 0 3px rgb(166 107 227 / 34%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema='claro']) {
     color-scheme: dark;
-    --azul: #7aa5ff;
-    --azul-escuro: #9dbcff;
-    --azul-vivo: #7aa5ff;
-    --azul-claro: #1a2438;
-    --azul-medio: #22314d;
-    --sobre-azul: #0b1220;
-    --lilas: #2d2946;
-    --lilas-cabeca: #262a3a;
-    --roxo: #c197e6;
+    /* Escuro = preto/grafite quase neutro + roxo MegaBox como cor de ação.
+     * "--azul" é o NOME do token de ação (as rotas o usam); no escuro o valor é roxo,
+     * com texto escuro por cima (--sobre-azul), porque branco sobre roxo claro não passa. */
+    --azul: #a66be3; /* 4,82:1 sobre --superficie; --sobre-azul por cima: 5,30:1 */
+    --azul-escuro: #bb8cee; /* hover: um passo mais CLARO no escuro */
+    --azul-vivo: #b07ce8; /* anel de foco: 6,14:1 sobre o fundo */
+    --azul-claro: #231a2e; /* linha/cartão tingido de roxo */
+    --azul-medio: #2e2240; /* hover / selecionado */
+    --sobre-azul: #160a22;
+    --lilas: #2c2238;
+    --lilas-cabeca: #1f1d25; /* cabeçalho de tabela: grafite com um fio de lilás */
+    --roxo: #cfa6f2;
+    --marca: #a66be3;
+    --sobre-marca: #160a22;
 
     --verde: #5cc98c;
     --verde-fundo: #14291d;
@@ -166,22 +190,22 @@
     --laranja-fundo: #2f2515;
     --sobre-laranja: #2b1d00;
 
-    --fundo: #11141b;
-    --fundo-2: #161a23;
-    --superficie: #1b202a;
-    --cabecalho-fundo: #161c1f;
-    --menu-fundo: #151922;
-    --borda: #2a303c;
-    --borda-forte: #3a4252;
-    --borda-campo: #687186;
-    --texto: #e7eaf0;
-    --texto-2: #aab1c0;
-    --texto-3: #8f97a8;
-    --veu: rgb(0 0 0 / 62%);
+    --fundo: #0f0f11;
+    --fundo-2: #141417;
+    --superficie: #1a1a1e;
+    --cabecalho-fundo: #121214;
+    --menu-fundo: #131316;
+    --borda: #2a2a30;
+    --borda-forte: #3b3b43;
+    --borda-campo: #6e6e7a; /* 3,45:1 sobre --superficie */
+    --texto: #ececf1;
+    --texto-2: #b6b6c0;
+    --texto-3: #9696a2;
+    --veu: rgb(0 0 0 / 66%);
 
-    --sombra-1: 0 1px 2px rgb(0 0 0 / 40%);
-    --sombra-2: 0 2px 6px rgb(0 0 0 / 40%), 0 8px 20px rgb(0 0 0 / 30%);
-    --sombra-3: 0 8px 28px rgb(0 0 0 / 55%), 0 24px 60px rgb(0 0 0 / 45%);
-    --anel: 0 0 0 3px rgb(122 165 255 / 30%);
+    --sombra-1: 0 1px 2px rgb(0 0 0 / 50%);
+    --sombra-2: 0 2px 6px rgb(0 0 0 / 50%), 0 8px 20px rgb(0 0 0 / 40%);
+    --sombra-3: 0 8px 28px rgb(0 0 0 / 60%), 0 24px 60px rgb(0 0 0 / 50%);
+    --anel: 0 0 0 3px rgb(166 107 227 / 34%);
   }
 }

@@ -1,6 +1,9 @@
 'use client'
 
-import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
+import { X } from 'lucide-react'
+import { startTransition, useActionState, useEffect, useId, useRef, useState } from 'react'
+
+import { Icone } from '@/componentes/icone'
 
 import { formatarData } from '@/lib/datas'
 import { formatarReais } from '@/lib/dinheiro'
@@ -35,8 +38,8 @@ function Mensagem({ estado }: { estado: EstadoAcao }) {
   return null
 }
 
-/** <dialog> nativo aberto com showModal() (estilos/componentes.css), fechado pelo Esc ou pelo ✕. */
-function Dialogo({
+/** <dialog> nativo aberto com showModal() (estilos/componentes.css), fechado pelo Esc ou pelo X. */
+export function Dialogo({
   titulo,
   subtitulo,
   largo,
@@ -74,7 +77,7 @@ function Dialogo({
           <h2 id="mt-dialogo-titulo">{titulo}</h2>
         </div>
         <button type="button" className="dialogo-fechar" aria-label="Fechar" onClick={fechar}>
-          ✕
+          <Icone icone={X} />
         </button>
       </header>
       <div className="dialogo-corpo">{children}</div>
@@ -461,56 +464,66 @@ export function DialogoCancelar({
 
 // --------------------------------------------------------------------------- níveis
 
-function FormNivel({ nivel, aoGravar }: { nivel: Nivel | null; aoGravar: () => void }) {
+/**
+ * Uma linha da tabela de níveis. Os campos ficam nas células e se ligam ao <form> da última
+ * célula pelo atributo `form` (um <form> não pode envolver um <tr>): o cabeçalho da tabela
+ * nomeia as colunas uma vez só, e cada campo leva o nome completo em `aria-label`.
+ */
+function LinhaNivel({ nivel, aoGravar }: { nivel: Nivel | null; aoGravar: () => void }) {
   const [estado, salvar, salvando] = useActionState(salvarNivel, {})
+  const formId = useId()
   useEffect(() => {
     if (estado.ok) aoGravar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado])
   const pct = (f: string | undefined) => (f ? formatarPercentual(f, 2).replace('%', '') : '')
+  const quem = nivel ? `do nível ${nivel.nome}` : 'do novo nível'
   return (
-    <form
-      className="mt-nivel-form"
-      noValidate
-      onSubmit={(e) => {
-        e.preventDefault()
-        const f = new FormData(e.currentTarget)
-        startTransition(() => salvar(f))
-      }}
-      data-teste={nivel ? 'form-nivel' : 'form-nivel-novo'}
-    >
-      {nivel ? <input type="hidden" name="id" value={nivel.id} /> : null}
-      <label className="campo">
-        <span>Nome</span>
-        <input name="nome" defaultValue={nivel?.nome ?? ''} required maxLength={60} autoComplete="off" />
-      </label>
-      <label className="campo">
-        <span>Ordem</span>
-        <input name="ordem" type="number" min={1} defaultValue={nivel?.ordem ?? ''} required />
-      </label>
-      <label className="campo">
-        <span>Meta de referência (R$)</span>
-        <input name="meta_venda" inputMode="decimal" defaultValue={nivel ? nivel.meta_venda.replace('.', ',') : ''} required />
-      </label>
-      <label className="campo">
-        <span>Comissão padrão (%)</span>
-        <input name="comissao_padrao" inputMode="decimal" defaultValue={pct(nivel?.comissao_padrao)} required />
-      </label>
-      <label className="campo">
-        <span>Comissão meta batida (%)</span>
-        <input name="comissao_meta_batida" inputMode="decimal" defaultValue={pct(nivel?.comissao_meta_batida)} required />
-      </label>
-      <label className="campo">
-        <span>Meses p/ subir</span>
-        <input name="qtd_meta_batida" type="number" min={0} max={36} defaultValue={nivel?.qtd_meta_batida ?? 3} required />
-      </label>
-      <button type="submit" className="botao-secundario" disabled={salvando} aria-busy={salvando}>
-        {salvando ? 'Gravando…' : nivel ? 'Gravar' : 'Incluir nível'}
-      </button>
-      <div className="mt-nivel-msg">
-        <Mensagem estado={estado} />
-      </div>
-    </form>
+    <>
+      <tr data-novo={nivel ? undefined : ''} data-teste={nivel ? 'form-nivel' : 'form-nivel-novo'}>
+        <td>
+          <input form={formId} name="nome" defaultValue={nivel?.nome ?? ''} required maxLength={60} autoComplete="off" aria-label={`Nome ${quem}`} placeholder={nivel ? undefined : 'Novo nível'} />
+        </td>
+        <td>
+          <input form={formId} name="ordem" type="number" min={1} defaultValue={nivel?.ordem ?? ''} required aria-label={`Ordem ${quem}`} />
+        </td>
+        <td>
+          <input form={formId} name="meta_venda" inputMode="decimal" defaultValue={nivel ? nivel.meta_venda.replace('.', ',') : ''} required aria-label={`Meta de referência em reais ${quem}`} />
+        </td>
+        <td>
+          <input form={formId} name="comissao_padrao" inputMode="decimal" defaultValue={pct(nivel?.comissao_padrao)} required aria-label={`Comissão padrão em % ${quem}`} />
+        </td>
+        <td>
+          <input form={formId} name="comissao_meta_batida" inputMode="decimal" defaultValue={pct(nivel?.comissao_meta_batida)} required aria-label={`Comissão de meta batida em % ${quem}`} />
+        </td>
+        <td>
+          <input form={formId} name="qtd_meta_batida" type="number" min={0} max={36} defaultValue={nivel?.qtd_meta_batida ?? 3} required aria-label={`Meses para subir ${quem}`} />
+        </td>
+        <td>
+          <form
+            id={formId}
+            noValidate
+            onSubmit={(e) => {
+              e.preventDefault()
+              const f = new FormData(e.currentTarget)
+              startTransition(() => salvar(f))
+            }}
+          >
+            {nivel ? <input type="hidden" name="id" value={nivel.id} /> : null}
+            <button type="submit" className="botao-secundario" disabled={salvando} aria-busy={salvando}>
+              {salvando ? 'Gravando…' : nivel ? 'Gravar' : 'Incluir'}
+            </button>
+          </form>
+        </td>
+      </tr>
+      {estado.erro || estado.ok ? (
+        <tr className="mt-niveis-msg">
+          <td colSpan={7}>
+            <Mensagem estado={estado} />
+          </td>
+        </tr>
+      ) : null}
+    </>
   )
 }
 
@@ -620,16 +633,29 @@ export function DialogoNiveis({
             Comissão padrão vale quando o realizado fica abaixo da meta; a de meta batida, a partir de 100%. Os
             percentuais são gravados como fração. Mudar um nível não altera meta já fechada.
           </p>
-          <ul className="mt-itens">
-            {niveis.map((n) => (
-              <li key={n.id} className="mt-item">
-                <FormNivel nivel={n} aoGravar={() => undefined} />
-              </li>
-            ))}
-            <li className="mt-item mt-item-novo">
-              <FormNivel key={novo} nivel={null} aoGravar={() => setNovo((k) => k + 1)} />
-            </li>
-          </ul>
+          <div className="mt-niveis-rolagem">
+            <table className="mt-niveis" data-teste="tabela-niveis">
+              <thead>
+                <tr>
+                  <th scope="col">Nome</th>
+                  <th scope="col">Ordem</th>
+                  <th scope="col">Meta de referência (R$)</th>
+                  <th scope="col">Comissão padrão (%)</th>
+                  <th scope="col">Comissão meta batida (%)</th>
+                  <th scope="col">Meses p/ subir</th>
+                  <th scope="col">
+                    <span className="so-leitor">Ação</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {niveis.map((n) => (
+                  <LinhaNivel key={n.id} nivel={n} aoGravar={() => undefined} />
+                ))}
+                <LinhaNivel key={`novo-${novo}`} nivel={null} aoGravar={() => setNovo((k) => k + 1)} />
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <div className="mt-secao">

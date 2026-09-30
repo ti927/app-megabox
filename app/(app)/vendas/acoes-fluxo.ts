@@ -9,19 +9,13 @@ import { enfileirarEmail, escaparHtml, textoParaHtml } from '@/lib/email'
 import { clienteAdmin } from '@/lib/supabase/admin'
 import { clienteServidor } from '@/lib/supabase/servidor'
 import { ehUuid, ETAPA, formatarDia, formatarQuantidade } from '@/lib/vendas'
+import { lerModelosEmailVendas } from '@/lib/vendas-emails'
 import {
-  assuntoCancelamentoEntrega,
-  assuntoNotaBoleto,
-  assuntoPedido,
-  assuntoProposta,
   CONDICAO_PAGAMENTO_PADRAO,
-  corpoCancelamentoEntrega,
-  corpoNotaBoleto,
-  corpoPadraoPedido,
-  corpoPadraoProposta,
   historicoPedido,
   historicoProposta,
   MAX_BOLETOS,
+  montarEmailVendas,
   podeApagarEntrega,
   podeCancelarEntrega,
   podeEditarEntrega,
@@ -193,7 +187,21 @@ async function lerProposta(supabase: Supabase, propostaId: string): Promise<Prop
 async function enfileirarProposta(supabase: Supabase, u: UsuarioAtual, p: PropostaLida, para: { email: string; nome: string }) {
   const cot = p.cotacao!
   const nomes = p.itens.map((i) => i.orcamento?.produto?.nome ?? '—')
-  const corpo = p.corpo_email || corpoPadraoProposta({ contato: para.nome, cotacao: cot.numero, proposta: p.numero, vendedor: u.nome })
+  // Texto do modelo `vendas_proposta` (db/023), com o padrão do código de reserva.
+  const modelos = await lerModelosEmailVendas(supabase, ['vendas_proposta'])
+  const { assunto, corpo } = montarEmailVendas(
+    'vendas_proposta',
+    {
+      cotacao: cot.numero,
+      proposta: p.numero,
+      produtos: produtosDistintos(nomes) || '—',
+      cliente: cot.cliente?.nome ?? '',
+      contato: para.nome,
+      vendedor: u.nome,
+    },
+    modelos.vendas_proposta,
+    p.corpo_email,
+  )
   return enfileirarEmail({
     criadoPor: u.id,
     para: para.email,
@@ -201,7 +209,7 @@ async function enfileirarProposta(supabase: Supabase, u: UsuarioAtual, p: Propos
     evento: 'proposta',
     ...(await remetenteDe(supabase, u)),
     conteudo: {
-      assunto: assuntoProposta({ cotacao: cot.numero, proposta: p.numero, produtos: produtosDistintos(nomes), cliente: cot.cliente?.nome ?? '' }),
+      assunto,
       html: html(corpo, [
         'Itens da proposta:',
         ...p.itens.map((i, k) => linhaItem({ ...i, produto: nomes[k]! })),
@@ -628,10 +636,18 @@ export async function salvarPedido(_anterior: EstadoAcao, form: FormData): Promi
     ])
   const rem = await remetenteDe(supabase, usuario)
   const avisos: string[] = []
+  // Modelos `vendas_pedido_*` (db/023), com o padrão do código de reserva.
+  const modelos = await lerModelosEmailVendas(supabase, ['vendas_pedido_cliente', 'vendas_pedido_fornecedor'])
 
   try {
     if (forn) {
       const nomeFornecedor = itens.find((i) => i.orcamento?.fornecedor_id === forn.grupo_id)?.orcamento?.fornecedor?.nome ?? ''
+      const txt = montarEmailVendas(
+        'vendas_pedido_fornecedor',
+        { numero: num, produtos: produtos || '—', nome: nomeFornecedor, contato: forn.nome, vendedor: usuario.nome },
+        modelos.vendas_pedido_fornecedor,
+        d.corpo_email_fornecedor,
+      )
       await enfileirarEmail({
         criadoPor: usuario.id,
         para: forn.email,
@@ -639,17 +655,20 @@ export async function salvarPedido(_anterior: EstadoAcao, form: FormData): Promi
         evento: 'pedido',
         ...rem,
         conteudo: {
-          assunto: assuntoPedido({ numero: p.numero, proposta: p.proposta?.numero ?? null, produtos, para: 'Fornecedor', nome: nomeFornecedor }),
-          html: html(
-            d.corpo_email_fornecedor || corpoPadraoPedido({ contato: forn.nome, numero: num, para: 'Fornecedor', vendedor: usuario.nome }),
-            ['Itens do pedido:', ...linhas(true)],
-          ),
+          assunto: txt.assunto,
+          html: html(txt.corpo, ['Itens do pedido:', ...linhas(true)]),
         },
         vinculo: { pedidoId: p.id },
       })
     } else {
       avisos.push('sem e-mail do fornecedor, só o cliente foi avisado')
     }
+    const txtCli = montarEmailVendas(
+      'vendas_pedido_cliente',
+      { numero: num, produtos: produtos || '—', nome: p.cliente?.nome ?? '', contato: cli!.nome, vendedor: usuario.nome },
+      modelos.vendas_pedido_cliente,
+      d.corpo_email_cliente,
+    )
     const emailCliente = await enfileirarEmail({
       criadoPor: usuario.id,
       para: cli!.email,
@@ -657,11 +676,8 @@ export async function salvarPedido(_anterior: EstadoAcao, form: FormData): Promi
       evento: 'pedido',
       ...rem,
       conteudo: {
-        assunto: assuntoPedido({ numero: p.numero, proposta: p.proposta?.numero ?? null, produtos, para: 'Cliente', nome: p.cliente?.nome ?? '' }),
-        html: html(
-          d.corpo_email_cliente || corpoPadraoPedido({ contato: cli!.nome, numero: num, para: 'Cliente', vendedor: usuario.nome }),
-          ['Itens do pedido:', ...linhas(false)],
-        ),
+        assunto: txtCli.assunto,
+        html: html(txtCli.corpo, ['Itens do pedido:', ...linhas(false)]),
       },
       vinculo: { pedidoId: p.id },
       agendadoPara: new Date(Date.now() + 15_000),
@@ -928,6 +944,19 @@ async function enviarNotaBoleto(
   const cli = await contatoComEmail(supabase, e.pedido.contato_cliente_id, [e.pedido.cliente_id])
   if (!cli) return { erro: 'o contato do cliente do pedido está inativo ou sem e-mail.' }
   const numero = e.numero_entrega ?? e.pedido.numero
+  // Modelo `vendas_nota_boleto` (db/023), com o padrão do código de reserva.
+  const modelos = await lerModelosEmailVendas(supabase, ['vendas_nota_boleto'])
+  const txt = montarEmailVendas(
+    'vendas_nota_boleto',
+    {
+      numero,
+      contato_maiusculo: cli.nome.toUpperCase(),
+      produto: e.orcamento?.produto?.nome ?? '—',
+      qtd: formatarQuantidade(e.qtd),
+      vendedor: usuario.nome,
+    },
+    modelos.vendas_nota_boleto,
+  )
   try {
     await enfileirarEmail({
       criadoPor: usuario.id,
@@ -935,17 +964,8 @@ async function enviarNotaBoleto(
       evento: 'pedido',
       ...(await remetenteDe(supabase, usuario)),
       conteudo: {
-        assunto: assuntoNotaBoleto(numero),
-        html: html(
-          corpoNotaBoleto({
-            contato: cli.nome,
-            numeroPedido: numero,
-            produto: e.orcamento?.produto?.nome ?? '—',
-            qtd: formatarQuantidade(e.qtd),
-            vendedor: usuario.nome,
-          }),
-          [],
-        ),
+        assunto: txt.assunto,
+        html: html(txt.corpo, []),
       },
       vinculo: { entregaId: e.id, pedidoId: e.pedido_id },
       anexos,
@@ -1002,17 +1022,33 @@ export async function cancelarEntrega(_anterior: EstadoAcao, form: FormData): Pr
   const numero = e.numero_entrega ?? e.pedido.numero
   const produto = e.orcamento?.produto?.nome ?? '—'
   const rem = destinos.length ? await remetenteDe(supabase, usuario) : null
+  // Modelo `vendas_cancelamento_entrega` (db/023), com o padrão do código de reserva.
+  const modelos = destinos.length ? await lerModelosEmailVendas(supabase, ['vendas_cancelamento_entrega']) : {}
   const enviados: string[] = []
   try {
     for (const [k, dest] of destinos.entries()) {
+      const txt = montarEmailVendas(
+        'vendas_cancelamento_entrega',
+        {
+          numero,
+          produtos: produto || '—',
+          para: dest.para,
+          nome: dest.nome,
+          contato: dest.contato,
+          produto,
+          motivo: d.motivo,
+          vendedor: usuario.nome,
+        },
+        modelos.vendas_cancelamento_entrega,
+      )
       await enfileirarEmail({
         criadoPor: usuario.id,
         para: dest.email,
         evento: 'cancelamento',
         ...rem!,
         conteudo: {
-          assunto: assuntoCancelamentoEntrega({ numero, produtos: produto, para: dest.para, nome: dest.nome }),
-          html: html(corpoCancelamentoEntrega({ contato: dest.contato, numero, produto, motivo: d.motivo, vendedor: usuario.nome }), []),
+          assunto: txt.assunto,
+          html: html(txt.corpo, []),
         },
         vinculo: { entregaId: e.id, pedidoId: e.pedido_id },
         agendadoPara: k > 0 ? new Date(Date.now() + 15_000) : undefined,

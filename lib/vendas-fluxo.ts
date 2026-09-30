@@ -371,21 +371,145 @@ export function remetente(nomeUsuario: string): string {
   return `[MegaBox] ${primeiro.charAt(0).toUpperCase()}${primeiro.slice(1).toLowerCase()}`.trim()
 }
 
+// Os textos abaixo são os PADRÕES dos modelos `vendas_*` de `modelos_email` (seed da db/023,
+// idêntico a estes). O servidor usa o modelo do banco quando existe e está ativo, e cai no
+// padrão daqui se ele sumir, for desativado ou pedir variável que o código não fornece
+// (`montarEmailVendas`). Formato: TEXTO puro com `{{variavel}}` — o corpo passa depois por
+// `textoParaHtml` (escapa tudo), como o corpo que o vendedor digita.
+
+export type ChaveEmailVendas =
+  | 'vendas_proposta'
+  | 'vendas_pedido_cliente'
+  | 'vendas_pedido_fornecedor'
+  | 'vendas_nota_boleto'
+  | 'vendas_cancelamento_entrega'
+
+export type ModeloTexto = { assunto: string; corpo: string }
+export type VariaveisTexto = Record<string, string | number>
+
+const ASSINATURA = ['', 'Atenciosamente,', '{{vendedor}}', 'Grupo MegaBox']
+
+export const MODELOS_EMAIL_VENDAS_PADRAO: Record<ChaveEmailVendas, ModeloTexto & { nome: string }> = {
+  vendas_proposta: {
+    nome: 'Vendas — envio de proposta',
+    assunto: 'Proposta núm {{cotacao}}/{{proposta}} - Produtos: {{produtos}} - Cliente: {{cliente}}',
+    corpo: [
+      'Olá {{contato}},',
+      '',
+      'Segue a nossa proposta núm {{cotacao}}/{{proposta}}.',
+      'Qualquer dúvida, estou à disposição.',
+      ...ASSINATURA,
+    ].join('\n'),
+  },
+  vendas_pedido_cliente: {
+    nome: 'Vendas — pedido ao cliente',
+    assunto: 'Pedido núm {{numero}} - Produtos: {{produtos}} - Cliente: {{nome}}',
+    corpo: [
+      'Olá {{contato}},',
+      '',
+      'Confirmamos o seu pedido núm {{numero}}. Seguem abaixo os itens e as entregas programadas.',
+      ...ASSINATURA,
+    ].join('\n'),
+  },
+  vendas_pedido_fornecedor: {
+    nome: 'Vendas — pedido ao fornecedor',
+    assunto: 'Pedido núm {{numero}} - Produtos: {{produtos}} - Fornecedor: {{nome}}',
+    corpo: [
+      'Olá {{contato}},',
+      '',
+      'Segue o pedido núm {{numero}} para faturamento. Abaixo os itens, a comissão unitária e as entregas programadas.',
+      ...ASSINATURA,
+    ].join('\n'),
+  },
+  vendas_nota_boleto: {
+    nome: 'Vendas — nota fiscal e boleto',
+    // Assunto EXATO do Bubble (bTiFG0).
+    assunto: 'Nota fiscal e Boleto - (Pedido núm {{numero}})',
+    corpo: [
+      'Olá {{contato_maiusculo}}',
+      '',
+      'Segue anexo nota fiscal e boleto referente ao pedido {{numero}} ({{produto}} - {{qtd}})',
+      ...ASSINATURA,
+    ].join('\n'),
+  },
+  vendas_cancelamento_entrega: {
+    nome: 'Vendas — cancelamento de entrega',
+    // bTnxa0/bTnxb0; {{para}} = Cliente ou Fornecedor.
+    assunto: 'Cancelamento Entrega: {{numero}} - Produtos: {{produtos}} - {{para}}: {{nome}}',
+    corpo: [
+      'Olá {{contato}},',
+      '',
+      'Informamos o cancelamento da entrega do pedido {{numero}} ({{produto}}).',
+      'Motivo: {{motivo}}',
+      ...ASSINATURA,
+    ].join('\n'),
+  },
+}
+
+const VARIAVEL = /\{\{\s*([a-z0-9_]+)\s*\}\}/g
+
+/**
+ * `{{variavel}}` → valor, em TEXTO (sem escapar: quem escapa é o `textoParaHtml` depois).
+ * Variável pedida e não fornecida → `null` (o modelo não serve; ver montarEmailVendas).
+ */
+export function preencherTexto(modelo: string, variaveis: VariaveisTexto): string | null {
+  let faltou = false
+  const saida = modelo.replace(VARIAVEL, (_, nome: string) => {
+    const v = variaveis[nome]
+    if (v === undefined || v === null) {
+      faltou = true
+      return ''
+    }
+    return String(v)
+  })
+  return faltou ? null : saida
+}
+
+/** Assunto é cabeçalho: sem quebra de linha nem caractere de controle (como lib/email/modelo). */
+function limparAssunto(texto: string): string {
+  return texto.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * Assunto e corpo (texto) de um e-mail de vendas. `doBanco` é a linha ATIVA de modelos_email
+ * (ou null). Cada parte cai no padrão sozinha se a do banco não fechar (variável que o código
+ * não fornece, texto vazio): mandar "Olá {{contato}}" ao cliente é pior que o padrão.
+ * `corpoDigitado` (o texto do vendedor no pop) vence o corpo do modelo, como antes.
+ */
+export function montarEmailVendas(
+  chave: ChaveEmailVendas,
+  variaveis: VariaveisTexto,
+  doBanco: ModeloTexto | null | undefined,
+  corpoDigitado?: string | null,
+): { assunto: string; corpo: string } {
+  const padrao = MODELOS_EMAIL_VENDAS_PADRAO[chave]
+  const assuntoBanco = doBanco ? preencherTexto(doBanco.assunto, variaveis) : null
+  const assunto =
+    assuntoBanco !== null && limparAssunto(assuntoBanco) !== ''
+      ? limparAssunto(assuntoBanco)
+      : limparAssunto(preencherTexto(padrao.assunto, variaveis) ?? '')
+  if (corpoDigitado) return { assunto, corpo: corpoDigitado }
+  const corpoBanco = doBanco ? preencherTexto(doBanco.corpo, variaveis) : null
+  return {
+    assunto,
+    corpo: corpoBanco !== null && corpoBanco.trim() !== '' ? corpoBanco : (preencherTexto(padrao.corpo, variaveis) ?? ''),
+  }
+}
+
+/** "120" + proposta 2 → "120/2" (assunto e corpo do pedido). */
+export function numeroPedidoEmail(numero: string, proposta: number | null): string {
+  return proposta === null ? numero : `${numero}/${proposta}`
+}
+
+// Atalhos com os textos PADRÃO (sem banco): as mesmas funções de antes, agora lidas do padrão.
+const padrao = (chave: ChaveEmailVendas, v: VariaveisTexto) => montarEmailVendas(chave, v, null)
+
 export function assuntoProposta(p: { cotacao: number; proposta: number; produtos: string; cliente: string }): string {
-  return `Proposta núm ${p.cotacao}/${p.proposta} - Produtos: ${p.produtos || '—'} - Cliente: ${p.cliente}`
+  return padrao('vendas_proposta', { ...p, produtos: p.produtos || '—' }).assunto
 }
 
 export function corpoPadraoProposta(p: { contato: string; cotacao: number; proposta: number; vendedor: string }): string {
-  return [
-    `Olá ${p.contato},`,
-    '',
-    `Segue a nossa proposta núm ${p.cotacao}/${p.proposta}.`,
-    'Qualquer dúvida, estou à disposição.',
-    '',
-    'Atenciosamente,',
-    p.vendedor,
-    'Grupo MegaBox',
-  ].join('\n')
+  return padrao('vendas_proposta', { ...p, produtos: '', cliente: '' }).corpo
 }
 
 export function assuntoPedido(p: {
@@ -395,51 +519,43 @@ export function assuntoPedido(p: {
   para: 'Cliente' | 'Fornecedor'
   nome: string
 }): string {
-  const num = p.proposta === null ? p.numero : `${p.numero}/${p.proposta}`
-  return `Pedido núm ${num} - Produtos: ${p.produtos || '—'} - ${p.para}: ${p.nome}`
+  return padrao(p.para === 'Cliente' ? 'vendas_pedido_cliente' : 'vendas_pedido_fornecedor', {
+    numero: numeroPedidoEmail(p.numero, p.proposta),
+    produtos: p.produtos || '—',
+    nome: p.nome,
+  }).assunto
 }
 
 export function corpoPadraoPedido(p: { contato: string; numero: string; para: 'Cliente' | 'Fornecedor'; vendedor: string }): string {
-  const frase =
-    p.para === 'Cliente'
-      ? `Confirmamos o seu pedido núm ${p.numero}. Seguem abaixo os itens e as entregas programadas.`
-      : `Segue o pedido núm ${p.numero} para faturamento. Abaixo os itens, a comissão unitária e as entregas programadas.`
-  return [`Olá ${p.contato},`, '', frase, '', 'Atenciosamente,', p.vendedor, 'Grupo MegaBox'].join('\n')
+  return padrao(p.para === 'Cliente' ? 'vendas_pedido_cliente' : 'vendas_pedido_fornecedor', {
+    numero: p.numero,
+    contato: p.contato,
+    vendedor: p.vendedor,
+  }).corpo
 }
 
 /** Assunto EXATO do Bubble (bTiFG0): `Nota fiscal e Boleto - (Pedido núm N)`. */
 export function assuntoNotaBoleto(numeroPedido: string): string {
-  return `Nota fiscal e Boleto - (Pedido núm ${numeroPedido})`
+  return padrao('vendas_nota_boleto', { numero: numeroPedido }).assunto
 }
 
 export function corpoNotaBoleto(p: { contato: string; numeroPedido: string; produto: string; qtd: string; vendedor: string }): string {
-  return [
-    `Olá ${p.contato.toUpperCase()}`,
-    '',
-    `Segue anexo nota fiscal e boleto referente ao pedido ${p.numeroPedido} (${p.produto} - ${p.qtd})`,
-    '',
-    'Atenciosamente,',
-    p.vendedor,
-    'Grupo MegaBox',
-  ].join('\n')
+  return padrao('vendas_nota_boleto', {
+    contato_maiusculo: p.contato.toUpperCase(),
+    numero: p.numeroPedido,
+    produto: p.produto,
+    qtd: p.qtd,
+    vendedor: p.vendedor,
+  }).corpo
 }
 
 /** "Cancelamento Entrega: <nº> - Produtos: … - Cliente/Fornecedor: …" (bTnxa0/bTnxb0). */
 export function assuntoCancelamentoEntrega(p: { numero: string; produtos: string; para: 'Cliente' | 'Fornecedor'; nome: string }): string {
-  return `Cancelamento Entrega: ${p.numero} - Produtos: ${p.produtos || '—'} - ${p.para}: ${p.nome}`
+  return padrao('vendas_cancelamento_entrega', { ...p, produtos: p.produtos || '—' }).assunto
 }
 
 export function corpoCancelamentoEntrega(p: { contato: string; numero: string; produto: string; motivo: string; vendedor: string }): string {
-  return [
-    `Olá ${p.contato},`,
-    '',
-    `Informamos o cancelamento da entrega do pedido ${p.numero} (${p.produto}).`,
-    `Motivo: ${p.motivo}`,
-    '',
-    'Atenciosamente,',
-    p.vendedor,
-    'Grupo MegaBox',
-  ].join('\n')
+  return padrao('vendas_cancelamento_entrega', p).corpo
 }
 
 /** Texto do histórico (bTjCC): "Proposta número X/Y enviada ao cliente no email …". */

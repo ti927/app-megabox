@@ -66,7 +66,7 @@ Todos os filtros vivem na URL. Cada mudança chama `ChangePage` na própria pág
 | `numeropedido` | `ipt filter numpedido` + `Icon Q` limpa | vazio | Cotação por `CotacaoNum`, pedido por `NumeroPedido`, entrega por `NumeroEntrega` |
 | `cliente` | `ipt filter cliente` (GrupoCliFor tipo Cliente e ativo, busca por nome) + `Icon EZZZ` limpa | vazio | Todas as colunas |
 | `cotacaoarquivada` | botão "cotações arquivadas" | `no` | Coluna Cotação mostra só arquivadas (`yes`) ou só não arquivadas (`no`) |
-| `ordemdecrescente` | botão "data crescente" | `yes` | **Nenhuma busca usa** (todas ordenam por data de criação decrescente). Botão sem efeito |
+| `ordemdecrescente` | botão "data crescente" | `yes` | **Nenhuma busca usa** (todas ordenam por data de criação decrescente). Botão sem efeito. **App novo (decisão 30/09):** a pílula funciona — `crescente=1` na URL ordena as 4 colunas da mais antiga para a mais nova (`lib/vendas-ordem.ts`); desligada, o padrão de sempre |
 | `expandircartoes` | botão "expandir cartões" | `no` | `yes` mostra o resumo/detalhe de todos os cartões |
 | `pedidosconcluidos` | botão "exibe concluídos" | `no` | Coluna Pedido: `PedidoFinalizado = yes/no`. Ao ligar, `etapaentrega=Financeiro` (WF bTiWJ). Ao desligar, `etapaentrega=Em Entrega` (WF bTfTb0) |
 | `etapapedido` | botão "exibe cancelados" | `Pedido` | Alterna `Pedido` ↔ `Cancelado` e, junto, `etapaentrega` `Em Entrega` ↔ `Cancelado` (WFs bTiWQ/bTiWX) |
@@ -173,6 +173,7 @@ Botão "+ Cotação" (`btn nova cotação`) abre o popup de cotação em modo No
     - reenviar: visível se enviada;
     - carrinho "transformar em pedido": habilitado só se a proposta estiver selecionada e enviada.
 - `gp proposta a anexar` guarda o elemento do plugin PDF (`PDF/IMG PROPOSTA`).
+- **App novo (decisão 30/09):** a aba Propostas mostra o DOCUMENTO da proposta selecionada (rádio; padrão a mais nova) à esquerda e a lista à direita (`documento-proposta.tsx`). Itens, bruto por item e total vêm de `v_proposta_documento_itens` (db/024), sobre o snapshot. Diferenças conscientes: (a) sem proposta, não há pré-visualização da "nova" — o "+ Proposta" cria o rascunho e ele passa a ser exibido; (b) o e-mail do cabeçalho é o da **empresa emissora**, porque `usuarios.email_contato` não é legível por `authenticated` (004) [DÚVIDA: expor o e-mail de contato do consultor por view/coluna concedida?]; (c) as alíquotas vêm do orçamento, não do snapshot (db/024 D3).
 
 ### 2.9 Popup de pedido (`pop add edita pedido`)
 - Faixa "Aguarde, gravando registros. Não feche essa janela!" (`gp alert gravando`).

@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
 
+import { Foto } from '@/componentes/foto'
 import { formatarData } from '@/lib/datas'
 import { formatarReais } from '@/lib/dinheiro'
 import {
@@ -89,9 +90,7 @@ function CartaoDeCotacao({
   return (
     <li className="cartao" data-tipo="cotacao" data-arquivado={c.arquivado || undefined}>
       <div className="cartao-topo">
-        <span className="cartao-avatar" aria-hidden="true">
-          {iniciais(c.cliente_nome)}
-        </span>
+        <Foto url={c.cliente_foto} nome={c.cliente_nome ?? ''} className="cartao-avatar" iniciais={iniciais(c.cliente_nome)} />
         <div className="cartao-principal">
           <strong className="cartao-titulo">
             {c.cliente_nome ?? '—'} - Nº {c.numero}
@@ -168,9 +167,7 @@ function CartaoDePedido({
   return (
     <li className="cartao" data-tipo="pedido" data-concluido={concluido || undefined} data-cancelado={cancelado || undefined}>
       <div className="cartao-topo">
-        <span className="cartao-avatar" aria-hidden="true">
-          {iniciais(p.cliente_nome)}
-        </span>
+        <Foto url={p.cliente_foto} nome={p.cliente_nome ?? ''} className="cartao-avatar" iniciais={iniciais(p.cliente_nome)} />
         <div className="cartao-principal">
           <strong className="cartao-titulo">
             {p.cliente_nome ?? '—'} - Nº {p.numero}
@@ -238,9 +235,7 @@ function CartaoDeEntrega({
       data-financeiro={e.status_id === ETAPA.FINANCEIRO || undefined}
     >
       <div className="cartao-topo">
-        <span className="cartao-avatar" aria-hidden="true">
-          {iniciais(e.cliente_nome)}
-        </span>
+        <Foto url={e.cliente_foto} nome={e.cliente_nome ?? ''} className="cartao-avatar" iniciais={iniciais(e.cliente_nome)} />
         <div className="cartao-principal">
           <strong className="cartao-titulo">
             {e.cliente_nome} - Nº {e.numero_entrega ?? '—'} - NF: {e.nf_fornecedor_numero ?? ''}

@@ -13,6 +13,7 @@ import {
 } from '@/lib/vendas'
 
 import { buscarOpcoesFicha } from './consultas'
+import { comFotoFicha, comFotosKanban } from './fotos'
 import { TelaVendas } from './tela'
 import type {
   CartaoCotacao,
@@ -40,7 +41,7 @@ type Supabase = Awaited<ReturnType<typeof clienteServidor>>
 const COLUNAS_ENTREGA =
   'id, pedido_id, cotacao_id, numero_entrega, status_id, qtd::text, dt_pedido, dt_prev_entrega, ' +
   'dt_entrega, saiu_entrega, nf_fornecedor_numero, valor_venda_bruto::text, cliente_nome, ' +
-  'produto_nome, vendedor_id, vendedor_substituto_id, papel, vendedor_nome'
+  'produto_nome, vendedor_id, vendedor_substituto_id, papel, vendedor_nome, cliente_id'
 
 /** Ver `buscarKanban`: exato em recorte pequeno, estimativa do planejador acima do max-rows. */
 const CONTAGEM = 'estimated' as const
@@ -83,7 +84,7 @@ async function buscarKanban(supabase: Supabase, f: FiltrosVendas, u: UsuarioAtua
     .from('v_kanban_cotacoes')
     .select(
       'id, numero, criado_em, arquivado, etapa_id, cliente_nome, vendedor_nome, motivo_nome, ' +
-        'qtd_itens, qtd_vencedores, qtd_propostas, total_bruto_vencedores::text, pode_propor',
+        'qtd_itens, qtd_vencedores, qtd_propostas, total_bruto_vencedores::text, pode_propor, cliente_id',
       { count: CONTAGEM },
     )
     .eq('rascunho', false)
@@ -103,7 +104,7 @@ async function buscarKanban(supabase: Supabase, f: FiltrosVendas, u: UsuarioAtua
     .from('v_kanban_pedidos')
     .select(
       'id, numero, cotacao_id, criado_em, etapa_id, finalizado, motivo_cancelamento, cliente_nome, ' +
-        'vendedor_nome, valor_total::text, todas_concluidas, ' +
+        'vendedor_nome, valor_total::text, todas_concluidas, cliente_id, ' +
         'entregas(id, qtd::text, dt_prev_entrega, status_id, nf_fornecedor_numero, saiu_entrega, ' +
           'orcamento:orcamentos_fornecedor(produto:produtos(nome)))',
       { count: CONTAGEM },
@@ -338,9 +339,9 @@ export default async function PaginaVendas({
   // ficha (revalidatePath) refazia as 4 colunas — no banco Micro isso gerava rajadas de 57014.
   // A tela mantém o último quadro recebido e o refaz ao fechar a ficha.
   const [kanban, opcoes, ficha, opcoesFicha] = await Promise.all([
-    filtros.sel ? Promise.resolve(null) : buscarKanban(supabase, filtros, usuario),
+    filtros.sel ? Promise.resolve(null) : buscarKanban(supabase, filtros, usuario).then(comFotosKanban),
     buscarOpcoes(supabase, filtrarVendedor, usuario.nome),
-    filtros.sel ? buscarFicha(supabase, filtros.sel) : Promise.resolve(null),
+    filtros.sel ? buscarFicha(supabase, filtros.sel).then(comFotoFicha) : Promise.resolve(null),
     filtros.sel ? buscarOpcoesFicha(supabase) : Promise.resolve(null),
   ])
 

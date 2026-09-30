@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
 
+import { Foto } from '@/componentes/foto'
 import {
   destinoPadrao,
   iniciais,
@@ -230,6 +231,7 @@ function CartaoCabecalho({
   titulo,
   numero,
   cliente,
+  clienteFoto,
   clienteTravado,
   aoEscolherCliente,
   destinos,
@@ -247,6 +249,8 @@ function CartaoCabecalho({
   titulo: string
   numero: number | null
   cliente: Cliente | null
+  /** logo do cliente (URL assinada curta); null → iniciais */
+  clienteFoto: string | null
   clienteTravado: boolean
   aoEscolherCliente: (c: Cliente | null) => void
   destinos: Destino[]
@@ -286,9 +290,11 @@ function CartaoCabecalho({
       </div>
 
       <div className="cot-linha-cliente">
-        <span className="cot-avatar" aria-hidden="true" data-vazio={!cliente || undefined}>
-          {cliente ? iniciais(cliente.nome) : null}
-        </span>
+        {cliente ? (
+          <Foto url={clienteFoto} nome={cliente.nome} className="cot-avatar" iniciais={iniciais(cliente.nome)} />
+        ) : (
+          <span className="cot-avatar" aria-hidden="true" data-vazio />
+        )}
         <div className="campo cot-campo-cliente">
           <label htmlFor="cot-cliente">Cliente</label>
           {cliente ? (
@@ -1379,6 +1385,7 @@ export function TelaCotacao({
                 titulo={nova ? 'Nova Cotação' : 'Edita Cotação'}
                 numero={c?.numero ?? null}
                 cliente={cliente}
+                clienteFoto={c ? (ficha?.clienteFoto ?? null) : null}
                 clienteTravado={!!c}
                 aoEscolherCliente={escolherCliente}
                 destinos={destinos}

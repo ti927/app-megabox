@@ -296,7 +296,7 @@ function Controles({
       <div className="fin-botoes">
         {contas ? (
           <>
-            <div className="fin-grupo-botoes" role="group" aria-label="Contas a receber">
+            <div className="fin-grupo-botoes" data-tom="verde" role="group" aria-label="Contas a receber">
               <button
                 type="button"
                 disabled={!cobrar}
@@ -324,7 +324,7 @@ function Controles({
               </button>
               <BotaoRelatorio tipo="receber" query={query} />
             </div>
-            <div className="fin-grupo-botoes" role="group" aria-label="Contas a pagar">
+            <div className="fin-grupo-botoes" data-tom="vermelho" role="group" aria-label="Contas a pagar">
               <button
                 type="button"
                 disabled={selPagar.qtd === 0}
@@ -520,7 +520,7 @@ function Status({ id, vencida, saldo, baixado }: { id: number; vencida: boolean;
   const parcial = !quitado && paraCentavos(baixado) > 0n
   return (
     <span className="fin-status">
-      <span className="selo" data-tom={quitado ? 'ok' : vencida ? 'erro' : undefined}>
+      <span className="selo" data-tom={quitado ? 'ok' : undefined}>
         {NOME_STATUS[id] ?? '—'}
       </span>
       {vencida ? (
@@ -644,7 +644,7 @@ function TabelaReceber({
               <td data-rotulo="Valores" className="fin-num numero">
                 <span className="fin-sub">Venda {reais(l.valor_total)}</span>
                 <strong>Comissão {reais(l.valor_comissao)}</strong>
-                {paraCentavos(l.valor_baixado) > 0n ? <span className="fin-sub">Recebido {reais(l.valor_baixado)}</span> : null}
+                {paraCentavos(l.valor_baixado) > 0n ? <span className="fin-sub fin-recebido">Recebido {reais(l.valor_baixado)}</span> : null}
                 {aberta ? <span className="fin-saldo">Saldo {reais(l.saldo)}</span> : null}
               </td>
               <td data-rotulo="NF / Baixa" className="fin-sub">

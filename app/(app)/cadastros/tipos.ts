@@ -24,6 +24,12 @@ export type LinhaGrupo = {
   filiais: [{ count: number }]
   bloqueadas: [{ count: number }]
   contatos: [{ count: number }]
+  /** espelho da 012 (era UltimoHistoricoData); nulo = nunca contatado */
+  ultimo_historico_em: string | null
+  /** calculado no servidor (lib/cadastros-lista): dias desde a última conversa */
+  dias_sem_conversa: number | null
+  /** anexos do grupo + das filiais que a RLS deixa ver */
+  qtd_anexos: number
 }
 
 export type Grupo = {

@@ -20,6 +20,7 @@ import { useRef, useState, useTransition } from 'react'
 
 import { Foto } from '@/componentes/foto'
 import { Icone } from '@/componentes/icone'
+import { SeletorPeriodo } from '@/componentes/seletor-periodo'
 import { formatarData } from '@/lib/datas'
 import { formatarReais } from '@/lib/dinheiro'
 import {
@@ -451,20 +452,12 @@ export function TelaVendas({
       <section className="vendas-filtros" aria-label="Filtros">
         <fieldset className="vendas-periodo">
           <legend>Data criação (Cotação e Pedido)</legend>
-          <input
-            type="date"
-            aria-label="De"
-            value={filtros.de}
-            max={filtros.ate}
-            onChange={(e) => e.target.value && filtrar({ de: e.target.value })}
-          />
-          <span aria-hidden="true">–</span>
-          <input
-            type="date"
-            aria-label="Até"
-            value={filtros.ate}
-            min={filtros.de}
-            onChange={(e) => e.target.value && filtrar({ ate: e.target.value })}
+          <SeletorPeriodo
+            rotulo="Data de criação"
+            de={filtros.de}
+            ate={filtros.ate}
+            onChange={(de, ate) => filtrar({ de, ate })}
+            data-teste="filtro-periodo"
           />
           {noMes ? null : (
             <button type="button" className="botao-texto" onClick={() => filtrar({ de: mes.de, ate: mes.ate })}>

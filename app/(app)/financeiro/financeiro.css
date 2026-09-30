@@ -634,3 +634,90 @@ td.fin-num > * {
     flex: 1 1 auto;
   }
 }
+
+/* ===================================================================================
+ * DENSIDADE (pedido do dono, 30/09/2026): o fluxo financeiro é tela de conferência —
+ * precisa mostrar o maior número de contas de uma vez. Este bloco compacta linhas,
+ * filtros, abas, botões e o rodapé; só espaçamento e tamanho, com tokens. Vale só aqui.
+ * =================================================================================== */
+.fin-abas button,
+.fin-grupo-botoes button {
+  min-height: 2rem;
+  padding: var(--e1) var(--e3);
+}
+.fin-filtros {
+  gap: var(--e2);
+  padding: var(--e2) var(--e3);
+}
+.fin-filtros .campo {
+  gap: 0.125rem;
+}
+.fin-filtros .campo input,
+.fin-filtros .campo select {
+  min-height: 2rem;
+  padding-block: var(--e1);
+  font-size: var(--t-sm);
+}
+.fin-filtros-fim {
+  min-height: 2rem;
+}
+.fin-opcao {
+  min-height: 1.4rem;
+}
+.fin-tabela {
+  font-size: var(--t-xs);
+}
+.fin-tabela th {
+  padding: var(--e1) var(--e2);
+}
+.fin-tabela td {
+  padding: 0.1875rem var(--e2);
+  line-height: 1.25;
+}
+.fin-logo {
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.625rem;
+}
+.fin-rodape {
+  padding: var(--e1) var(--e3);
+}
+/* Cada linha empilhava 3–4 linhas de texto: a coluna NF/Baixa era estreita e quebrava, e
+ * nomes longos de vendedor e fornecedor viravam 2 linhas. Aqui cada informação cabe numa
+ * linha só (reticências quando não cabe, com o texto completo no title do navegador via
+ * seleção), e a coluna Cliente, que sobrava vazia, cede espaço. */
+.fin-tabela td {
+  line-height: 1.2;
+  vertical-align: middle;
+}
+.fin-tabela td[data-rotulo='NF / Baixa'],
+.fin-tabela td[data-rotulo='Valores'],
+.fin-tabela td[data-rotulo='Datas'] {
+  white-space: nowrap;
+}
+.fin-tabela td[data-rotulo='Vendedor / Pedido'],
+.fin-tabela td[data-rotulo='Cliente'],
+.fin-tabela td[data-rotulo='Fornecedor / Produto'] {
+  max-width: 0; /* com width abaixo, a célula respeita a largura e corta com reticências */
+}
+.fin-tabela td[data-rotulo='Vendedor / Pedido'] { width: 14%; }
+.fin-tabela td[data-rotulo='Cliente'] { width: 20%; }
+.fin-tabela td[data-rotulo='Fornecedor / Produto'] { width: 26%; }
+.fin-tabela td[data-rotulo='Vendedor / Pedido'] > *,
+.fin-tabela td[data-rotulo='Cliente'] *,
+.fin-tabela td[data-rotulo='Fornecedor / Produto'] > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fin-tabela td[data-rotulo='Vendedor / Pedido'] {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fin-tabela td[data-rotulo='Fornecedor / Produto'] > * {
+  display: block;
+}
+.fin-tabela td[data-rotulo='Fornecedor / Produto'] > br {
+  display: none; /* os filhos já são bloco: o <br> viraria uma linha em branco */
+}

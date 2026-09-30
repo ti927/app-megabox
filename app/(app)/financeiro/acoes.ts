@@ -4,11 +4,24 @@ import { revalidatePath } from 'next/cache'
 
 import { exigirAcesso, type UsuarioAtual } from '@/lib/autorizacao'
 import { ehUuid } from '@/lib/clifor'
-import { ehDia, lerNumeroNf, paraCentavos, validarMotivo, validarValorBaixa } from '@/lib/financeiro'
+import { enfileirarEmail, textoParaHtml } from '@/lib/email'
+import { ehDia, hojeSP, lerFiltros, lerNumeroNf, paraCentavos, validarMotivo, validarValorBaixa } from '@/lib/financeiro'
+import { assuntoCobranca, type ContaCobranca, textoCobranca } from '@/lib/financeiro-cobranca'
+import {
+  CABECALHO_PAGAR,
+  CABECALHO_RECEBER,
+  linhaPagar,
+  linhaReceber,
+  montarCsv,
+  totalPagar,
+  totalReceber,
+} from '@/lib/financeiro-relatorio'
 import { clienteAdmin } from '@/lib/supabase/admin'
 import { clienteServidor } from '@/lib/supabase/servidor'
+import { remetente } from '@/lib/vendas-fluxo'
 
-import type { DadosFornecedor, EstadoAcao } from './tipos'
+import { comNomesPagar, comNomesReceber, consulta, recorteVazio, resolverGrupos } from './consulta'
+import type { ContaPagar, ContaReceber, DadosFornecedor, EstadoAcao } from './tipos'
 
 /*
  * Escrita do financeiro.
@@ -310,13 +323,16 @@ export async function buscarDadosFornecedor(fornecedorId: string): Promise<Dados
 }
 
 /**
- * Registrar a cobrança — WF bTpUZ (bTpUa/bTpUb) por `fn_registrar_cobranca` (010): número por
- * sequence (não `count + 1`), fornecedor DERIVADO da filial e toda CR desse fornecedor (D14).
- * Fora daqui: o PDF (bTpUN) e o e-mail (bTpUg) — a fila `email_outbox` é só service_role e o
- * envio não existe ainda.
+ * "Enviar Cobrança" — WF bTpUZ: registra a cobrança (bTpUa/bTpUb) por `fn_registrar_cobranca`
+ * (010: número por sequence, fornecedor DERIVADO da filial, toda CR desse fornecedor, D14) e
+ * ENFILEIRA o e-mail ao contato (bTpUg) na fila `email_outbox` (lib/email). Quem envia é o
+ * processador da fila; com `EMAIL_MODO` diferente de `envio` ele só registra — nada sai.
+ *
+ * Anti-relay (008 D7): o destinatário vem do BANCO (contato do grupo do fornecedor), nunca de
+ * texto do formulário. Fora daqui: o PDF (bTpUN).
  */
 export async function registrarCobranca(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
-  await exigirAcesso('financeiro')
+  const usuario = await exigirAcesso('financeiro')
   const contas = ids(form)
   if (!contas) return { erro: 'Selecione pelo menos uma conta.' }
   const endereco = uuid(form, 'endereco')
@@ -324,16 +340,139 @@ export async function registrarCobranca(_anterior: EstadoAcao, form: FormData): 
   const contato = uuid(form, 'contato')
 
   const supabase = await clienteServidor()
+  // O contato tem de ser do grupo da filial (a função da 010 não confere): senão a cobrança
+  // de um fornecedor iria para o e-mail de outro.
+  const { data: filial } = await supabase
+    .from('enderecos_clifor')
+    .select('grupo_id, grupo:grupos_clifor(nome)')
+    .eq('id', endereco)
+    .maybeSingle()
+  const f = filial as unknown as { grupo_id: string; grupo: { nome: string } | null } | null
+  if (!f) return { erro: 'Filial do fornecedor não encontrada.' }
+  let destino: { nome: string; email: string | null } | null = null
+  if (contato) {
+    const { data: c } = await supabase
+      .from('contatos_clifor')
+      .select('nome, email')
+      .eq('id', contato)
+      .eq('grupo_id', f.grupo_id)
+      .maybeSingle()
+    if (!c) return { erro: 'O contato escolhido não é deste fornecedor.' }
+    destino = c as { nome: string; email: string | null }
+  }
+
   const { data, error } = await supabase.rpc('fn_registrar_cobranca', {
     p_contas: contas,
     p_endereco_fornecedor: endereco,
     p_contato: contato,
   })
   if (error) return { erro: traduzirErro('cobrança', error) }
-
+  const cobranca = data as { id?: string; numero?: number } | null
   revalidatePath(PAGINA)
-  const numero = (data as { numero?: number } | null)?.numero
-  return { ok: `Cobrança nº ${numero ?? '?'} registrada com ${contas.length} ${contas.length === 1 ? 'conta' : 'contas'}.` }
+  const n = contas.length
+  const registrada = `Cobrança nº ${cobranca?.numero ?? '?'} registrada com ${n} ${n === 1 ? 'conta' : 'contas'}`
+
+  const email = destino?.email?.trim()
+  if (!cobranca?.id || !cobranca.numero || !email) {
+    return { ok: `${registrada}. Sem contato com e-mail: nada foi para a fila de envio.` }
+  }
+  try {
+    const { data: linhas, error: e2 } = await supabase
+      .from('v_contas_receber')
+      .select('pedido_numero, parcela, parcelas_total, cliente_id, dt_vencimento, nf_fornecedor_numero, valor_comissao::text')
+      .in('id', contas)
+      .order('dt_vencimento')
+    if (e2) throw e2
+    const lidas = (linhas ?? []) as unknown as (Omit<ContaCobranca, 'cliente'> & { cliente_id: string })[]
+    const { data: clientes } = await supabase
+      .from('grupos_clifor')
+      .select('id, nome')
+      .in('id', [...new Set(lidas.map((l) => l.cliente_id))])
+    const nome = new Map(((clientes ?? []) as { id: string; nome: string }[]).map((c) => [c.id, c.nome]))
+    const { data: eu } = await supabase.from('usuarios').select('email_contato').eq('id', usuario.id).maybeSingle()
+    await enfileirarEmail({
+      criadoPor: usuario.id,
+      para: email,
+      evento: 'cobranca',
+      remetenteNome: remetente(usuario.nome),
+      responderPara: (eu as { email_contato: string | null } | null)?.email_contato ?? null,
+      conteudo: {
+        assunto: assuntoCobranca(cobranca.numero),
+        html: textoParaHtml(
+          textoCobranca({
+            numero: cobranca.numero,
+            contato: destino?.nome ?? null,
+            fornecedor: f.grupo?.nome ?? '',
+            usuario: usuario.nome,
+            contas: lidas.map((l) => ({ ...l, cliente: nome.get(l.cliente_id) ?? '—' })),
+          }),
+        ).html,
+      },
+      vinculo: { cobrancaId: cobranca.id },
+    })
+  } catch (e) {
+    console.error('financeiro: enfileirar cobrança', e)
+    return { ok: `${registrada}, mas o e-mail não entrou na fila. Avise o suporte.` }
+  }
+  return { ok: `${registrada}. E-mail para ${email} na fila de envio.` }
+}
+
+// ------------------------------------------------------------------------ relatório
+
+export type ResultadoCsv = { ok: true; nome: string; conteudo: string } | { ok: false; erro: string }
+
+const COLUNAS_CSV_CR =
+  'id, pedido_numero, parcela, parcelas_total, cliente_id, fornecedor_id, vendedor_id, endereco_origem_id, ' +
+  'endereco_destino_id, produto_id, qtd::text, dt_pedido, dt_entrega, dt_vencimento, nf_fornecedor_numero, ' +
+  'ultima_nf_megabox, ultima_dt_baixa, ultima_dt_credito, valor_total::text, valor_comissao::text, ' +
+  'valor_baixado::text, saldo::text, status_id, vencida, arquivado'
+const COLUNAS_CSV_CP =
+  'id, origem, pedido_numero, cliente_id, fornecedor_id, vendedor_id, qtd::text, dt_entrega, dt_vencimento, ' +
+  'nf_fornecedor_numero, valor_base::text, percentual::text, valor_comissao::text, valor_pago::text, ' +
+  'saldo::text, ultima_dt_baixa, status_id, vencida'
+const LOTE_CSV = 1000
+const MAX_LINHAS_CSV = 20000
+
+/**
+ * "Relatório contas a receber" / "Relatório contas a pagar" (§2.1, §4.7): CSV do recorte
+ * FILTRADO, gerado no servidor com os filtros relidos da query string (nada do navegador é
+ * confiado) e o cliente da SESSÃO — a RLS decide as linhas, como na tabela.
+ */
+export async function exportarRelatorio(query: string, tipo: 'receber' | 'pagar'): Promise<ResultadoCsv> {
+  await exigirAcesso('financeiro')
+  if (tipo !== 'receber' && tipo !== 'pagar') return { ok: false, erro: 'Relatório inválido.' }
+  const filtros = lerFiltros(Object.fromEntries(new URLSearchParams(String(query).slice(0, 4000))))
+  const supabase = await clienteServidor()
+  const grupos = await resolverGrupos(supabase, filtros)
+  const sufixo = filtros.situacao === 'vencidas' ? `vencidas_${hojeSP()}` : `${filtros.de}_${filtros.ate}`
+  const nome = `contas-a-${tipo}_${sufixo}.csv`
+
+  const brutas: (ContaPagar & ContaReceber)[] = []
+  if (!recorteVazio(filtros, tipo, grupos)) {
+    for (let de = 0; ; de += LOTE_CSV) {
+      const { data, error } = await consulta(supabase, filtros, tipo, grupos, tipo === 'pagar' ? COLUNAS_CSV_CP : COLUNAS_CSV_CR)
+        .order('dt_vencimento')
+        .order('id')
+        .range(de, de + LOTE_CSV - 1)
+      if (error) {
+        console.error('financeiro: relatório', error)
+        return { ok: false, erro: 'Não foi possível gerar o arquivo agora.' }
+      }
+      const lote = (data ?? []) as unknown as (ContaPagar & ContaReceber)[]
+      brutas.push(...lote)
+      if (lote.length < LOTE_CSV) break
+      if (brutas.length >= MAX_LINHAS_CSV) {
+        return { ok: false, erro: `Mais de ${MAX_LINHAS_CSV.toLocaleString('pt-BR')} contas: estreite os filtros.` }
+      }
+    }
+  }
+
+  if (tipo === 'pagar') {
+    const linhas = await comNomesPagar(supabase, brutas)
+    return { ok: true, nome, conteudo: montarCsv(CABECALHO_PAGAR, [...linhas.map(linhaPagar), totalPagar(linhas)]) }
+  }
+  const linhas = await comNomesReceber(supabase, brutas)
+  return { ok: true, nome, conteudo: montarCsv(CABECALHO_RECEBER, [...linhas.map(linhaReceber), totalReceber(linhas)]) }
 }
 
 // ------------------------------------------------------------------ confirmar entrega

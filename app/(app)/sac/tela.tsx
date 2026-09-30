@@ -21,9 +21,13 @@ import {
   temFiltro,
 } from '@/lib/sac'
 
+import { ABAS_SAC, type AbaSac, type FiltrosPosVenda, type FiltrosRelatorioSac, hrefAba, type IndicadoresSac } from '@/lib/sac-paineis'
+
 import { adicionarConvidado, buscarClifor, cancelarConvite, emitirConvite, listarContatos } from './acoes'
 import { BotaoEnviar, FichaProtocolo, Mensagem, NovaPesquisa, NovoProtocolo, SeloPrioridade, SeloStatus } from './dialogo'
-import type { CliforEncontrado, Contato, Convite, Ficha, LinhaProtocolo, Opcoes, PainelNps } from './tipos'
+import { PosVenda } from './painel-pos-venda'
+import { RelatoriosSac } from './painel-relatorios'
+import type { CliforEncontrado, Contato, Convite, Ficha, LinhaProtocolo, Opcoes, PainelNps, PainelPosVenda } from './tipos'
 
 type UsuarioTela = { id: string; ehDiretor: boolean }
 type Navegar = (mudancas: Partial<FiltrosSac>) => void
@@ -277,11 +281,8 @@ function Chamados({
           <p className="aviso" data-tom="erro" role="alert">
             Não foi possível carregar a lista agora. Recarregue a página em instantes.
           </p>
-        ) : lista.linhas.length === 0 ? (
-          <p className="sac-vazio" data-teste="lista-vazia">
-            {algumFiltro ? 'Nenhum chamado encontrado com esses filtros.' : 'Nenhum chamado aberto para você ainda.'}
-          </p>
         ) : (
+          // Lista vazia mantém o cabeçalho (S3): a tela continua dizendo o que aparece aqui.
           <div className="sac-tabela">
             <div className="sac-cabecalho" aria-hidden="true">
               <span>Protocolo</span>
@@ -292,17 +293,29 @@ function Chamados({
               <span>Status</span>
               <span>Responsável</span>
             </div>
-            <ol className="sac-lista" data-teste="lista-chamados" data-pendente={pendente || undefined}>
-              {lista.linhas.map((l) => (
-                <LinhaChamado
-                  key={l.id}
-                  linha={l}
-                  opcoes={opcoes}
-                  selecionada={filtros.sel === l.id}
-                  aoAbrir={() => navegar({ sel: l.id })}
-                />
-              ))}
-            </ol>
+            {lista.linhas.length === 0 ? (
+              <div className="sac-vazio-linha" data-teste="lista-vazia">
+                <p>{algumFiltro ? 'Nenhum chamado encontrado com esses filtros.' : 'Nenhum chamado aberto para você ainda.'}</p>
+                {algumFiltro ? null : (
+                  <button type="button" className="botao-secundario" onClick={() => setNovo(true)}>
+                    <Icone icone={Plus} tamanho={16} />
+                    Novo chamado
+                  </button>
+                )}
+              </div>
+            ) : (
+              <ol className="sac-lista" data-teste="lista-chamados" data-pendente={pendente || undefined}>
+                {lista.linhas.map((l) => (
+                  <LinhaChamado
+                    key={l.id}
+                    linha={l}
+                    opcoes={opcoes}
+                    selecionada={filtros.sel === l.id}
+                    aoAbrir={() => navegar({ sel: l.id })}
+                  />
+                ))}
+              </ol>
+            )}
           </div>
         )}
         <Paginacao pagina={filtros.pagina} total={lista.total} pendente={pendente} navegar={navegar} />
@@ -400,75 +413,97 @@ function LinhaConvite({ convite }: { convite: Convite }) {
     if (estadoEmitir.link) setLink(estadoEmitir.link)
   }, [estadoEmitir])
 
+  const extra = (removendo && vivo) || link || estadoEmitir.erro || estadoCancelar.erro || estadoCancelar.ok
   return (
-    <li className="nps-convite" data-situacao={situacao}>
-      <div className="nps-convite-principal">
-        <strong>{convite.cliente?.nome ?? '—'}</strong>
-        <small>
-          {convite.contato ? `${convite.contato.nome}${convite.contato.email ? ` <${convite.contato.email}>` : ''}` : 'Sem contato escolhido'}
-        </small>
-        <small>
-          Incluído em {formatarData(convite.criado_em)}
-          {convite.enviado_em ? ` · link emitido em ${formatarDataHora(convite.enviado_em)} (${convite.envios}×)` : ''}
-          {situacao === 'enviado' ? ` · vale até ${formatarData(convite.expira_em)}` : ''}
-        </small>
-        {convite.cancelado_em ? <small>Removido: {convite.cancelado_motivo}</small> : null}
-      </div>
-      <div className="nps-convite-resposta">
-        <span className="selo" data-tom={s.tom}>
-          {s.rotulo}
-        </span>
-        {convite.resposta ? (
-          <span className="nps-nota" data-teste="nota-nps">
-            Nota NPS <strong>{convite.resposta.nota_nps ?? '—'}</strong>
-            {convite.resposta.criticas_sugestoes ? <em> “{convite.resposta.criticas_sugestoes}”</em> : null}
+    <>
+      <tr className="nps-convite" data-situacao={situacao}>
+        <td className="sac-grade-cliente">{convite.cliente?.nome ?? '—'}</td>
+        <td>
+          {convite.contato ? (
+            <>
+              {convite.contato.nome}
+              {convite.contato.email ? <small>{convite.contato.email}</small> : null}
+            </>
+          ) : (
+            <span className="nps-sem">Sem contato</span>
+          )}
+        </td>
+        <td className="num-data">{formatarData(convite.criado_em)}</td>
+        <td className="num-data">
+          {convite.enviado_em ? (
+            <>
+              {formatarDataHora(convite.enviado_em)}
+              <small>
+                {convite.envios}× {situacao === 'enviado' ? `· vale até ${formatarData(convite.expira_em)}` : ''}
+              </small>
+            </>
+          ) : (
+            '—'
+          )}
+        </td>
+        <td>
+          <span className="selo" data-tom={s.tom}>
+            {s.rotulo}
           </span>
-        ) : null}
-      </div>
-      {vivo ? (
-        <div className="nps-convite-acoes">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              // Reenvio troca o token e mata o anterior ([DÚVIDA 11]/[DÚVIDA 12]): confirma.
-              if (convite.enviado_em && !window.confirm('Emitir um link NOVO? O link anterior deixa de funcionar.')) return
-              const form = new FormData(e.currentTarget)
-              startTransition(() => emitir(form))
-            }}
-          >
-            <input type="hidden" name="convite_id" value={convite.id} />
-            <button type="submit" className="botao-secundario" disabled={emitindo} aria-busy={emitindo} data-teste="emitir-link">
-              {emitindo ? 'Emitindo…' : convite.enviado_em ? 'Reemitir link' : 'Emitir link'}
-            </button>
-          </form>
-          {!removendo ? (
-            <button type="button" className="botao-texto" onClick={() => setRemovendo(true)} data-teste="remover-convidado">
-              Remover
-            </button>
+          {convite.cancelado_em ? <small>{convite.cancelado_motivo}</small> : null}
+        </td>
+        <td className="num" data-teste={convite.resposta ? 'nota-nps' : undefined}>
+          {convite.resposta?.nota_nps ?? '—'}
+        </td>
+        <td className="sac-grade-texto">{convite.resposta?.criticas_sugestoes || '—'}</td>
+        <td className="nps-convite-acoes">
+          {vivo ? (
+            <>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  // Reenvio troca o token e mata o anterior ([DÚVIDA 11]/[DÚVIDA 12]): confirma.
+                  if (convite.enviado_em && !window.confirm('Emitir um link NOVO? O link anterior deixa de funcionar.')) return
+                  const form = new FormData(e.currentTarget)
+                  startTransition(() => emitir(form))
+                }}
+              >
+                <input type="hidden" name="convite_id" value={convite.id} />
+                <button type="submit" className="botao-secundario" disabled={emitindo} aria-busy={emitindo} data-teste="emitir-link">
+                  {emitindo ? 'Emitindo…' : convite.enviado_em ? 'Reemitir link' : 'Emitir link'}
+                </button>
+              </form>
+              {!removendo ? (
+                <button type="button" className="botao-texto" onClick={() => setRemovendo(true)} data-teste="remover-convidado">
+                  Remover
+                </button>
+              ) : null}
+            </>
           ) : null}
-        </div>
+        </td>
+      </tr>
+      {extra ? (
+        <tr className="nps-convite-extra">
+          <td colSpan={8}>
+            {removendo && vivo ? (
+              <form action={cancelar} className="nps-remover">
+                <input type="hidden" name="convite_id" value={convite.id} />
+                <label className="campo">
+                  <span>Motivo da remoção</span>
+                  <input name="motivo" maxLength={500} required autoFocus data-teste="motivo-remocao" />
+                </label>
+                <div className="sf-linha-botoes">
+                  <button type="button" className="botao-texto" onClick={() => setRemovendo(false)}>
+                    Desistir
+                  </button>
+                  <BotaoEnviar className="botao-perigo" teste="confirmar-remocao">
+                    Remover da pesquisa
+                  </BotaoEnviar>
+                </div>
+              </form>
+            ) : null}
+            {link ? <LinkEmitido caminho={link} aoFechar={() => setLink(null)} /> : null}
+            {estadoEmitir.erro ? <Mensagem estado={{ erro: estadoEmitir.erro }} /> : null}
+            <Mensagem estado={estadoCancelar} />
+          </td>
+        </tr>
       ) : null}
-      {removendo && vivo ? (
-        <form action={cancelar} className="nps-remover">
-          <input type="hidden" name="convite_id" value={convite.id} />
-          <label className="campo">
-            <span>Motivo da remoção</span>
-            <input name="motivo" maxLength={500} required autoFocus data-teste="motivo-remocao" />
-          </label>
-          <div className="sf-linha-botoes">
-            <button type="button" className="botao-texto" onClick={() => setRemovendo(false)}>
-              Desistir
-            </button>
-            <BotaoEnviar className="botao-perigo" teste="confirmar-remocao">
-              Remover da pesquisa
-            </BotaoEnviar>
-          </div>
-        </form>
-      ) : null}
-      {link ? <LinkEmitido caminho={link} aoFechar={() => setLink(null)} /> : null}
-      {estadoEmitir.erro ? <Mensagem estado={{ erro: estadoEmitir.erro }} /> : null}
-      <Mensagem estado={estadoCancelar} />
-    </li>
+    </>
   )
 }
 
@@ -707,11 +742,31 @@ function GestaoNps({
                 {filtros.q ? 'Nenhum convidado com esse nome.' : 'Nenhum cliente nesta pesquisa ainda.'}
               </p>
             ) : (
-              <ol className="nps-convites" data-teste="lista-convites" data-pendente={pendente || undefined}>
-                {painel.convites.map((c) => (
-                  <LinhaConvite key={c.id} convite={c} />
-                ))}
-              </ol>
+              <div className="sac-tabela-rolagem">
+                <table className="sac-grade" data-teste="lista-convites" data-pendente={pendente || undefined}>
+                  <thead>
+                    <tr>
+                      <th scope="col">Cliente</th>
+                      <th scope="col">Contato</th>
+                      <th scope="col">Incluído em</th>
+                      <th scope="col">Link emitido</th>
+                      <th scope="col">Situação</th>
+                      <th scope="col" className="num">
+                        Nota NPS
+                      </th>
+                      <th scope="col">Observação</th>
+                      <th scope="col">
+                        <span className="so-leitor">Ações</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {painel.convites.map((c) => (
+                      <LinhaConvite key={c.id} convite={c} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
             <Paginacao pagina={filtros.pagina} total={painel.totalConvites} pendente={pendente} navegar={navegar} />
             <p className="sf-nota">
@@ -738,6 +793,7 @@ function GestaoNps({
 // -------------------------------------------------------------------------- tela
 
 export function TelaSac({
+  aba,
   filtros,
   usuario,
   opcoes,
@@ -745,7 +801,10 @@ export function TelaSac({
   lista,
   ficha,
   painel,
+  relatorio,
+  posVenda,
 }: {
+  aba: AbaSac
   filtros: FiltrosSac
   usuario: UsuarioTela
   opcoes: Opcoes
@@ -753,6 +812,14 @@ export function TelaSac({
   lista: { linhas: LinhaProtocolo[]; total: number; falhou: boolean } | null
   ficha: Ficha | null
   painel: PainelNps | null
+  relatorio?: {
+    filtros: FiltrosRelatorioSac
+    aviso: string | null
+    dados: IndicadoresSac | null
+    falhou: boolean
+    veTodos: boolean
+  } | null
+  posVenda?: { filtros: FiltrosPosVenda; painel: PainelPosVenda } | null
 }) {
   const router = useRouter()
   const [pendente, iniciar] = useTransition()
@@ -765,24 +832,16 @@ export function TelaSac({
   }
 
   // Abas por navegação, não toggle (§4.1: clicar de novo na aba ativa deixava a tela em branco).
-  // Relatórios e Pós-Venda ainda não existem aqui.
-  const abas = [
-    { id: 'chamados', rotulo: 'Chamados' },
-    { id: 'nps', rotulo: 'Gestão NPS' },
-  ] as const
-
   return (
     <div className="sac">
       <nav className="abas sac-abas" aria-label="Seções do SAC">
-        {abas.map((a) => (
+        {ABAS_SAC.map((a) => (
           <button
             key={a.id}
             type="button"
-            aria-current={filtros.aba === a.id ? 'page' : undefined}
+            aria-current={aba === a.id ? 'page' : undefined}
             onClick={() => {
-              if (filtros.aba !== a.id) {
-                router.push((a.id === 'nps' ? '/sac?aba=nps' : '/sac') as Route)
-              }
+              if (aba !== a.id) router.push(hrefAba(a.id) as Route)
             }}
             data-teste={`aba-sac-${a.id}`}
           >
@@ -791,7 +850,11 @@ export function TelaSac({
         ))}
       </nav>
 
-      {filtros.aba === 'nps' && painel ? (
+      {aba === 'relatorios' && relatorio ? (
+        <RelatoriosSac {...relatorio} opcoes={opcoes} />
+      ) : aba === 'posvenda' && posVenda ? (
+        <PosVenda filtros={posVenda.filtros} painel={posVenda.painel} opcoes={opcoes} />
+      ) : aba === 'nps' && painel ? (
         <GestaoNps filtros={filtros} painel={painel} navegar={navegar} pendente={pendente} />
       ) : lista && abertos !== null ? (
         <Chamados

@@ -272,7 +272,7 @@
   color: var(--azul);
 }
 .sf-pequeno {
-  width: min(24rem, calc(100vw - 2 * var(--e4)));
+  width: min(24rem, calc(100 * var(--vw) - 2 * var(--e4)));
 }
 .sf-tipo {
   margin: 0 0 var(--e1);
@@ -541,7 +541,7 @@
   color: var(--texto-2);
 }
 .nps-card strong {
-  font-size: 1.875rem;
+  font-size: var(--t-xl);
   font-weight: var(--peso-forte);
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
@@ -579,72 +579,31 @@
   max-width: 28rem;
 }
 
-.nps-convites {
-  display: flex;
-  flex-direction: column;
-  gap: var(--e2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  transition: opacity var(--dur-2) var(--curva);
-}
-.nps-convites[data-pendente] {
-  opacity: 0.55;
-}
-.nps-convite {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1.5fr) auto;
-  align-items: center;
-  gap: var(--e2) var(--e4);
-  padding: var(--e3) var(--e4);
-  background: var(--azul-claro);
-  border-left: 3px solid var(--azul);
-  border-radius: var(--raio);
-}
-.nps-convite[data-situacao='respondido'] {
-  border-left-color: var(--verde);
-}
-.nps-convite[data-situacao='cancelado'] {
+.nps-convite[data-situacao='cancelado'] > td {
   opacity: 0.7;
-  border-left-color: var(--borda-forte);
 }
-.nps-convite > .nps-remover,
-.nps-convite > .nps-link,
-.nps-convite > .aviso {
-  grid-column: 1 / -1;
+.nps-convite[data-situacao='respondido'] > td:first-child {
+  box-shadow: inset 3px 0 0 var(--verde);
 }
-.nps-convite-principal,
-.nps-convite-resposta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-width: 0;
-  overflow-wrap: anywhere;
+.nps-sem {
+  color: var(--texto-3);
 }
-.nps-convite-principal strong {
-  text-transform: uppercase;
+.nps-convite-extra > td {
+  padding-top: 0 !important;
+  background: var(--fundo-2);
 }
-.nps-convite small {
-  font-size: var(--t-xs);
-  color: var(--texto-2);
+.nps-convite-extra .nps-remover,
+.nps-convite-extra .nps-link {
+  margin-top: var(--e2);
+  max-width: 48rem;
 }
-.nps-nota {
-  font-size: var(--t-sm);
+.sac-grade td.nps-convite-acoes {
+  white-space: nowrap;
+  text-align: right;
 }
-.nps-nota strong {
-  font-family: var(--fonte-numero);
-  color: var(--azul);
-}
-.nps-nota em {
-  color: var(--texto-2);
-}
-.nps-convite-acoes {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--e2);
+.nps-convite-acoes form {
+  display: inline-block;
+  margin-right: var(--e2);
 }
 .nps-link {
   display: flex;
@@ -658,6 +617,232 @@
 .nps-link input {
   font-family: var(--fonte-numero);
   font-size: var(--t-xs);
+}
+
+/* ------------------------------------------------------ tabela (NPS, pós-venda) */
+.sac-tabela-rolagem {
+  min-width: 0;
+  max-height: calc(72vh / var(--escala));
+  overflow: auto;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+}
+.sac-grade {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--t-sm);
+  transition: opacity var(--dur-2) var(--curva);
+}
+.sac-grade[data-pendente] {
+  opacity: 0.55;
+}
+.sac-grade th,
+.sac-grade td {
+  padding: var(--e2) var(--e3);
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--borda);
+}
+.sac-grade thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  font-size: var(--t-xs);
+  font-weight: var(--peso-medio);
+  white-space: nowrap;
+  color: var(--texto-2);
+  background: var(--lilas-cabeca);
+}
+.sac-grade tbody tr:last-child > td {
+  border-bottom: none;
+}
+.sac-grade tbody tr:hover > td {
+  background: var(--azul-claro);
+}
+.sac-grade td small {
+  display: block;
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.sac-grade .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.sac-grade .num-data {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.sac-grade-cliente {
+  font-weight: var(--peso-medio);
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.sac-grade-texto {
+  max-width: 28rem;
+  color: var(--texto-2);
+  overflow-wrap: anywhere;
+}
+.sac-grade-vazia {
+  padding: var(--e6) var(--e4) !important;
+  text-align: center !important;
+  color: var(--texto-2);
+}
+
+/* Chamados: lista vazia dentro do cartão, sob o cabeçalho (S3). */
+.sac-vazio-linha {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e6) var(--e4);
+  color: var(--texto-2);
+  text-align: center;
+}
+.sac-vazio-linha p {
+  margin: 0;
+}
+
+/* ------------------------------------------------------------ aba Relatórios */
+.sr {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--e4);
+  transition: opacity var(--dur-2) var(--curva);
+}
+.sr[aria-busy='true'] {
+  opacity: 0.6;
+}
+.sr > .nps-cards,
+.sr > .sr-largo {
+  grid-column: 1 / -1;
+}
+.sr-cartao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  min-width: 0;
+  padding: var(--e4);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
+}
+.sr-cartao h2 {
+  margin: 0;
+  font-size: var(--t-md);
+  font-weight: var(--peso-forte);
+}
+.sr-sub,
+.sr-vazio {
+  margin: 0;
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.sr-vazio {
+  font-size: var(--t-sm);
+}
+.sr-barras {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  margin: var(--e2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.sr-barras li {
+  display: grid;
+  grid-template-columns: minmax(7rem, 11rem) minmax(0, 1fr) 3rem;
+  align-items: center;
+  gap: var(--e3);
+  font-size: var(--t-sm);
+}
+.sr-barras-rotulo {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--texto-2);
+}
+.sr-barras-trilho {
+  height: 0.75rem;
+}
+.sr-barras-trilho i {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  background: var(--azul);
+  border-radius: 0 var(--raio-p) var(--raio-p) 0;
+}
+.sr-barras-trilho i[data-zero] {
+  background: var(--borda-forte);
+}
+.sr-barras strong {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.sr-sla {
+  margin: var(--e2) 0 0;
+}
+.sr-sla-colunas {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--e2);
+  height: 12rem;
+  padding-bottom: 1px;
+  border-bottom: 1px solid var(--borda-forte);
+}
+.sr-sla-coluna {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--e1);
+  height: 100%;
+  min-width: 0;
+  border-radius: var(--raio-p);
+}
+.sr-sla-coluna:hover,
+.sr-sla-coluna:focus-visible {
+  background: var(--azul-claro);
+}
+.sr-sla-coluna:focus-visible {
+  outline: var(--foco);
+  outline-offset: 2px;
+}
+.sr-sla-valor {
+  font-size: var(--t-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--texto-2);
+}
+.sr-sla-barra {
+  display: block;
+  width: min(100%, 2.5rem);
+  min-height: 2px;
+  background: var(--azul);
+  border-radius: var(--raio-p) var(--raio-p) 0 0;
+}
+.sr-sla-barra[data-vazio] {
+  background: transparent;
+}
+.sr-sla-eixo {
+  display: flex;
+  gap: var(--e2);
+  margin-top: var(--e1);
+}
+.sr-sla-eixo span {
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: var(--t-xs);
+  text-align: center;
+  color: var(--texto-2);
+}
+.sr-sla-eixo small {
+  display: block;
+  font-variant-numeric: tabular-nums;
+  color: var(--texto-3);
 }
 
 /* ------------------------------------------------------------- tela estreita */
@@ -711,12 +896,8 @@
   .nps-card strong {
     font-size: var(--t-lg);
   }
-  .nps-adicionar-form,
-  .nps-convite {
+  .nps-adicionar-form {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .nps-convite-acoes {
-    justify-content: flex-start;
   }
 }
 

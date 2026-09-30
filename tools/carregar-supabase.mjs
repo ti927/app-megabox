@@ -1600,7 +1600,12 @@ async function gravarBaixasCR(_db, { relatorio, sql, linhas, traduzir }) {
       nf_megabox_numero: texto(r['cpo.NumNfMegabox']),
       dt_nf_megabox: data(r['cpo.DataNfMegabox']),
       usuario_id: u,
-      observacao: 'Carga: baixa implícita da conta "Recebido" no Bubble',
+      // Estorno ANTERIOR (bTrtf não apaga a baixa; a seguinte a sobrescreveu — financeiro-reusables
+      // §4.7, "irrecuperável"): a baixa estornada não é inventada (data e NF perdidas); o fato do
+      // estorno fica registrado aqui, com a data que o Bubble guardou.
+      observacao: r['cpo.DataEstorno']
+        ? `Carga: baixa implícita da conta "Recebido" no Bubble; houve estorno anterior em ${data(r['cpo.DataEstorno'])} (a baixa estornada não existe mais no Bubble)`
+        : 'Carga: baixa implícita da conta "Recebido" no Bubble',
       criado_em: texto(quando),
       criado_por: u,
     })

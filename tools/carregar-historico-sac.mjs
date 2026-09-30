@@ -748,8 +748,15 @@ async function main() {
       replica: true,
       pausaEntre: pausa,
     })
-    // Espelho: em réplica o trigger por instrução não rodou. UMA chamada, para os grupos tocados.
-    const tocados = [...new Set(gravar.map((l) => l.grupo_clifor_id))]
+    // Espelho: em réplica o trigger por instrução não rodou. UMA chamada, para TODOS os grupos com
+    // histórico da carga — não só os desta rodada: uma rodada anterior interrompida (29/09) também
+    // gravou em réplica e pode ter parado antes de recalcular.
+    const { rows: gs } = await sql(
+      `select array_agg(distinct grupo_clifor_id) as g from public.historicos where origem = 'carga'`,
+      [],
+      { rotulo: 'grupos com histórico da carga' },
+    )
+    const tocados = gs[0].g ?? []
     if (tocados.length) {
       const r = await sql(`select public.fn_historico_espelho_recalcular($1::uuid[]) as n`, [tocados], {
         rotulo: 'espelho grupos_clifor',

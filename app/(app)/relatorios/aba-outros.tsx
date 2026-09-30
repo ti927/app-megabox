@@ -19,6 +19,7 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState, useTransition } from 'react'
 
+import { SeletorPeriodo } from '@/componentes/seletor-periodo'
 import { formatarData } from '@/lib/datas'
 import { formatarReais } from '@/lib/dinheiro'
 import {
@@ -536,16 +537,21 @@ export function AbaOutros({
             </label>
           ))}
         </fieldset>
-        <label className="campo rel-campo">
+        <div className="campo rel-campo">
           <span>
-            <CalendarRange size={12} aria-hidden /> Entrega de
+            <CalendarRange size={12} aria-hidden /> Entrega
           </span>
-          <input type="date" value={inicio} required onChange={(e) => setInicio(e.target.value)} />
-        </label>
-        <label className="campo rel-campo">
-          <span>até</span>
-          <input type="date" value={fim} required min={inicio} onChange={(e) => setFim(e.target.value)} />
-        </label>
+          <SeletorPeriodo
+            rotulo="Período de entrega"
+            de={inicio}
+            ate={fim}
+            onChange={(de, ate) => {
+              setInicio(de)
+              setFim(ate)
+            }}
+            data-teste="filtro-periodo"
+          />
+        </div>
         {veTodos ? (
           <label className="campo rel-campo">
             <span>

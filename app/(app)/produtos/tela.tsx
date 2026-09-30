@@ -4,13 +4,15 @@ import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
 
-import { ChevronRight, Plus, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
 
 import { Foto } from '@/componentes/foto'
 import { Icone } from '@/componentes/icone'
 import { PainelLateral } from '@/componentes/painel-lateral'
 import { formularioAlterado } from '@/lib/formulario-alterado'
+import { POR_PAGINA, totalPaginas } from '@/lib/clifor'
 import { type FiltrosProduto, paraQuery } from '@/lib/produtos'
+import { comPagina } from '@/lib/produtos-pagina'
 
 import { FichaProduto } from './dialogo'
 import type { Ficha, LinhaProduto, Opcoes } from './tipos'
@@ -66,7 +68,7 @@ function Linha({
             <strong className="produto-nome">{linha.nome}</strong>
             <span className="produto-classe">
               {linha.tipo?.nome ?? 'sem tipo'}
-              <Icone icone={ChevronRight} tamanho={14} />
+              <Icone icone={ChevronRight} tamanho={16} />
               {linha.grupo?.nome ?? 'sem grupo'}
             </span>
             <span className="produto-meta">
@@ -123,7 +125,7 @@ export function TelaProdutos({
   linhas,
   fotos,
   total,
-  limite,
+  pagina,
   falhou,
   ativos,
   opcoes,
@@ -134,7 +136,8 @@ export function TelaProdutos({
   /** id do produto → URL assinada da miniatura */
   fotos: Record<string, string>
   total: number
-  limite: number
+  /** página da lista (50 por página, no servidor) */
+  pagina: number
   falhou: boolean
   ativos: number
   opcoes: Opcoes
@@ -147,13 +150,16 @@ export function TelaProdutos({
   const espera = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   // Estado da lista na URL, como em /cadastros: recarregar e mandar o link funcionam.
-  function navegar(mudancas: Partial<FiltrosProduto>) {
+  // Abrir/fechar a ficha mantém a página; mudar filtro volta à primeira.
+  function navegar(mudancas: Partial<FiltrosProduto>, paginaNova = pagina) {
     iniciar(() => {
-      router.replace(`/produtos${paraQuery(filtros, mudancas)}` as Route, { scroll: false })
+      router.replace(`/produtos${comPagina(paraQuery(filtros, mudancas), paginaNova)}` as Route, {
+        scroll: false,
+      })
     })
   }
   function filtrar(mudancas: Partial<FiltrosProduto>) {
-    navegar({ sel: null, ...mudancas })
+    navegar({ sel: null, ...mudancas }, 1)
   }
   function digitar(valor: string) {
     setTexto(valor)
@@ -175,16 +181,32 @@ export function TelaProdutos({
     else navegar({ sel: null })
   }
 
+  const paginas = totalPaginas(total, POR_PAGINA)
+  const primeiro = total === 0 ? 0 : (pagina - 1) * POR_PAGINA + 1
+  const ultimo = Math.min(total, pagina * POR_PAGINA)
   const gruposDoTipo = filtros.tipo ? opcoes.grupos.filter((g) => g.tipo_id === filtros.tipo) : []
   const temFiltro = filtros.q !== '' || filtros.tipo !== null || filtros.ativo !== 'todos'
 
   return (
     <div className="produtos" data-painel-aberto={ficha || novo ? '' : undefined}>
+      {/* Mesmo topo de /cadastros: título, contador e o botão de criar ao lado. */}
       <header className="produtos-topo">
-        <h1>Cadastro de Produtos</h1>
-        <p className="produtos-contador" data-teste="contador">
-          Produtos ativos: <strong>{ativos.toLocaleString('pt-BR')}</strong>
-        </p>
+        <div className="produtos-titulo">
+          <h1>Cadastro de Produtos</h1>
+          <p className="produtos-contador" data-teste="contador">
+            Produtos ativos: <strong>{ativos.toLocaleString('pt-BR')}</strong>
+          </p>
+        </div>
+        <button
+          type="button"
+          className="botao-primario"
+          onClick={() => setNovo(true)}
+          data-painel-manter=""
+          data-teste="novo-produto"
+        >
+          <Icone icone={Plus} tamanho={16} />
+          Produto
+        </button>
       </header>
 
       <section className="produtos-filtros" aria-label="Filtros">
@@ -244,30 +266,19 @@ export function TelaProdutos({
           </select>
         </label>
 
-        <div className="produtos-acoes">
-          {temFiltro ? (
-            <button
-              type="button"
-              className="botao-texto produtos-limpar"
-              onClick={() => {
-                setTexto('')
-                filtrar({ q: '', tipo: null, grupo: null, ativo: 'todos' })
-              }}
-            >
-              <Icone icone={X} tamanho={16} />
-              Limpar busca
-            </button>
-          ) : null}
+        {temFiltro ? (
           <button
             type="button"
-            className="botao-primario"
-            onClick={() => setNovo(true)}
-            data-teste="novo-produto"
+            className="botao-texto produtos-limpar"
+            onClick={() => {
+              setTexto('')
+              filtrar({ q: '', tipo: null, grupo: null, ativo: 'todos' })
+            }}
           >
-            <Icone icone={Plus} tamanho={16} />
-            Novo produto
+            <Icone icone={X} tamanho={16} />
+            Limpar busca
           </button>
-        </div>
+        ) : null}
       </section>
 
       <section className="produtos-corpo" aria-label="Lista de produtos" aria-busy={pendente}>
@@ -306,13 +317,33 @@ export function TelaProdutos({
           </div>
         )}
 
-        <p className="produtos-rodape" aria-live="polite">
-          {total === 0
-            ? 'Nenhum resultado'
-            : total > limite
-              ? `Mostrando ${limite.toLocaleString('pt-BR')} de ${total.toLocaleString('pt-BR')} — use os filtros para achar o resto.`
-              : `${total.toLocaleString('pt-BR')} ${total === 1 ? 'produto' : 'produtos'}`}
-        </p>
+        <div className="paginacao">
+          <span aria-live="polite">
+            {total === 0
+              ? 'Nenhum resultado'
+              : `${primeiro.toLocaleString('pt-BR')}–${ultimo.toLocaleString('pt-BR')} de ${total.toLocaleString('pt-BR')}`}
+          </span>
+          <nav aria-label="Paginação">
+            <button
+              type="button"
+              className="botao-secundario"
+              disabled={pagina <= 1 || pendente}
+              onClick={() => navegar({ sel: null }, pagina - 1)}
+            >
+              <Icone icone={ChevronLeft} tamanho={16} />
+              Anterior
+            </button>
+            <button
+              type="button"
+              className="botao-secundario"
+              disabled={pagina >= paginas || pendente}
+              onClick={() => navegar({ sel: null }, pagina + 1)}
+            >
+              Próxima
+              <Icone icone={ChevronRight} tamanho={16} />
+            </button>
+          </nav>
+        </div>
       </section>
 
       {ficha || novo ? (

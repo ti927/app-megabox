@@ -19,6 +19,7 @@ import { useRouter } from 'next/navigation'
 import { useId, useState, useTransition } from 'react'
 
 import { Foto } from '@/componentes/foto'
+import { SeletorPeriodo } from '@/componentes/seletor-periodo'
 import { formatarData } from '@/lib/datas'
 import { formatarReais } from '@/lib/dinheiro'
 import {
@@ -529,24 +530,15 @@ export function TelaMetas({
               <ChevronRight aria-hidden="true" />
             </button>
           </div>
-          <label className="campo metas-data">
-            <span>De</span>
-            <input
-              type="date"
-              value={filtros.inicio}
-              max={filtros.fim}
-              onChange={(e) => e.target.value && navegar({ inicio: e.target.value })}
+          <div className="campo metas-data">
+            <span>Período</span>
+            <SeletorPeriodo
+              de={filtros.inicio}
+              ate={filtros.fim}
+              onChange={(inicio, fim) => navegar({ inicio, fim })}
+              data-teste="filtro-periodo"
             />
-          </label>
-          <label className="campo metas-data">
-            <span>Até</span>
-            <input
-              type="date"
-              value={filtros.fim}
-              min={filtros.inicio}
-              onChange={(e) => e.target.value && navegar({ fim: e.target.value })}
-            />
-          </label>
+          </div>
           {permissoes.gerir ? (
             <label className="campo metas-data">
               <span>Vendedor</span>

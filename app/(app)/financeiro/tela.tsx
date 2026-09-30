@@ -18,6 +18,7 @@ import {
 
 import { Foto } from '@/componentes/foto'
 import { Icone } from '@/componentes/icone'
+import { SeletorPeriodo } from '@/componentes/seletor-periodo'
 import { formatarData } from '@/lib/datas'
 import {
   type Aba,
@@ -122,26 +123,17 @@ function Filtros({ filtros, opcoes, navegar }: { filtros: FiltrosFinanceiro; opc
     <section className="fin-filtros" aria-label="Filtros">
       {contas ? (
         <>
-          <label className="campo">
-            <span>De</span>
-            <input
-              type="date"
-              value={filtros.de}
-              max={filtros.ate}
-              disabled={filtros.situacao === 'vencidas'}
-              onChange={(e) => e.target.value && filtrar({ de: e.target.value })}
+          <div className="campo">
+            <span>Período</span>
+            <SeletorPeriodo
+              rotulo="Período"
+              de={filtros.de}
+              ate={filtros.ate}
+              desabilitado={filtros.situacao === 'vencidas'}
+              onChange={(de, ate) => filtrar({ de, ate })}
+              data-teste="filtro-periodo"
             />
-          </label>
-          <label className="campo">
-            <span>Até</span>
-            <input
-              type="date"
-              value={filtros.ate}
-              min={filtros.de}
-              disabled={filtros.situacao === 'vencidas'}
-              onChange={(e) => e.target.value && filtrar({ ate: e.target.value })}
-            />
-          </label>
+          </div>
           {caixa('pedido', 'Núm pedido', 'Número exato', true)}
         </>
       ) : null}

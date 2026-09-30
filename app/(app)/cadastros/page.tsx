@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { filtroDonoAnexos, podeApagarAnexo } from '@/lib/anexos'
 import { urlsDeLinhas } from '@/lib/arquivos-lote'
 import { exigirAcesso } from '@/lib/autorizacao'
+import { contarAnexos, diasDesde } from '@/lib/cadastros-lista'
 import {
   escaparLike,
   faixa,
@@ -39,13 +40,17 @@ type Supabase = Awaited<ReturnType<typeof clienteServidor>>
 async function buscarLista(supabase: Supabase, f: FiltrosClifor) {
   const documento = pareceDocumento(f.q)
   const colunas = [
-    'id, tipo, nome, ativo, liberado, criado_em, foto_path',
+    'id, tipo, nome, ativo, liberado, criado_em, foto_path, ultimo_historico_em',
     'carteira:usuarios!carteira_id(nome)',
     'autor:usuarios!criado_por(nome)',
     'filiais:enderecos_clifor(count)',
     // o mesmo embed, filtrado abaixo por liberado = false: quantas filiais bloqueadas
     'bloqueadas:enderecos_clifor(count)',
     'contatos:contatos_clifor(count)',
+    // "Anexos: N" (spec §3.2 gp anexos): os do grupo + os das filiais (dono_unico, db/006).
+    // A RLS de anexos já tira os tipos que o departamento de quem vê não enxerga.
+    'anexos_grupo:anexos(count)',
+    'anexos_filiais:enderecos_clifor(anexos(count))',
   ]
   if (f.uf || documento) colunas.push('filtro:enderecos_clifor!inner(id)')
 
@@ -82,7 +87,22 @@ async function buscarLista(supabase: Supabase, f: FiltrosClifor) {
     console.error('cadastros: lista', error)
     return { linhas: [] as LinhaGrupo[], total: 0, falhou: true }
   }
-  return { linhas: (data ?? []) as unknown as LinhaGrupo[], total: count ?? 0, falhou: false }
+  // Colunas calculadas aqui, no servidor: "N dias" depende de hoje, e o navegador calcular
+  // de novo poderia discordar na hidratação (virada do dia).
+  const agora = new Date()
+  const linhas = ((data ?? []) as unknown as LinhaBruta[]).map(
+    ({ anexos_grupo, anexos_filiais, ...l }): LinhaGrupo => ({
+      ...l,
+      dias_sem_conversa: diasDesde(l.ultimo_historico_em, agora),
+      qtd_anexos: contarAnexos(anexos_grupo, anexos_filiais),
+    }),
+  )
+  return { linhas, total: count ?? 0, falhou: false }
+}
+
+type LinhaBruta = Omit<LinhaGrupo, 'dias_sem_conversa' | 'qtd_anexos'> & {
+  anexos_grupo: { count: number }[]
+  anexos_filiais: { anexos: { count: number }[] }[]
 }
 
 /**

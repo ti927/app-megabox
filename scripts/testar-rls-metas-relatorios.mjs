@@ -1,5 +1,5 @@
 /**
- * Prova que os relatórios da página `metas` (db/024) somam certo e respeitam quem consulta.
+ * Prova que os relatórios da página `metas` (db/027) somam certo e respeitam quem consulta.
  *
  * Diferente dos outros testes de RLS, este NÃO cria cenário: a base carregada do Bubble já tem
  * metas e entregas reais de setembro/2026, e o que se quer provar é justamente que os números
@@ -9,7 +9,7 @@
  * dentro de uma transação desfeita no fim: nada é gravado.
  *
  * O que se prova:
- *   - anon não executa nenhuma função da 024 (GRANT revogado);
+ *   - anon não executa nenhuma função da 027 (GRANT revogado);
  *   - CONSISTÊNCIA: para toda meta ABERTA do mês, a soma da lista do popup
  *     (fn_metas_entregas_meta) = o "Valor faturado" da linha (v_meta_atingimento.realizado),
  *     ao centavo, e a contagem = qtd_entregas de fn_calculo_meta;

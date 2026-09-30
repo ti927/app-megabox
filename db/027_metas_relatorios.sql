@@ -1,5 +1,5 @@
 -- =====================================================================================
--- 024_metas_relatorios.sql — app-megabox (Supabase `megabox`, Postgres 17)
+-- 027_metas_relatorios.sql — app-megabox (Supabase `megabox`, Postgres 17)
 -- =====================================================================================
 -- O que faltava na página `metas` depois da 011: o DETALHAMENTO das entregas de uma meta
 -- (popup `pop entregas`, bTvtb), a ANÁLISE DE ENTREGAS (HTML A bUEzP) e o RELATÓRIO ANUAL DE
@@ -126,7 +126,7 @@ as $$
 $$;
 
 comment on function public.fn_metas_entregas_meta(uuid) is
-  '024 D1: entregas que compõem o "Valor faturado" de uma meta (popup pop entregas, bTvtc) — '
+  '027 D1: entregas que compõem o "Valor faturado" de uma meta (popup pop entregas, bTvtc) — '
   'fn_entregas_da_meta ao vivo. Meta aberta: soma = v_meta_atingimento.realizado.';
 
 
@@ -185,7 +185,7 @@ end
 $$;
 
 comment on function public.fn_metas_analise_entregas(date, date) is
-  '024 A1–A4: "Análise de Entregas" (HTML A bUEzP) — por categoria (realizada | andamento | '
+  '027 A1–A4: "Análise de Entregas" (HTML A bUEzP) — por categoria (realizada | andamento | '
   'cancelada) e vendedor: quantidade, comissão e venda bruta. Realizadas só para o Diretor.';
 
 create or replace function public.fn_metas_analise_lista(
@@ -233,7 +233,7 @@ end
 $$;
 
 comment on function public.fn_metas_analise_lista(date, date, text, uuid) is
-  '024 A4: as entregas de UMA barra da Análise de Entregas (openModal do HTML A).';
+  '027 A4: as entregas de UMA barra da Análise de Entregas (openModal do HTML A).';
 
 
 -- =====================================================================================
@@ -401,7 +401,7 @@ end
 $$;
 
 comment on function public.fn_metas_relatorio_anual(integer, text) is
-  '024 R1–R6: "Relatório Anual de Vendas" (HTML C bUFCJ) — por mês e vendedor: fechado, '
+  '027 R1–R6: "Relatório Anual de Vendas" (HTML C bUFCJ) — por mês e vendedor: fechado, '
   'entregue, cancelado, faturado (valor escolhido), quantidades, meta lançada e comissões das '
   'metas fechadas; mes_encerrado = o mês usa o fechamento oficial. Só perfil 1.';
 
@@ -476,7 +476,7 @@ end
 $$;
 
 comment on function public.fn_metas_relatorio_detalhe(integer, text, text, uuid, integer, integer) is
-  '024 R7: aba "Detalhamento" do Relatório Anual — entregas lançadas no ano, paginadas no banco, '
+  '027 R7: aba "Detalhamento" do Relatório Anual — entregas lançadas no ano, paginadas no banco, '
   'com o total (count over). Só perfil 1.';
 
 

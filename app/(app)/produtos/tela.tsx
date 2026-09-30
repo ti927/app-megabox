@@ -9,6 +9,7 @@ import { ChevronRight, Plus, X } from 'lucide-react'
 import { Foto } from '@/componentes/foto'
 import { Icone } from '@/componentes/icone'
 import { PainelLateral } from '@/componentes/painel-lateral'
+import { formularioAlterado } from '@/lib/formulario-alterado'
 import { type FiltrosProduto, paraQuery } from '@/lib/produtos'
 
 import { FichaProduto } from './dialogo'
@@ -160,7 +161,16 @@ export function TelaProdutos({
     espera.current = setTimeout(() => filtrar({ q: valor.trim() }), 400)
   }
 
+  // X, Esc, clique fora e "Fechar": com alteração não gravada na aba Dados, confirma antes de
+  // descartar. Sem alteração, fecha direto (lib/formulario-alterado).
   function fechar() {
+    const form = document.getElementById('form-produto')
+    if (form instanceof HTMLFormElement && formularioAlterado(form)) {
+      const msg = novo
+        ? 'Descartar o produto novo? O que foi digitado ainda não foi gravado.'
+        : 'Descartar as alterações? Elas ainda não foram gravadas.'
+      if (!window.confirm(msg)) return
+    }
     if (novo) setNovo(false)
     else navegar({ sel: null })
   }

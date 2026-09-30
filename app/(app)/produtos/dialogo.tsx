@@ -7,6 +7,7 @@ import { TriangleAlert, X } from 'lucide-react'
 import { Icone } from '@/componentes/icone'
 
 import { formatarData } from '@/lib/datas'
+import { marcarFormularioGravado } from '@/lib/formulario-alterado'
 
 import {
   buscarFiliaisFornecedor,
@@ -81,8 +82,17 @@ function FormularioProduto({
   const linhas = new Set(p?.linhas.map((l) => l.linha_id) ?? [])
   const condicoes = new Set(p?.condicoes.map((c) => c.condicao_id) ?? [])
 
+  // Base do "tem alteração não gravada?" (lib/formulario-alterado): o que o formulário tinha ao
+  // abrir e, depois, o que acabou de ser gravado. Resposta com erro NÃO vira base — o que foi
+  // digitado continua pendente.
+  const formRef = useRef<HTMLFormElement>(null)
+  useEffect(() => {
+    if (estado.ok || (!estado.erro && !estado.parecidos)) marcarFormularioGravado(formRef.current)
+  }, [estado])
+
   return (
     <form
+      ref={formRef}
       id="form-produto"
       className="pf-form"
       noValidate

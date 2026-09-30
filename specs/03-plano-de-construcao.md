@@ -458,3 +458,19 @@ seis itens.
 
 Commit em português, formato convencional, um por passo lógico. Uma branch por frente, `main`
 sempre publicável.
+
+---
+
+## 10. Fase posterior — celular (adiada em 30/09/2026)
+
+Decisão do dono: o app é **web, para desktop**. Responsividade e QA em celular saem do escopo atual e
+entram aqui, para depois do corte:
+
+- revisar cada tela em 390px e 768px (kanban, cotação em tela cheia, painéis laterais, tabelas largas,
+  relatórios com gráfico);
+- decidir o que no celular vira leitura e o que continua operável;
+- voltar a captura de celular para a regra 7 do `CLAUDE.md`.
+
+O que já existe de responsivo (casca, cadastros, formulário público) fica como está; nenhum trabalho novo
+de responsividade até esta fase.
+

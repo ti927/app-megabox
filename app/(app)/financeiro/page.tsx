@@ -13,6 +13,7 @@ import {
   parametrosVencidos,
   STATUS,
 } from '@/lib/financeiro'
+import { fotosDeGrupos } from '@/lib/fotos-lote'
 import { clienteServidor } from '@/lib/supabase/servidor'
 
 import { TelaFinanceiro } from './tela'
@@ -193,9 +194,13 @@ async function buscarContas(
     console.error('financeiro: lista', error)
     return { ...vazia, falhou: true }
   }
-  const linhas = pagar
-    ? await comNomesPagar(supabase, (data ?? []) as unknown as ContaPagar[])
-    : await comNomesReceber(supabase, (data ?? []) as unknown as ContaReceber[])
+  const brutas = (data ?? []) as unknown as (ContaPagar & ContaReceber)[]
+  // Logo do cliente (Bubble bTpPb/bTpLm) só das linhas desta página, junto com os nomes.
+  const [comNomes, fotos] = await Promise.all([
+    pagar ? comNomesPagar(supabase, brutas) : comNomesReceber(supabase, brutas),
+    fotosDeGrupos(brutas.map((l) => l.cliente_id)),
+  ])
+  const linhas = comNomes.map((l) => ({ ...l, cliente_foto: l.cliente_id ? (fotos.get(l.cliente_id) ?? null) : null }))
   // Sem resumo, a paginação conta só o que se sabe que existe (até esta página).
   const total = totais.falhou ? de + linhas.length : totais.qtd
   return { linhas, total, falhou: false, totais } as ListaContas<ContaReceber> | ListaContas<ContaPagar>
@@ -261,7 +266,7 @@ async function buscarEntregas(supabase: Supabase, f: FiltrosFinanceiro) {
   let q = supabase
     .from('entregas')
     .select(
-      'id, numero_entrega, status_id, qtd::text, dt_prev_entrega, valor_venda_bruto::text, ' +
+      'id, numero_entrega, status_id, qtd::text, dt_prev_entrega, valor_venda_bruto::text, cliente_id, ' +
         'valor_comissao::text, nf_fornecedor_numero, pedido:pedidos(numero, prazos:pedido_prazos(prazo_id)), ' +
         'cliente:grupos_clifor!cliente_id(nome), fornecedor:grupos_clifor!fornecedor_id(nome), ' +
         'vendedor:usuarios!vendedor_id(nome), orcamento:orcamentos_fornecedor(produto:produtos(nome))',
@@ -281,7 +286,13 @@ async function buscarEntregas(supabase: Supabase, f: FiltrosFinanceiro) {
     console.error('financeiro: entregas', error)
     return { linhas: [], total: 0, falhou: true }
   }
-  return { linhas: (data ?? []) as unknown as EntregaPendente[], total: count ?? 0, falhou: false }
+  const linhas = (data ?? []) as unknown as EntregaPendente[]
+  const fotos = await fotosDeGrupos(linhas.map((l) => l.cliente_id))
+  return {
+    linhas: linhas.map((l) => ({ ...l, cliente_foto: fotos.get(l.cliente_id) ?? null })),
+    total: count ?? 0,
+    falhou: false,
+  }
 }
 
 async function buscarOpcoes(supabase: Supabase, comPrazos: boolean): Promise<Opcoes> {

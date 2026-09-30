@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 
+import { Foto } from '@/componentes/foto'
 import { Icone } from '@/componentes/icone'
 import { formatarData } from '@/lib/datas'
 import {
@@ -35,6 +36,21 @@ import type {
 } from './tipos'
 
 type Navegar = (mudancas: Partial<FiltrosFinanceiro>) => void
+
+function iniciais(nome: string) {
+  const partes = nome.trim().split(/\s+/)
+  return ((partes[0]?.[0] ?? '') + (partes.length > 1 ? (partes[1]?.[0] ?? '') : '')).toUpperCase() || '?'
+}
+
+/** Célula do cliente com a logo à esquerda (Bubble: `upi novocliente logo` bTpPb/bTpLm). */
+function ComLogo({ nome, foto, children }: { nome: string; foto: string | null | undefined; children: React.ReactNode }) {
+  return (
+    <div className="fin-cliente">
+      <Foto url={foto} nome={nome} className="fin-logo" iniciais={iniciais(nome)} />
+      <div>{children}</div>
+    </div>
+  )
+}
 
 const ABAS: { id: Aba; rotulo: string }[] = [
   { id: 'receber', rotulo: 'Contas a receber' },
@@ -378,9 +394,11 @@ function TabelaReceber({
                 </span>
               </td>
               <td data-rotulo="Cliente">
-                <strong>{l.cliente_nome}</strong>
-                <br />
-                <span className="fin-sub">Filial: {l.filial_destino}</span>
+                <ComLogo nome={l.cliente_nome} foto={l.cliente_foto}>
+                  <strong>{l.cliente_nome}</strong>
+                  <br />
+                  <span className="fin-sub">Filial: {l.filial_destino}</span>
+                </ComLogo>
               </td>
               <td data-rotulo="Fornecedor / Produto">
                 <strong>{l.fornecedor_nome}</strong>
@@ -481,11 +499,13 @@ function TabelaPagar({
                 </span>
               </td>
               <td data-rotulo="Cliente / Fornecedor">
-                <strong>{l.cliente_nome}</strong>
-                <br />
-                <span className="fin-sub">Fornecedor: {l.fornecedor_nome}</span>
-                <br />
-                <span className="fin-sub">NF fornec.: {l.nf_fornecedor_numero ?? '—'}</span>
+                <ComLogo nome={l.cliente_nome} foto={l.origem === 'meta' ? null : l.cliente_foto}>
+                  <strong>{l.cliente_nome}</strong>
+                  <br />
+                  <span className="fin-sub">Fornecedor: {l.fornecedor_nome}</span>
+                  <br />
+                  <span className="fin-sub">NF fornec.: {l.nf_fornecedor_numero ?? '—'}</span>
+                </ComLogo>
               </td>
               <td data-rotulo="Valores" className="fin-num numero">
                 <span className="fin-sub">Comissão MegaBox {reais(l.valor_base)}</span>
@@ -781,7 +801,11 @@ function PainelEntregas({
                       Entrega {e.numero_entrega ?? '—'} · {e.vendedor?.nome ?? '—'}
                     </span>
                   </td>
-                  <td data-rotulo="Cliente">{e.cliente?.nome ?? '—'}</td>
+                  <td data-rotulo="Cliente">
+                    <ComLogo nome={e.cliente?.nome ?? '—'} foto={e.cliente_foto}>
+                      {e.cliente?.nome ?? '—'}
+                    </ComLogo>
+                  </td>
                   <td data-rotulo="Fornecedor / Produto">
                     <strong>{e.fornecedor?.nome ?? '—'}</strong>
                     <br />

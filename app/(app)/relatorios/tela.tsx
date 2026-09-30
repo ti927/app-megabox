@@ -146,6 +146,7 @@ export function TelaRelatorios({
         ) : dados.aba === 'prospeccao' ? (
           <AbaProspeccao
             painel={dados.painel}
+            fotos={dados.fotos}
             filtro={{ ano, mes, vendedor: filtros.vendedor }}
             anoCorrente={anoCorrente}
             vendedores={vendedores}

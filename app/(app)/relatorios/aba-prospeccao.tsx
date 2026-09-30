@@ -28,6 +28,8 @@ import {
   type VendedorProspeccao,
 } from '@/lib/relatorios-paineis'
 
+import { Foto } from '@/componentes/foto'
+
 import { Anel, Colunas } from './graficos'
 import { CabecalhoRelatorio, Kpi, Vazio } from './pecas'
 import type { Vendedor } from './tipos'
@@ -42,6 +44,7 @@ function Destaque({
   Icone,
   categoria,
   quem,
+  foto,
   meta,
   valor,
   unidade,
@@ -50,6 +53,7 @@ function Destaque({
   Icone: typeof Trophy
   categoria: string
   quem: VendedorProspeccao | null
+  foto: string | undefined
   meta: string
   valor: string
   unidade: string
@@ -60,9 +64,13 @@ function Destaque({
         <Icone size={14} aria-hidden /> {categoria}
       </span>
       <div className="rel-vencedor-pessoa">
-        <span className="rel-avatar rel-avatar-g" data-tom={tom === 'ouro' ? 'ouro' : tom} aria-hidden>
-          {quem ? iniciais(quem.nome) : '—'}
-        </span>
+        {quem ? (
+          <Foto url={foto} nome={quem.nome} className="rel-avatar rel-avatar-g" tom={tom} iniciais={iniciais(quem.nome)} />
+        ) : (
+          <span className="rel-avatar rel-avatar-g" data-tom={tom} aria-hidden>
+            —
+          </span>
+        )}
         <div>
           <b>{quem?.nome ?? '—'}</b>
           <small>{meta}</small>
@@ -78,6 +86,7 @@ function Destaque({
 
 export function AbaProspeccao({
   painel,
+  fotos,
   filtro,
   anoCorrente,
   vendedores,
@@ -88,6 +97,7 @@ export function AbaProspeccao({
   aoAtualizar,
 }: {
   painel: PainelProspeccao | null
+  fotos: Record<string, string>
   filtro: FiltroProspeccao
   anoCorrente: number
   vendedores: Vendedor[]
@@ -197,6 +207,7 @@ export function AbaProspeccao({
               Icone={Trophy}
               categoria="Mais propostas enviadas"
               quem={d.enviadas}
+              foto={d.enviadas ? fotos[d.enviadas.vendedor_id] : undefined}
               meta={d.enviadas ? `${umaCasa(d.enviadas.media_dia)} por dia útil` : ''}
               valor={d.enviadas ? String(d.enviadas.enviadas) : '—'}
               unidade="enviadas"
@@ -206,6 +217,7 @@ export function AbaProspeccao({
               Icone={Users}
               categoria="Mais clientes prospectados"
               quem={d.clientes}
+              foto={d.clientes ? fotos[d.clientes.vendedor_id] : undefined}
               meta={d.clientes ? `de ${d.clientes.carteira} na carteira` : ''}
               valor={d.clientes ? String(d.clientes.clientes) : '—'}
               unidade="clientes"
@@ -215,6 +227,7 @@ export function AbaProspeccao({
               Icone={Target}
               categoria="Melhor cobertura"
               quem={d.cobertura}
+              foto={d.cobertura ? fotos[d.cobertura.vendedor_id] : undefined}
               meta={d.cobertura ? `${d.cobertura.clientes} de ${d.cobertura.carteira} clientes` : ''}
               valor={d.cobertura ? String(Math.round(d.cobertura.cobertura * 100)) : '—'}
               unidade="%"
@@ -257,9 +270,13 @@ export function AbaProspeccao({
                         </td>
                         <th scope="row">
                           <span className="rel-quem">
-                            <span className="rel-avatar" data-tom={TOM_AVATAR[i % TOM_AVATAR.length]} aria-hidden>
-                              {iniciais(v.nome)}
-                            </span>
+                            <Foto
+                              url={fotos[v.vendedor_id]}
+                              nome={v.nome}
+                              className="rel-avatar"
+                              tom={TOM_AVATAR[i % TOM_AVATAR.length]}
+                              iniciais={iniciais(v.nome)}
+                            />
                             {v.nome}
                           </span>
                         </th>

@@ -7,6 +7,9 @@
 
 type Nome = { nome: string } | null
 
+/** Foto (logo) do cliente no avatar do cartão: URL assinada curta, ou ausente → iniciais. */
+type FotoCliente = { cliente_id?: string | null; cliente_foto?: string | null }
+
 /** Uma linha de `v_kanban_cotacoes` (db/015): contadores e total já calculados no banco. */
 export type CartaoCotacao = {
   id: string
@@ -24,7 +27,7 @@ export type CartaoCotacao = {
   /** soma do bruto dos vencedores; null sem vencedor (015 D3) */
   total_bruto_vencedores: string | null
   pode_propor: boolean
-}
+} & FotoCliente
 
 export type EntregaResumo = {
   id: string
@@ -52,7 +55,7 @@ export type CartaoPedido = {
   /** há entrega e todas em etapa concluída (015 D5) — o cartão verde */
   todas_concluidas: boolean
   entregas: EntregaResumo[]
-}
+} & FotoCliente
 
 /** Uma linha de `v_kanban_entregas` (db/009). */
 export type CartaoEntrega = {
@@ -74,7 +77,7 @@ export type CartaoEntrega = {
   vendedor_substituto_id: string | null
   papel: 'proprio' | 'substituto' | 'equipe'
   vendedor_nome: string | null
-}
+} & FotoCliente
 
 export type ColunaDados<T> = { cartoes: T[]; total: number; falhou: boolean }
 
@@ -247,6 +250,8 @@ export type Ficha = {
   destinos: { id: string; nome_endereco: string; uf: string; municipio: string | null }[]
   /** alguma parte não carregou (timeout/rede): a tela avisa em vez de mostrar lista vazia */
   incompleta: boolean
+  /** foto (logo) do cliente: URL assinada curta; ausente → iniciais */
+  clienteFoto?: string | null
 }
 
 // ------------------------------------------------------------------------ opções

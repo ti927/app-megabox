@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 
+import { urlsDeLinhas } from '@/lib/arquivos-lote'
 import { exigirAcesso } from '@/lib/autorizacao'
+import { VALIDADE_FOTO_S } from '@/lib/fotos-lote'
 import { type FiltrosRelatorio, hojeSaoPaulo, lerFiltros, limitesSaoPaulo } from '@/lib/relatorios'
 import { type Extras, lerExtras, limitesDoMes, mesAnoDe } from '@/lib/relatorios-paineis'
 import { clienteServidor } from '@/lib/supabase/servidor'
@@ -102,8 +104,22 @@ async function buscar(
 
   const painel = await supabase.rpc('fn_rel_prospeccao_painel', { p_ano: ano, p_mes: mes, p_vendedor: f.vendedor })
   if (painel.error) console.error('relatorios: prospecção', painel.error)
+  const dadosPainel = (painel.data ?? null) as PainelProspeccao | null
+  // Fotos de quem está no ranking/destaques: a RPC já trouxe o caminho (pela sessão), então é
+  // só UMA assinatura em lote no Storage — nenhuma consulta a mais no banco.
+  const vendedores = dadosPainel?.vendedores ?? []
+  const urls = await urlsDeLinhas(
+    'usuarios',
+    vendedores.map((v) => ({ donoId: v.vendedor_id, path: v.foto_path })),
+    VALIDADE_FOTO_S,
+  )
+  const fotos: Record<string, string> = {}
+  for (const v of vendedores) {
+    const url = v.foto_path ? urls.get(v.foto_path) : undefined
+    if (url) fotos[v.vendedor_id] = url
+  }
   return {
-    dados: { aba: 'prospeccao', painel: (painel.data ?? null) as PainelProspeccao | null },
+    dados: { aba: 'prospeccao', painel: dadosPainel, fotos },
     falhou: !!painel.error,
   }
 }

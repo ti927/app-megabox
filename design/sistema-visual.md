@@ -68,7 +68,7 @@ CSS por rota. Sem Tailwind (CLAUDE.md, Stack). Referência do Bubble:
 | `--sobre-laranja` | #2b1d00 | texto sobre o laranja sólido | — |
 | `--fundo` / `--fundo-2` / `--superficie` | #fff / #f5f7fb / #fff | página, calha, cartão | branco |
 | `--cabecalho-fundo` | #f1f6f5 | faixa do cabeçalho | cinza-esverdeado claro |
-| `--texto` / `--texto-2` / `--texto-3` | #1c2230 / #4f586a / #626b7e | texto, secundário, terciário | — |
+| `--texto` / `--texto-2` / `--texto-3` | #1c2230 / #4f586a / #5a6376 | texto, secundário, terciário | — |
 | `--borda` / `--borda-forte` / `--borda-campo` | #e1e5ec / #c3cad6 / #8c95a6 | divisória, contorno, campo | — |
 
 ### Escuro — preto/grafite + roxo MegaBox
@@ -107,9 +107,11 @@ arredondar antes do fim). Texto normal exige 4,5:1; texto grande e componente de
 | `--texto-2` #4f586a | #fff | **7,15** | rótulo, meta |
 | `--texto-2` | `--azul-claro` #eef3fb | **6,42** | meta dentro de linha |
 | `--texto-2` | `--lilas-cabeca` #e7e5f0 | **5,74** | cabeçalho de tabela, contador de coluna |
-| `--texto-3` #626b7e | #fff | **5,35** | placeholder, nota |
-| `--texto-3` | `--azul-claro` | **4,80** | nota dentro de linha |
-| `--texto-3` | `--fundo-2` #f5f7fb | **4,99** | nota na calha |
+| `--texto-3` #5a6376 | #fff | **6,03** | placeholder, nota, data vazia |
+| `--texto-3` | `--azul-claro` | **5,41** | nota dentro de linha |
+| `--texto-3` | `--fundo-2` #f5f7fb | **5,62** | nota na calha |
+| `--texto-3` | `--lilas-cabeca` #e7e5f0 / `--azul-medio` #dfe8f8 | **4,84** / **4,89** | cabeçalho de tabela, linha selecionada |
+| `--texto-3` | `--lilas` #e4e0f6 | **4,68** | chip |
 | branco | `--azul` #2c66e0 | **5,14** | botão primário, pílula ligada, avatar |
 | branco | `--azul-escuro` #2154c2 | **6,75** | botão primário em hover |
 | `--azul` | #fff | **5,14** | link, botão secundário, data |
@@ -133,6 +135,7 @@ arredondar antes do fim). Texto normal exige 4,5:1; texto grande e componente de
 | `--texto` | `--lilas-cabeca` #1f1d25 / `--azul-medio` #2e2240 | **14,15** / **12,57** |
 | `--texto-2` #b6b6c0 | `--superficie` / `--lilas-cabeca` | **8,63** / **8,28** |
 | `--texto-3` #9696a2 | `--superficie` / `--fundo-2` / `--azul-claro` | **5,93** / **6,29** / **5,71** |
+| `--texto-3` #9696a2 | `--lilas-cabeca` / `--azul-medio` | **5,70** / **5,06** |
 | `--sobre-azul` #160a22 | `--azul` #a66be3 / `--azul-escuro` #bb8cee | **5,30** / **7,36** |
 | `--azul` #a66be3 | `--fundo` / `--superficie` / `--menu-fundo` / `--azul-claro` | **5,32** / **4,82** / **5,15** / **4,63** |
 | `--azul-escuro` #bb8cee | `--azul-medio` / `--lilas` | **5,71** / **5,81** |
@@ -158,7 +161,8 @@ No claro, o roxo novo: `--roxo` #720187 sobre #fff / `--lilas` / `--cabecalho-fu
 | branco sobre `--laranja` | ~2 | o texto do botão laranja é `--sobre-laranja` |
 
 Correções desta revisão: `--texto-3` desceu de #677083 para #626b7e (dava 4,46:1 sobre
-`--azul-claro`); o gradiente do avatar começa em #2c66e0 em vez de #3d78f3 (branco 5,14:1).
+`--azul-claro`) e, na auditoria de 30/09 (G5), para #5a6376 — #626b7e dava 4,30 sobre
+`--lilas-cabeca` e 4,34 sobre `--azul-medio`; o gradiente do avatar começa em #2c66e0 em vez de #3d78f3 (branco 5,14:1).
 
 ## Tipografia
 
@@ -179,6 +183,11 @@ Escala 1,2 (terça menor), ancorada em 16 px:
 | `--t-lg` | 20 px | título de seção, de diálogo e de coluna do kanban |
 | `--t-xl` | 26 px | título de página (`h1`) |
 
+**No desktop (≥ 64rem) a escala sobe um degrau** (auditoria G3, `estilos/tokens.css`,
+"tipografia no desktop"). O app roda com `zoom: 0,75` (`estilos/base.css`), então 13 px viravam
+9,75 px reais. Valores no desktop: `--t-xs` 15 · `--t-sm` 16 · `--t-md` 18 · `--t-lg` 22 ·
+`--t-xl` 28 px — na tela, 11,25 · 12 · 13,5 · 16,5 · 21 px. Mesmos nomes; as telas não mudam.
+
 Pesos: 400 corpo, `--peso-medio` 600 (rótulo, botão, "Vendedor:"), `--peso-forte` 700 (títulos,
 nome de cliente em CAIXA ALTA — a caixa alta é do Bubble e fica, porque é o nome como o usuário
 reconhece o cartão).
@@ -192,6 +201,25 @@ reconhece o cartão).
 - **Elevação:** `--sombra-1` cartão parado, `--sombra-2` cartão em hover / menu, `--sombra-3`
   diálogo. No escuro as sombras ficam mais densas porque sombra clara não aparece.
 - **Alvo de toque:** controles com 40 px no desktop e 44 px até 48rem.
+
+## Abas
+
+Um estilo só: `.abas` (`estilos/componentes.css`) — sublinhada, ativa em `--azul` com traço de
+3 px. Vale para abas de conteúdo (`role="tablist"` + `aria-selected`) e de navegação
+(`aria-current="page"`, em `<a>` ou `<button>`). Ícone e contador (`.abas-qtd`) alinham sozinhos.
+Variantes: `.abas-rente` (na página, sem o recuo de diálogo/painel) e `.abas-sem-linha`. Rotas
+não redefinem aba (a auditoria G9 achou cinco estilos, incluindo o segmentado de /financeiro).
+
+## Período (`SeletorPeriodo`)
+
+Filtro de intervalo de datas = `componentes/seletor-periodo.tsx`, nunca dois `<input type="date">`
+soltos. Botão "01/09/2026 - 30/09/2026" que abre atalhos (Hoje, Ontem, Últimos 7/30 dias, Este
+mês, Mês passado, Este ano, Personalizado) e dois meses lado a lado, semana na segunda, "hoje" no
+fuso de São Paulo. Lógica em `lib/periodo.ts` (testada). API:
+`<SeletorPeriodo de ate onChange={(de, ate) => …} nomeDe nomeAte rotulo vazio limpavel desabilitado />`
+— controlado, ou dentro de `<form method="get">` com `nomeDe`/`nomeAte` (inputs hidden). Num
+`div.campo` ele ocupa duas colunas da grade de filtros. Campo de data avulso vazio mostra a
+máscara em `--texto-3`, não na cor de ação (G4).
 
 ## Estados
 

@@ -45,7 +45,7 @@ export function CabecalhoRelatorio({
       </div>
       <div className="rel-cabecalho-acoes">
         <span className="rel-chip" title="Hora em que estes números foram calculados">
-          <CalendarCheck size={14} aria-hidden />
+          <CalendarCheck size={16} aria-hidden />
           Atualizado {horaDe(geradoEm)}
         </span>
         <button type="button" className="botao-primario rel-botao-icone" onClick={aoAtualizar} disabled={atualizando} aria-busy={atualizando}>
@@ -64,7 +64,7 @@ export function Secao({ id, Icone, titulo, children }: { id: string; Icone: Luci
     <section className="rel-secao" aria-labelledby={`${id}-t`}>
       <div className="rel-secao-rotulo">
         <h3 id={`${id}-t`}>
-          <Icone size={15} aria-hidden />
+          <Icone size={16} aria-hidden />
           {titulo}
         </h3>
         <button
@@ -75,7 +75,7 @@ export function Secao({ id, Icone, titulo, children }: { id: string; Icone: Luci
           onClick={() => setAberta((a) => !a)}
           title={aberta ? 'Recolher' : 'Expandir'}
         >
-          {aberta ? <Minus size={14} aria-hidden /> : <Plus size={14} aria-hidden />}
+          {aberta ? <Minus size={16} aria-hidden /> : <Plus size={16} aria-hidden />}
           <span className="so-leitor">{aberta ? 'Recolher' : 'Expandir'} {titulo}</span>
         </button>
       </div>
@@ -119,7 +119,7 @@ export function Cartao({
         {acao ??
           (etiqueta ? (
             <span className="rel-etiqueta">
-              <etiqueta.Icone size={12} aria-hidden />
+              <etiqueta.Icone size={16} aria-hidden />
               {etiqueta.texto}
             </span>
           ) : null)}
@@ -153,7 +153,7 @@ export function Kpi({
     <div className="rel-kpi" data-tom={tom}>
       {ajuda ? (
         <span className="rel-ajuda" title={ajuda}>
-          <Info size={14} aria-hidden />
+          <Info size={16} aria-hidden />
           <span className="so-leitor">{ajuda}</span>
         </span>
       ) : null}
@@ -196,7 +196,7 @@ export function Paginacao({ atual, total, aoIr }: { atual: number; total: number
         Página {atual} de {total}
       </span>
       <button type="button" onClick={() => aoIr(atual - 1)} disabled={atual <= 1}>
-        <ChevronLeft size={14} aria-hidden /> Ant.
+        <ChevronLeft size={16} aria-hidden /> Ant.
       </button>
       {botoesPagina(atual, total).map((p, i) =>
         p === '…' ? (
@@ -210,7 +210,7 @@ export function Paginacao({ atual, total, aoIr }: { atual: number; total: number
         ),
       )}
       <button type="button" onClick={() => aoIr(atual + 1)} disabled={atual >= total}>
-        Próx. <ChevronRight size={14} aria-hidden />
+        Próx. <ChevronRight size={16} aria-hidden />
       </button>
     </nav>
   )
@@ -219,7 +219,7 @@ export function Paginacao({ atual, total, aoIr }: { atual: number; total: number
 export function Vazio({ Icone, texto }: { Icone: LucideIcon; texto: string }) {
   return (
     <div className="rel-vazio" data-teste="relatorio-vazio">
-      <Icone size={28} aria-hidden />
+      <Icone size={24} aria-hidden />
       <span>{texto}</span>
     </div>
   )

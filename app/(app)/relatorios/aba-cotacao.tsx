@@ -1,7 +1,6 @@
 'use client'
 
 import {
-  Archive,
   ArrowDown,
   ArrowUp,
   BadgeDollarSign,
@@ -16,7 +15,6 @@ import {
   Filter,
   FolderClosed,
   FolderOpen,
-  Hash,
   Inbox,
   Info,
   Layers,
@@ -136,7 +134,7 @@ export function AbaCotacao({
 
       <form className="rel-filtros-cartao" onSubmit={aplicar} aria-label="Filtros do relatório de cotações">
         <span className="rel-filtros-marca" aria-hidden>
-          <SlidersHorizontal size={17} />
+          <SlidersHorizontal size={18} />
           Filtros
         </span>
         <label className="campo rel-campo">
@@ -164,9 +162,7 @@ export function AbaCotacao({
           </select>
         </label>
         <label className="campo rel-campo">
-          <span>
-            <Archive size={12} aria-hidden /> Arquivado
-          </span>
+          <span>Arquivado</span>
           <select
             value={rascunho.arquivado ?? ''}
             onChange={(e) => setRascunho({ ...rascunho, arquivado: (e.target.value || null) as FiltroCotacao['arquivado'] })}
@@ -178,9 +174,7 @@ export function AbaCotacao({
         </label>
         {veTodos ? (
           <label className="campo rel-campo">
-            <span>
-              <UserRound size={12} aria-hidden /> Vendedor
-            </span>
+            <span>Vendedor</span>
             <select value={rascunho.vendedor ?? ''} onChange={(e) => setRascunho({ ...rascunho, vendedor: e.target.value || null })}>
               <option value="">Todos</option>
               {vendedores.map((v) => (
@@ -232,7 +226,7 @@ export function AbaCotacao({
           titulo="Melhor Vendedor do Mês"
           acao={
             <button type="button" className="rel-etiqueta rel-etiqueta-botao" aria-expanded={verRanking} onClick={() => setVerRanking((v) => !v)}>
-              {verRanking ? <X size={12} aria-hidden /> : <ListOrdered size={12} aria-hidden />}
+              {verRanking ? <X size={16} aria-hidden /> : <ListOrdered size={16} aria-hidden />}
               {verRanking ? 'Ocultar ranking' : 'Ver ranking'}
             </button>
           }
@@ -240,21 +234,21 @@ export function AbaCotacao({
           <div className="rel-podio">
             <div className="rel-pod" data-tom="verde">
               <span className="rel-pod-cat">
-                <BadgeDollarSign size={14} aria-hidden /> Maior faturamento
+                <BadgeDollarSign size={16} aria-hidden /> Maior faturamento
               </span>
               <b>{destaque.faturamento ? nomeCurto(destaque.faturamento.nome) : '—'}</b>
               <span>{destaque.faturamento ? formatarReais(destaque.faturamento.faturamento) : 'sem dados de valor'}</span>
             </div>
             <div className="rel-pod" data-tom="azul">
               <span className="rel-pod-cat">
-                <Layers size={14} aria-hidden /> Maior volume de cotações
+                <Layers size={16} aria-hidden /> Maior volume de cotações
               </span>
               <b>{destaque.volume ? nomeCurto(destaque.volume.nome) : '—'}</b>
               <span>{destaque.volume ? `${destaque.volume.total} cotações` : '—'}</span>
             </div>
             <div className="rel-pod" data-tom="roxo">
               <span className="rel-pod-cat">
-                <Target size={14} aria-hidden /> Melhor conversão
+                <Target size={16} aria-hidden /> Melhor conversão
               </span>
               <b>{destaque.conversao ? nomeCurto(destaque.conversao.nome) : '—'}</b>
               <span>
@@ -324,7 +318,7 @@ export function AbaCotacao({
               atual && anterior && pp !== null ? (
                 <>
                   <span className="rel-variacao" data-sinal={pp >= 0 ? 'mais' : 'menos'}>
-                    {pp >= 0 ? <ArrowUp size={12} aria-hidden /> : <ArrowDown size={12} aria-hidden />}
+                    {pp >= 0 ? <ArrowUp size={16} aria-hidden /> : <ArrowDown size={16} aria-hidden />}
                     {Math.abs(pp)} p.p.
                   </span>
                   {' · '}
@@ -443,7 +437,7 @@ export function AbaCotacao({
                   {' | '}
                   {MESES_NOME[filtro.mes - 2]}: {percentualInteiro(anterior.conversao)}{' '}
                   <span className="rel-variacao" data-sinal={pp >= 0 ? 'mais' : 'menos'}>
-                    {pp >= 0 ? <ArrowUp size={12} aria-hidden /> : <ArrowDown size={12} aria-hidden />}
+                    {pp >= 0 ? <ArrowUp size={16} aria-hidden /> : <ArrowDown size={16} aria-hidden />}
                     {Math.abs(pp)} p.p.
                   </span>
                 </>
@@ -530,31 +524,20 @@ export function AbaCotacao({
             </h4>
             <span className="rel-contagem">{totalDetalhe} registro(s)</span>
           </div>
-          <div className="rel-rolagem">
+          <div className="rel-rolagem rel-rolagem-fixa">
             <table className="rel-tabela-dados">
               <thead>
                 <tr>
                   <th scope="col">
-                    <Hash size={12} aria-hidden />
                     <span className="so-leitor">Linha</span>
                   </th>
-                  <th scope="col">
-                    <FileText size={12} aria-hidden /> Nº Cotação
-                  </th>
-                  <th scope="col">
-                    <Layers size={12} aria-hidden /> Etapa
-                  </th>
+                  <th scope="col">Nº cotação</th>
+                  <th scope="col">Etapa</th>
                   <th scope="col">Status</th>
-                  <th scope="col">
-                    <Archive size={12} aria-hidden /> Arquivado
-                  </th>
-                  <th scope="col">Motivo Arq.</th>
-                  <th scope="col">
-                    <Calendar size={12} aria-hidden /> Validade
-                  </th>
-                  <th scope="col">
-                    <UserRound size={12} aria-hidden /> Vendedor
-                  </th>
+                  <th scope="col">Arquivado</th>
+                  <th scope="col">Motivo arq.</th>
+                  <th scope="col">Validade</th>
+                  <th scope="col">Vendedor</th>
                 </tr>
               </thead>
               <tbody>
@@ -577,14 +560,14 @@ export function AbaCotacao({
                         </th>
                         <td>
                           <span className="rel-marca" data-tom={ehPedido ? 'verde' : 'azul'}>
-                            {ehPedido ? <ShoppingCart size={11} aria-hidden /> : <FileText size={11} aria-hidden />}
+                            {ehPedido ? <ShoppingCart size={16} aria-hidden /> : <FileText size={16} aria-hidden />}
                             {c.etapa?.nome ?? '—'}
                           </span>
                         </td>
                         <td className="rel-suave">{c.status?.nome ?? '—'}</td>
                         <td>
                           <span className="rel-marca" data-tom={c.arquivado ? 'vermelho' : 'verde'}>
-                            {c.arquivado ? <FolderClosed size={11} aria-hidden /> : <FolderOpen size={11} aria-hidden />}
+                            {c.arquivado ? <FolderClosed size={16} aria-hidden /> : <FolderOpen size={16} aria-hidden />}
                             {c.arquivado ? 'Sim' : 'Não'}
                           </span>
                         </td>
@@ -592,7 +575,7 @@ export function AbaCotacao({
                         <td className="rel-suave">{c.data_validade ? formatarData(c.data_validade) : '—'}</td>
                         <td>
                           <span className="rel-vendedor">
-                            <UserRound size={12} aria-hidden />
+                            <UserRound size={16} aria-hidden />
                             {c.vendedor ? nomeCurto(c.vendedor.nome) : 'Não informado'}
                           </span>
                         </td>

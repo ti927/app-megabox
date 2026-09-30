@@ -105,7 +105,7 @@ export function TelaRelatorios({
             // Cotação e Prospecção são de um mês (R1): ao entrar nelas o período vira o mês do início.
             onClick={() => navegar(a.id === 'outros' ? { aba: a.id } : { aba: a.id, ...limitesDoMes(ano, mes) })}
           >
-            <a.Icone size={15} aria-hidden />
+            <a.Icone size={16} aria-hidden />
             {a.rotulo}
           </button>
         ))}

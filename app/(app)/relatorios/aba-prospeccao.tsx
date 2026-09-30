@@ -11,7 +11,6 @@ import {
   Target,
   Trophy,
   UserCheck,
-  UserRound,
   Users,
 } from 'lucide-react'
 
@@ -61,7 +60,7 @@ function Destaque({
   return (
     <div className="rel-vencedor" data-tom={tom}>
       <span className="rel-vencedor-cat">
-        <Icone size={14} aria-hidden /> {categoria}
+        <Icone size={16} aria-hidden /> {categoria}
       </span>
       <div className="rel-vencedor-pessoa">
         {quem ? (
@@ -130,7 +129,7 @@ export function AbaProspeccao({
       {/* O HTML D recalcula ao trocar o select, sem botão de aplicar. */}
       <div className="rel-filtros-cartao" role="group" aria-label="Filtros do relatório de prospecção">
         <span className="rel-filtros-marca" aria-hidden>
-          <SlidersHorizontal size={17} />
+          <SlidersHorizontal size={18} />
           Filtros
         </span>
         <label className="campo rel-campo">
@@ -159,9 +158,7 @@ export function AbaProspeccao({
         </label>
         {veTodos ? (
           <label className="campo rel-campo rel-campo-largo">
-            <span>
-              <UserRound size={12} aria-hidden /> Vendedor
-            </span>
+            <span>Vendedor</span>
             <select
               value={filtro.vendedor ?? ''}
               disabled={pendente}
@@ -198,7 +195,7 @@ export function AbaProspeccao({
       {comDestaques ? (
         <section className="rel-bloco-titulado" aria-labelledby="rel-dest-t">
           <p className="rel-sobretitulo">
-            <Trophy size={14} aria-hidden /> Indicadores de performance
+            <Trophy size={16} aria-hidden /> Indicadores de performance
           </p>
           <h3 id="rel-dest-t">Destaques do mês</h3>
           <div className="rel-grade-3">
@@ -238,7 +235,7 @@ export function AbaProspeccao({
 
       <section className="rel-bloco-titulado" aria-labelledby="rel-rank-t">
         <p className="rel-sobretitulo">
-          <Award size={14} aria-hidden /> Ranking de prospecção
+          <Award size={16} aria-hidden /> Ranking de prospecção
         </p>
         <h3 id="rel-rank-t">Propostas e clientes da carteira — por vendedor</h3>
         <div className="rel-painel-cartao">
@@ -311,7 +308,7 @@ export function AbaProspeccao({
 
       <section className="rel-bloco-titulado" aria-labelledby="rel-dia-t">
         <p className="rel-sobretitulo">
-          <BarChart3 size={14} aria-hidden /> Volume diário
+          <BarChart3 size={16} aria-hidden /> Volume diário
         </p>
         <h3 id="rel-dia-t">
           Propostas enviadas por dia — {mesNome} {filtro.ano}

@@ -18,12 +18,13 @@
   box-shadow: var(--sombra-3);
   animation: painel-lateral-entra var(--dur-2) var(--curva);
 }
-.painel-lateral:focus {
+/* O contêiner não é controle: recebe foco só como último recurso (sem título) e não desenha
+ * contorno em volta do painel inteiro. O foco inicial vai para o título (tabindex=-1, não entra
+ * na ordem do Tab) — também sem contorno, como todo título focado por programa. Os controles
+ * dentro continuam com o anel de foco do tema. */
+.painel-lateral:focus,
+.painel-lateral [data-painel-foco-inicial]:focus {
   outline: none;
-}
-.painel-lateral:focus-visible {
-  outline: var(--foco);
-  outline-offset: -3px;
 }
 .painel-lateral[data-arrastando] {
   user-select: none;

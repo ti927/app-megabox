@@ -123,11 +123,24 @@ export function PainelLateral({
     [],
   )
 
-  // Foco: entra no painel ao abrir (se ninguém dentro já pegou, ex. autoFocus) e volta ao fechar.
+  // Foco: entra no painel ao abrir e volta ao fechar. Se ninguém dentro já pegou (ex.: autoFocus
+  // no primeiro campo), vai para o TÍTULO (aria-labelledby) — o leitor de tela anuncia o nome do
+  // painel e o próximo Tab já cai nos controles. Focar o contêiner inteiro desenhava o contorno
+  // de foco em volta do painel todo. O próprio painel só recebe foco se o título não existir.
+  const rotulo = useRef(rotuloId)
   useEffect(() => {
     const painel = ref.current
     const abridor = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    if (painel && !painel.contains(document.activeElement)) painel.focus({ preventScroll: true })
+    if (painel && !painel.contains(document.activeElement)) {
+      const titulo = document.getElementById(rotulo.current)
+      if (titulo && painel.contains(titulo)) {
+        if (!titulo.hasAttribute('tabindex')) titulo.setAttribute('tabindex', '-1')
+        titulo.dataset.painelFocoInicial = ''
+        titulo.focus({ preventScroll: true })
+      } else {
+        painel.focus({ preventScroll: true })
+      }
+    }
     return () => {
       const ativo = document.activeElement
       // Clique fora já levou o foco para outro lugar de propósito: não roubar.

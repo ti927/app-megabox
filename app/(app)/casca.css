@@ -6,7 +6,7 @@
  * ocupa toda a largura restante — nenhum max-width aqui. */
 
 .casca {
-  --altura-cabecalho: 3.75rem;
+  --altura-cabecalho: 4.5rem; /* cabe a logo de 56px (G7) */
   min-height: calc(100dvh / var(--escala));
   display: flex;
   flex-direction: column;
@@ -16,7 +16,8 @@
 .cabecalho {
   position: sticky;
   top: 0;
-  z-index: 20;
+  /* Acima do painel lateral (z 60, que começa logo abaixo): o menu da engrenagem abre por cima dele. */
+  z-index: 70;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -225,7 +226,7 @@
   top: 0.5rem;
   bottom: 0.5rem;
   width: 3px;
-  border-radius: 3px;
+  border-radius: var(--raio-pilula);
   background: transparent;
 }
 .menu a:hover {

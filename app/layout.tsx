@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { IBM_Plex_Sans } from 'next/font/google'
 import { cookies } from 'next/headers'
 
+import { CamposData } from '@/componentes/campos-data'
 import { atributoTema, COOKIE_TEMA, lerTema } from '@/componentes/tema'
 
 import '@/estilos/base.css'
@@ -37,7 +38,10 @@ export default async function LayoutRaiz({
 
   return (
     <html lang="pt-BR" className={fonteSans.variable} data-tema={atributoTema(tema)}>
-      <body>{children}</body>
+      <body>
+        <CamposData />
+        {children}
+      </body>
     </html>
   )
 }

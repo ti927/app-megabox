@@ -71,7 +71,7 @@ function LinhaAnexo({ anexo, podeApagar }: { anexo: Anexo; podeApagar: boolean }
             aria-busy={abrindo}
             data-teste="abrir-anexo"
           >
-            <ExternalLink size={14} aria-hidden="true" />
+            <ExternalLink size={16} aria-hidden="true" />
             {abrindo ? 'Abrindo…' : 'Abrir'}
           </button>
           {podeApagar ? (
@@ -85,7 +85,7 @@ function LinhaAnexo({ anexo, podeApagar }: { anexo: Anexo; podeApagar: boolean }
             >
               <input type="hidden" name="id" value={anexo.id} />
               <button type="submit" className="link anexo-apagar" disabled={apagando} data-teste="apagar-anexo">
-                <Trash2 size={14} aria-hidden="true" />
+                <Trash2 size={16} aria-hidden="true" />
                 {apagando ? 'Apagando…' : 'Apagar'}
               </button>
             </form>

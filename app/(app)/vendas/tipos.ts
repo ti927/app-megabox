@@ -177,7 +177,41 @@ export type Proposta = {
   faturar_para_endereco_id: string | null
   vendedor: Nome
   itens: PropostaItem[]
+  /** "Faturar para" (CNPJ do cliente) — cabeçalho do documento (bTace/bTacj/bTacl) */
+  faturar: { documento: string | null; municipio: string | null; uf: string; grupo: Nome } | null
+  /** "A/C" e telefone do contato do e-mail (bTacf/bTack) */
+  contato: { nome: string; telefone: string | null } | null
+  /** "CNPJ faturamento" do fornecedor (bTziU) */
+  fornecedor_cnpj: { documento: string | null; razao: string | null } | null
 }
+
+/**
+ * Linha de `v_proposta_documento_itens` (db/024): snapshot + descrição do orçamento, com o
+ * bruto do item e o total da proposta já somados NO BANCO. Dinheiro como texto.
+ */
+export type DocumentoItem = {
+  id: string
+  proposta_id: string
+  qtd: string
+  valor_venda_unit: string
+  valor_frete: string
+  aliquota_icms: string
+  aliquota_pis_cofins: string
+  medida: string | null
+  produto_nome: string | null
+  condicao_nome: string | null
+  linha_nome: string | null
+  frete_nome: string | null
+  fornecedor_nome: string | null
+  destino_municipio: string | null
+  destino_uf: string | null
+  valor_total_bruto: string
+  valor_unit_liquido: string
+  total_proposta: string
+}
+
+/** Empresa emissora da cotação: cabeçalho do documento (logo, e-mail, telefone). */
+export type EmpresaEmissora = { id: number; nome: string; email: string | null; telefone: string | null }
 
 export type Pedido = {
   id: string
@@ -252,6 +286,9 @@ export type Ficha = {
   incompleta: boolean
   /** foto (logo) do cliente: URL assinada curta; ausente → iniciais */
   clienteFoto?: string | null
+  /** itens do documento de TODAS as propostas da cotação (db/024), por proposta_id */
+  documentoItens: DocumentoItem[]
+  empresaEmissora: EmpresaEmissora | null
 }
 
 // ------------------------------------------------------------------------ opções

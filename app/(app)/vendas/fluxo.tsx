@@ -1,8 +1,9 @@
 'use client'
 
-import { X } from 'lucide-react'
+import { Plus, Truck, X } from 'lucide-react'
 import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
 
+import { Icone } from '@/componentes/icone'
 import { formatarData } from '@/lib/datas'
 import { formatarReais } from '@/lib/dinheiro'
 import { ETAPA, formatarDia, formatarQuantidade } from '@/lib/vendas'
@@ -30,6 +31,7 @@ import {
   salvarPedido,
   salvarProposta,
 } from './acoes-fluxo'
+import { DocumentoProposta } from './documento-proposta'
 import type { Contato, EntregaFicha, EstadoAcao, Ficha, Opcao, OpcoesFicha, Pedido, Proposta, PropostaItem } from './tipos'
 
 /*
@@ -355,9 +357,16 @@ export function AbaPropostas({ ficha, editavel, irParaPedidos }: { ficha: Ficha;
   const podePropor = editavel && c.etapa_id === ETAPA.COTACAO && temVencedor
   const comPedido = new Set(ficha.pedidos.filter((p) => p.etapa_id !== ETAPA.CANCELADO).map((p) => p.proposta_id))
   const propostaAberta = ficha.propostas.find((p) => p.id === aberta && !p.enviada)
+  // Rádio da tabela (bTagt/bTahD): qual proposta o documento à esquerda mostra. Sem escolha,
+  // a mais nova (a lista vem da mais nova para a mais antiga).
+  const [selecionada, setSelecionada] = useState<string | null>(null)
+  const exibida = ficha.propostas.find((p) => p.id === selecionada) ?? ficha.propostas[0] ?? null
 
   useEffect(() => {
-    if (estadoNova.alvo) setAberta(estadoNova.alvo)
+    if (estadoNova.alvo) {
+      setAberta(estadoNova.alvo)
+      setSelecionada(estadoNova.alvo)
+    }
   }, [estadoNova])
   useEffect(() => {
     if (estadoPedido.ok) irParaPedidos()
@@ -372,14 +381,43 @@ export function AbaPropostas({ ficha, editavel, irParaPedidos }: { ficha: Ficha;
   useMensagem(estadoPedido, setUltimo)
 
   return (
-    <div className="fluxo-aba">
+    <div className="fluxo-aba prop-layout">
+      <div className="prop-documento">
+        {exibida ? (
+          <>
+            {/* Alerta sobre a proposta exibida (bTahj). */}
+            <p className="aviso" data-tom={exibida.enviada ? undefined : 'alerta'}>
+              {exibida.enviada
+                ? 'A proposta selecionada já foi enviada e não permite edição. Caso precise alterar valores, edite a cotação e crie uma nova proposta.'
+                : 'A proposta selecionada NÃO foi enviada e ainda permite edição de informações. Caso precise alterar valores, edite a cotação antes de enviar.'}
+            </p>
+            <DocumentoProposta key={exibida.id} ficha={ficha} proposta={exibida} />
+          </>
+        ) : (
+          <div className="prop-documento-vazio">
+            <p>O documento da proposta aparece aqui.</p>
+            <p className="vendas-nota">
+              {podePropor ? 'Crie a primeira com “Proposta”.' : 'Marque os vencedores na aba Cotação para poder propor.'}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="prop-lista">
       <div className="itens-topo">
         <h3>Propostas ({ficha.propostas.length})</h3>
         {podePropor ? (
           <form onSubmit={enviarCom(criar)}>
             <input type="hidden" name="cotacao_id" value={c.id} />
             <button type="submit" className="botao-primario" disabled={criando} aria-busy={criando} data-teste="nova-proposta">
-              {criando ? 'Criando…' : '+ Proposta'}
+              {criando ? (
+                'Criando…'
+              ) : (
+                <>
+                  <Icone icone={Plus} tamanho={18} />
+                  Proposta
+                </>
+              )}
             </button>
           </form>
         ) : null}
@@ -396,25 +434,37 @@ export function AbaPropostas({ ficha, editavel, irParaPedidos }: { ficha: Ficha;
           <table className="orc-tabela vendas-propostas" data-teste="lista-propostas">
             <thead>
               <tr>
+                <th scope="col">
+                  <span className="so-leitor">Exibir</span>
+                </th>
                 <th scope="col">Núm</th>
                 <th scope="col">Situação</th>
                 <th scope="col">Produtos</th>
-                <th scope="col">Prev. entrega</th>
-                <th scope="col">Vendedor</th>
                 <th scope="col">Ações</th>
               </tr>
             </thead>
             <tbody>
               {ficha.propostas.map((p) => (
-                <tr key={p.id} data-teste="linha-proposta">
+                <tr key={p.id} data-teste="linha-proposta" data-exibida={p.id === exibida?.id || undefined}>
+                  <td>
+                    <input
+                      type="radio"
+                      name="proposta-exibida"
+                      className="prop-radio"
+                      checked={p.id === exibida?.id}
+                      onChange={() => setSelecionada(p.id)}
+                      aria-label={`Exibir a proposta ${c.numero}/${p.numero}`}
+                    />
+                  </td>
                   <th scope="row">
                     {c.numero}/{p.numero}
                     <small>{formatarData(p.criado_em)}</small>
                   </th>
                   <td>
                     <span className="selo" data-tom={p.enviada ? 'ok' : undefined}>
-                      {p.enviada ? `Enviada ${formatarData(p.enviada_em)}` : 'Não enviada'}
+                      {p.enviada ? 'Enviada' : 'Não enviada'}
                     </span>
+                    {p.enviada && p.enviada_em ? <small>{formatarData(p.enviada_em)}</small> : null}
                   </td>
                   <td>
                     {p.itens.map((i) => (
@@ -423,8 +473,6 @@ export function AbaPropostas({ ficha, editavel, irParaPedidos }: { ficha: Ficha;
                       </span>
                     ))}
                   </td>
-                  <td>{formatarDia(p.data_prev_entrega)}</td>
-                  <td>{p.vendedor?.nome ?? '—'}</td>
                   <td>
                     <div className="fluxo-acoes">
                       {!p.enviada && editavel ? (
@@ -456,6 +504,7 @@ export function AbaPropostas({ ficha, editavel, irParaPedidos }: { ficha: Ficha;
           </table>
         </div>
       )}
+      </div>
       {propostaAberta ? <DialogoProposta key={propostaAberta.id} proposta={propostaAberta} ficha={ficha} aoFechar={() => setAberta(null)} aoOk={setUltimo} /> : null}
     </div>
   )
@@ -947,7 +996,8 @@ export function AbaPedidos({ ficha, etapas, opcoesFicha }: { ficha: Ficha; etapa
                       </span>
                       {ativo && nova !== chave ? (
                         <button type="button" className="botao-texto" onClick={() => setNova(chave)} data-teste="nova-entrega">
-                          + entrega
+                          <Icone icone={Plus} tamanho={16} />
+                          entrega
                         </button>
                       ) : null}
                     </div>
@@ -1008,7 +1058,8 @@ export function AbaPedidos({ ficha, etapas, opcoesFicha }: { ficha: Ficha; etapa
                                       ) : null}
                                       {podeGravarSaida(e.status_id) && ativo ? (
                                         <button type="button" className="botao-texto" onClick={() => setAberto({ tipo: 'saida', id: e.id })} data-teste="abrir-saida">
-                                          🚚 NF / saída
+                                          <Icone icone={Truck} tamanho={16} />
+                                          NF / saída
                                         </button>
                                       ) : null}
                                       {podeCancelarEntrega(e.status_id) && ativo ? (

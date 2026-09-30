@@ -7,6 +7,7 @@ import {
   faixa,
   formatarPercentualExato,
   formatarReaisExato,
+  FILTROS_LIMPOS,
   lerFiltros,
   lerNumeroNf,
   lerResumo,
@@ -14,6 +15,7 @@ import {
   mesCorrente,
   paraCentavos,
   paraQuery,
+  temFiltroExtra,
   parametrosResumo,
   parametrosVencidos,
   resumoSelecao,
@@ -126,12 +128,31 @@ describe('filtros', () => {
         cliente: 'acme',
         pag: '3',
         arquivados: 'sim',
+        filial: '0B2F0B7E-1C1D-4F7A-9E55-6A1C2B3D4E5F',
+        nffornecedor: '2361',
+        nfmegabox: '1161',
+        cobranca: '0519',
       },
       agora,
     )
+    expect(f).toMatchObject({
+      filial: '0b2f0b7e-1c1d-4f7a-9e55-6a1c2b3d4e5f',
+      nfFornecedor: '2361',
+      nfMegabox: '1161',
+      cobranca: '519',
+    })
+    expect(temFiltroExtra(f)).toBe(true)
     const q = paraQuery(f)
     expect(lerFiltros(Object.fromEntries(new URLSearchParams(q.slice(1))), agora)).toEqual(f)
     expect(paraQuery(f, { pagina: 1 })).not.toContain('pag=')
+  })
+
+  it('filtros novos: entrada inválida cai no vazio; Limpar zera tudo menos o período', () => {
+    const f = lerFiltros({ filial: 'x', cobranca: '12a', de: '2026-01-01', ate: '2026-01-31', cliente: 'acme' }, agora)
+    expect(f).toMatchObject({ filial: null, cobranca: '', nfFornecedor: '', nfMegabox: '' })
+    expect(temFiltroExtra(f)).toBe(false)
+    const limpo = lerFiltros(Object.fromEntries(new URLSearchParams(paraQuery(f, FILTROS_LIMPOS).slice(1))), agora)
+    expect(limpo).toMatchObject({ cliente: '', de: '2026-01-01', ate: '2026-01-31', data: 'entrega' })
   })
 
   it('coluna de data por aba (tipo inexistente na CP cai no vencimento)', () => {

@@ -3,13 +3,26 @@
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  CircleDollarSign,
+  FileCheck,
+  FileSpreadsheet,
+  FilterX,
+  List,
+  ListChecks,
+  type LucideIcon,
+  Send,
+} from 'lucide-react'
 
 import { Foto } from '@/componentes/foto'
 import { Icone } from '@/componentes/icone'
+import { SeletorPeriodo } from '@/componentes/seletor-periodo'
 import { formatarData } from '@/lib/datas'
 import {
   type Aba,
+  FILTROS_LIMPOS,
   type FiltrosFinanceiro,
   formatarReaisExato as reais,
   hojeSP,
@@ -22,6 +35,7 @@ import {
   totalPaginas,
 } from '@/lib/financeiro'
 
+import { exportarRelatorio } from './acoes'
 import { DialogoBaixaLote, DialogoCobranca, DialogoConfirmarEntrega, FichaContaDialogo } from './dialogo'
 import type {
   ContaPagar,
@@ -31,11 +45,12 @@ import type {
   ListaContas,
   Opcoes,
   Permissoes,
+  Rodape as RodapeTotais,
   Selecionada,
-  Totais,
 } from './tipos'
 
 type Navegar = (mudancas: Partial<FiltrosFinanceiro>) => void
+type Dialogo = 'baixa-receber' | 'baixa-pagar' | 'cobranca'
 
 function iniciais(nome: string) {
   const partes = nome.trim().split(/\s+/)
@@ -62,101 +77,86 @@ const NOME_STATUS: Record<number, string> = { 1: 'A receber', 2: 'Recebido', 3: 
 
 // ------------------------------------------------------------------------- filtros
 
+type CampoTexto = 'cliente' | 'fornecedor' | 'pedido' | 'nfFornecedor' | 'nfMegabox' | 'cobranca'
+
+/**
+ * Filtros (`gp filtros financeiro`, financeiro.md §2.1), na ordem do Bubble. Tudo vai para a
+ * URL e é aplicado no servidor. O bloco do período (De/Até) é um controle à parte.
+ */
 function Filtros({ filtros, opcoes, navegar }: { filtros: FiltrosFinanceiro; opcoes: Opcoes; navegar: Navegar }) {
-  const [cliente, setCliente] = useState(filtros.cliente)
-  const [fornecedor, setFornecedor] = useState(filtros.fornecedor)
-  const [pedido, setPedido] = useState(filtros.pedido)
+  const [texto, setTexto] = useState<Record<CampoTexto, string>>({
+    cliente: filtros.cliente,
+    fornecedor: filtros.fornecedor,
+    pedido: filtros.pedido,
+    nfFornecedor: filtros.nfFornecedor,
+    nfMegabox: filtros.nfMegabox,
+    cobranca: filtros.cobranca,
+  })
   const espera = useRef<ReturnType<typeof setTimeout>>(undefined)
   const contas = filtros.aba !== 'entregas'
 
   function filtrar(m: Partial<FiltrosFinanceiro>) {
     navegar({ pagina: 1, sel: null, ...m })
   }
-  function digitar(set: (v: string) => void, campo: 'cliente' | 'fornecedor' | 'pedido', valor: string) {
-    set(valor)
+  function digitar(campo: CampoTexto, valor: string) {
+    setTexto((t) => ({ ...t, [campo]: valor }))
     clearTimeout(espera.current)
     espera.current = setTimeout(() => filtrar({ [campo]: valor.trim() }), 450)
   }
-
-  const tipos = (Object.keys(TIPOS_DATA) as TipoData[]).filter(
-    (t) => filtros.aba !== 'pagar' || TIPOS_DATA[t].pagar !== null,
-  )
-  const temFiltro =
-    filtros.cliente !== '' ||
-    filtros.fornecedor !== '' ||
-    filtros.pedido !== '' ||
-    filtros.vendedor !== null ||
-    filtros.situacao !== '' ||
-    filtros.arquivados
+  function caixa(campo: CampoTexto, rotulo: string, placeholder: string, numerico = false) {
+    return (
+      <label className="campo">
+        <span>{rotulo}</span>
+        <input
+          type="search"
+          inputMode={numerico ? 'numeric' : undefined}
+          value={texto[campo]}
+          placeholder={placeholder}
+          onChange={(e) => digitar(campo, numerico ? e.target.value.replace(/\D/g, '') : e.target.value)}
+          data-teste={`filtro-${campo}`}
+        />
+      </label>
+    )
+  }
 
   return (
     <section className="fin-filtros" aria-label="Filtros">
       {contas ? (
         <>
-          <label className="campo">
-            <span>Tipo de data</span>
-            <select
-              value={filtros.data}
-              onChange={(e) => filtrar({ data: e.target.value as TipoData })}
-              disabled={filtros.situacao === 'vencidas'}
-              data-teste="filtro-data"
-            >
-              {tipos.map((t) => (
-                <option key={t} value={t}>
-                  {TIPOS_DATA[t].rotulo}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="campo">
-            <span>De</span>
-            <input
-              type="date"
-              value={filtros.de}
-              max={filtros.ate}
-              disabled={filtros.situacao === 'vencidas'}
-              onChange={(e) => e.target.value && filtrar({ de: e.target.value })}
+          <div className="campo">
+            <span>Período</span>
+            <SeletorPeriodo
+              rotulo="Período"
+              de={filtros.de}
+              ate={filtros.ate}
+              desabilitado={filtros.situacao === 'vencidas'}
+              onChange={(de, ate) => filtrar({ de, ate })}
+              data-teste="filtro-periodo"
             />
-          </label>
-          <label className="campo">
-            <span>Até</span>
-            <input
-              type="date"
-              value={filtros.ate}
-              min={filtros.de}
-              disabled={filtros.situacao === 'vencidas'}
-              onChange={(e) => e.target.value && filtrar({ ate: e.target.value })}
-            />
-          </label>
-          <label className="campo">
-            <span>Situação</span>
-            <select value={filtros.situacao} onChange={(e) => filtrar({ situacao: e.target.value as Situacao })}>
-              <option value="">Todas</option>
-              <option value="aberto">{filtros.aba === 'pagar' ? 'A pagar' : 'A receber'}</option>
-              <option value="quitado">{filtros.aba === 'pagar' ? 'Pago' : 'Recebido'}</option>
-              <option value="vencidas">Vencidas (todo o período)</option>
-            </select>
-          </label>
+          </div>
+          {caixa('pedido', 'Núm pedido', 'Número exato', true)}
         </>
       ) : null}
-      <label className="campo">
-        <span>Cliente</span>
-        <input
-          type="search"
-          value={cliente}
-          placeholder="Parte do nome"
-          onChange={(e) => digitar(setCliente, 'cliente', e.target.value)}
-        />
-      </label>
-      <label className="campo">
-        <span>Grupo fornecedor</span>
-        <input
-          type="search"
-          value={fornecedor}
-          placeholder="Parte do nome"
-          onChange={(e) => digitar(setFornecedor, 'fornecedor', e.target.value)}
-        />
-      </label>
+      {caixa('cliente', 'Cliente', 'Parte do nome')}
+      {caixa('fornecedor', 'Grupo fornecedor', 'Parte do nome')}
+      {contas ? (
+        <label className="campo">
+          <span>Filial fornecedor</span>
+          <select
+            value={filtros.filial ?? ''}
+            onChange={(e) => filtrar({ filial: e.target.value || null })}
+            data-teste="filtro-filial"
+          >
+            <option value="">Todas</option>
+            {opcoes.filiais.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.nome_endereco}
+                {e.documento ? ` (${e.documento})` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <label className="campo">
         <span>Vendedor</span>
         <select value={filtros.vendedor ?? ''} onChange={(e) => filtrar({ vendedor: e.target.value || null })}>
@@ -169,55 +169,195 @@ function Filtros({ filtros, opcoes, navegar }: { filtros: FiltrosFinanceiro; opc
         </select>
       </label>
       {contas ? (
-        <label className="campo">
-          <span>Núm pedido</span>
-          <input
-            inputMode="numeric"
-            value={pedido}
-            onChange={(e) => digitar(setPedido, 'pedido', e.target.value)}
-            placeholder="Número exato"
-          />
-        </label>
-      ) : null}
-      <div className="fin-filtros-fim">
-        {filtros.aba === 'receber' ? (
-          <label className="caixa">
-            <input
-              type="checkbox"
-              checked={filtros.arquivados}
-              onChange={(e) => filtrar({ arquivados: e.target.checked })}
-            />
-            Arquivadas
+        <>
+          {caixa('nfFornecedor', 'Num NF fornecedor', 'Contém')}
+          {caixa('nfMegabox', 'Num NF MegaBox', 'Número exato')}
+          {caixa('cobranca', 'Núm cobrança', 'Número exato', true)}
+          <label className="campo">
+            <span>Status recebimento</span>
+            <select
+              value={filtros.situacao}
+              onChange={(e) => filtrar({ situacao: e.target.value as Situacao })}
+              data-teste="filtro-status"
+            >
+              <option value="">Todos</option>
+              <option value="aberto">{filtros.aba === 'pagar' ? 'A pagar' : 'A receber'}</option>
+              <option value="quitado">{filtros.aba === 'pagar' ? 'Pago' : 'Recebido'}</option>
+              <option value="vencidas">Vencidas (todo o período)</option>
+            </select>
           </label>
+          {filtros.aba === 'receber' ? (
+            <label className="campo">
+              <span>Arquivados</span>
+              <select
+                value={filtros.arquivados ? 'sim' : 'nao'}
+                onChange={(e) => filtrar({ arquivados: e.target.value === 'sim' })}
+              >
+                <option value="nao">Não</option>
+                <option value="sim">Sim</option>
+              </select>
+            </label>
+          ) : null}
+        </>
+      ) : null}
+    </section>
+  )
+}
+
+// ------------------------------------------------------- tipo de data e botões (topo)
+
+/** `RadioButtons A` (§2.1): opções de marcar, em 3 colunas, como no Bubble. */
+function TipoDeData({ filtros, navegar }: { filtros: FiltrosFinanceiro; navegar: Navegar }) {
+  const tipos = (Object.keys(TIPOS_DATA) as TipoData[]).filter(
+    (t) => filtros.aba !== 'pagar' || TIPOS_DATA[t].pagar !== null,
+  )
+  const desligado = filtros.situacao === 'vencidas'
+  return (
+    <fieldset className="fin-tipo-data" data-teste="filtro-data" disabled={desligado}>
+      <legend>Tipo de data</legend>
+      {tipos.map((t) => (
+        <label key={t} className="fin-opcao">
+          <input
+            type="radio"
+            name="tipo-data"
+            value={t}
+            checked={filtros.data === t}
+            onChange={() => navegar({ data: t, pagina: 1, sel: null })}
+          />
+          {TIPOS_DATA[t].rotulo}
+        </label>
+      ))}
+    </fieldset>
+  )
+}
+
+function BotaoRelatorio({ tipo, query }: { tipo: 'receber' | 'pagar'; query: string }) {
+  const [gerando, setGerando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  async function exportar() {
+    setGerando(true)
+    setErro(null)
+    try {
+      const r = await exportarRelatorio(query, tipo)
+      if (!r.ok) {
+        setErro(r.erro)
+        return
+      }
+      // O arquivo foi montado no servidor; aqui só se entrega o texto ao navegador.
+      const url = URL.createObjectURL(new Blob([r.conteudo], { type: 'text/csv;charset=utf-8' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = r.nome
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setErro('Não foi possível gerar o arquivo agora.')
+    } finally {
+      setGerando(false)
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={exportar}
+      disabled={gerando}
+      aria-busy={gerando}
+      title={erro ?? 'CSV do que está filtrado na tela'}
+      data-erro={erro ? 'true' : undefined}
+      data-teste={`relatorio-${tipo}`}
+    >
+      <Icone icone={FileSpreadsheet} tamanho={16} />
+      {gerando ? 'Gerando…' : tipo === 'receber' ? 'Relatório contas a receber' : 'Relatório contas a pagar'}
+    </button>
+  )
+}
+
+function Controles({
+  filtros,
+  selReceber,
+  selPagar,
+  abrir,
+  limpar,
+  navegar,
+}: {
+  filtros: FiltrosFinanceiro
+  selReceber: ReturnType<typeof resumoSelecao>
+  selPagar: ReturnType<typeof resumoSelecao>
+  abrir: (d: Dialogo) => void
+  limpar: () => void
+  navegar: Navegar
+}) {
+  const contas = filtros.aba !== 'entregas'
+  const query = paraQuery(filtros, { pagina: 1, sel: null }).slice(1)
+  const cobrar = selReceber.qtd > 0 && selReceber.fornecedorUnico !== null
+  return (
+    <section className="fin-controles" aria-label="Ações">
+      {contas ? <TipoDeData filtros={filtros} navegar={navegar} /> : <span />}
+      <div className="fin-botoes">
+        {contas ? (
+          <>
+            <div className="fin-grupo-botoes" role="group" aria-label="Contas a receber">
+              <button
+                type="button"
+                disabled={!cobrar}
+                title={
+                  selReceber.qtd === 0
+                    ? 'Selecione contas a receber'
+                    : !selReceber.fornecedorUnico
+                      ? 'A cobrança é de um fornecedor só'
+                      : undefined
+                }
+                onClick={() => abrir('cobranca')}
+                data-teste="enviar-cobranca"
+              >
+                <Icone icone={Send} tamanho={16} />
+                Enviar Cobrança
+              </button>
+              <button
+                type="button"
+                disabled={selReceber.qtd === 0}
+                onClick={() => abrir('baixa-receber')}
+                data-teste="baixar-selecionadas"
+              >
+                <Icone icone={FileCheck} tamanho={16} />
+                Baixar Contas a Receber
+              </button>
+              <BotaoRelatorio tipo="receber" query={query} />
+            </div>
+            <div className="fin-grupo-botoes" role="group" aria-label="Contas a pagar">
+              <button
+                type="button"
+                disabled={selPagar.qtd === 0}
+                onClick={() => abrir('baixa-pagar')}
+                data-teste="baixar-pagar"
+              >
+                <Icone icone={FileCheck} tamanho={16} />
+                Baixar Contas a Pagar
+              </button>
+              <BotaoRelatorio tipo="pagar" query={query} />
+            </div>
+          </>
         ) : null}
-        {temFiltro ? (
-          <button
-            type="button"
-            className="botao-secundario"
-            onClick={() => {
-              setCliente('')
-              setFornecedor('')
-              setPedido('')
-              filtrar({ cliente: '', fornecedor: '', pedido: '', vendedor: null, situacao: '', arquivados: false })
-            }}
-          >
-            <Icone icone={X} tamanho={16} />
-            Limpar filtros
+        <div className="fin-grupo-botoes" role="group" aria-label="Filtros">
+          <button type="button" className="fin-limpar" onClick={limpar} data-teste="limpar-filtros">
+            <Icone icone={FilterX} tamanho={16} />
+            Limpar Filtros
           </button>
-        ) : null}
+        </div>
       </div>
     </section>
   )
 }
 
-// --------------------------------------------------------------------------- cards
+// ---------------------------------------------------------------- barra do rodapé
 
-function Card({
+function Total({
   titulo,
   qtd,
   valor,
-  detalhe,
+  icone,
   tom,
+  falhou,
   ativo,
   aoClicar,
   teste,
@@ -225,29 +365,117 @@ function Card({
   titulo: string
   qtd: number
   valor: string
-  detalhe?: string
-  tom: 'roxo' | 'verde' | 'vermelho' | 'azul'
+  icone: LucideIcon
+  tom: 'roxo' | 'verde' | 'vermelho'
+  falhou?: boolean
   ativo?: boolean
   aoClicar?: () => void
-  teste?: string
+  teste: string
 }) {
   const corpo = (
     <>
-      <span className="fin-card-titulo">
-        {titulo} ({qtd.toLocaleString('pt-BR')})
+      <Icone icone={icone} tamanho={18} />
+      <span className="fin-total-texto">
+        <span className="fin-total-titulo">
+          {titulo} ({qtd.toLocaleString('pt-BR')})
+        </span>
+        <strong className="numero" title={falhou ? 'Não foi possível somar agora' : undefined}>
+          {falhou ? '—' : reais(valor)}
+        </strong>
       </span>
-      <strong className="fin-card-valor numero">{reais(valor)}</strong>
-      {detalhe ? <span className="fin-card-detalhe">{detalhe}</span> : null}
     </>
   )
   return aoClicar ? (
-    <button type="button" className="fin-card" data-tom={tom} data-ativo={ativo || undefined} onClick={aoClicar} data-teste={teste}>
+    <button
+      type="button"
+      className="fin-total"
+      data-tom={tom}
+      data-ativo={ativo || undefined}
+      onClick={aoClicar}
+      aria-pressed={ativo}
+      data-teste={teste}
+    >
       {corpo}
     </button>
   ) : (
-    <div className="fin-card" data-tom={tom} data-ativo={ativo || undefined} data-teste={teste}>
+    <div className="fin-total" data-tom={tom} data-ativo={ativo || undefined} data-teste={teste}>
       {corpo}
     </div>
+  )
+}
+
+/**
+ * Barra fixa do rodapé (Bubble `Group XZZZ`, §2.1/§3.4): A receber vencidos · Receber listado ·
+ * Receber selecionado · Pagar listado · Pagar selecionado. Listado e vencidos vêm do servidor
+ * (fn_resumo_financeiro, numeric); selecionado é somado aqui em centavos (resumoSelecao).
+ */
+function Rodape({
+  rodape,
+  filtros,
+  selReceber,
+  selPagar,
+  navegar,
+}: {
+  rodape: RodapeTotais
+  filtros: FiltrosFinanceiro
+  selReceber: ReturnType<typeof resumoSelecao>
+  selPagar: ReturnType<typeof resumoSelecao>
+  navegar: Navegar
+}) {
+  return (
+    <footer className="fin-rodape" aria-label="Totais">
+      <Total
+        titulo="A receber vencidos"
+        qtd={rodape.vencidos.qtd}
+        valor={rodape.vencidos.saldo}
+        falhou={rodape.vencidos.falhou}
+        icone={CircleDollarSign}
+        tom="roxo"
+        ativo={filtros.situacao === 'vencidas' && filtros.aba === 'receber'}
+        aoClicar={() => navegar({ aba: 'receber', situacao: 'vencidas', pagina: 1, sel: null })}
+        teste="card-vencidos"
+      />
+      <span className="fin-rodape-grupo">
+        <Total
+          titulo="Receber listado"
+          qtd={rodape.receber.qtd}
+          valor={rodape.receber.comissao}
+          falhou={rodape.receber.falhou}
+          icone={List}
+          tom="verde"
+          teste="card-listado"
+        />
+        <Total
+          titulo="Receber selecionado"
+          qtd={selReceber.qtd}
+          valor={selReceber.saldo}
+          icone={ListChecks}
+          tom="verde"
+          ativo={selReceber.qtd > 0}
+          teste="card-selecionado"
+        />
+      </span>
+      <span className="fin-rodape-grupo">
+        <Total
+          titulo="Pagar listado"
+          qtd={rodape.pagar.qtd}
+          valor={rodape.pagar.comissao}
+          falhou={rodape.pagar.falhou}
+          icone={List}
+          tom="vermelho"
+          teste="card-listado-pagar"
+        />
+        <Total
+          titulo="Pagar selecionado"
+          qtd={selPagar.qtd}
+          valor={selPagar.saldo}
+          icone={ListChecks}
+          tom="vermelho"
+          ativo={selPagar.qtd > 0}
+          teste="card-selecionado-pagar"
+        />
+      </span>
+    </footer>
   )
 }
 
@@ -387,10 +615,14 @@ function TabelaReceber({
                 </button>
               </td>
               <td data-rotulo="Datas" className="fin-datas">
-                <span data-destaque={destaque('pedido')}>Pedido {formatarData(l.dt_pedido)}</span>
-                <span data-destaque={destaque('entrega')}>Entrega {formatarData(l.dt_entrega)}</span>
+                <span data-destaque={destaque('pedido')}>
+                  <span className="fin-rot-data">Pedido</span> {formatarData(l.dt_pedido)}
+                </span>
+                <span data-destaque={destaque('entrega')}>
+                  <span className="fin-rot-data">Entrega</span> {formatarData(l.dt_entrega)}
+                </span>
                 <span data-destaque={destaque('vencimento')} data-vencida={l.vencida || undefined}>
-                  Vcto {formatarData(l.dt_vencimento)}
+                  <span className="fin-rot-data">Vcto</span> {formatarData(l.dt_vencimento)}
                 </span>
               </td>
               <td data-rotulo="Cliente">
@@ -420,9 +652,13 @@ function TabelaReceber({
                 <br />
                 NF/recibo MegaBox: {l.ultima_nf_megabox ?? '—'}
                 <br />
-                <span data-destaque={destaque('baixa')}>Baixa: {formatarData(l.ultima_dt_baixa)}</span>
+                <span data-destaque={destaque('baixa')}>
+                  <span className="fin-rot-data">Baixa:</span> {formatarData(l.ultima_dt_baixa)}
+                </span>
                 {' · '}
-                <span data-destaque={destaque('credito')}>Banco: {formatarData(l.ultima_dt_credito)}</span>
+                <span data-destaque={destaque('credito')}>
+                  <span className="fin-rot-data">Banco:</span> {formatarData(l.ultima_dt_credito)}
+                </span>
               </td>
               <td data-rotulo="Status">
                 <Status id={l.status_id} vencida={l.vencida} saldo={l.saldo} baixado={l.valor_baixado} />
@@ -493,9 +729,11 @@ function TabelaPagar({
                 </button>
               </td>
               <td data-rotulo="Datas" className="fin-datas">
-                <span data-destaque={destaque('entrega')}>Entrega {formatarData(l.dt_entrega)}</span>
+                <span data-destaque={destaque('entrega')}>
+                  <span className="fin-rot-data">Entrega</span> {formatarData(l.dt_entrega)}
+                </span>
                 <span data-destaque={destaque('vencimento')} data-vencida={l.vencida || undefined}>
-                  Vcto {formatarData(l.dt_vencimento)}
+                  <span className="fin-rot-data">Vcto</span> {formatarData(l.dt_vencimento)}
                 </span>
               </td>
               <td data-rotulo="Cliente / Fornecedor">
@@ -513,7 +751,9 @@ function TabelaPagar({
                 {aberta ? <span className="fin-saldo">Saldo {reais(l.saldo)}</span> : null}
               </td>
               <td data-rotulo="Info pagamento" className="fin-sub">
-                <span data-destaque={destaque('baixa')}>Baixa: {formatarData(l.ultima_dt_baixa)}</span>
+                <span data-destaque={destaque('baixa')}>
+                  <span className="fin-rot-data">Baixa:</span> {formatarData(l.ultima_dt_baixa)}
+                </span>
                 <br />
                 Pago: {reais(l.valor_pago)}
               </td>
@@ -530,30 +770,28 @@ function TabelaPagar({
 
 // ------------------------------------------------------------------- painel de contas
 
+type Marcadas = Map<string, Selecionada>
+
 function PainelContas({
   filtros,
   lista,
-  vencidos,
   ficha,
   permissoes,
   navegar,
   pendente,
+  marcadas,
+  setMarcadas,
 }: {
   filtros: FiltrosFinanceiro
   lista: ListaContas<ContaReceber> | ListaContas<ContaPagar>
-  vencidos: Totais
   ficha: FichaConta | null
   permissoes: Permissoes
   navegar: Navegar
   pendente: boolean
+  marcadas: Marcadas
+  setMarcadas: React.Dispatch<React.SetStateAction<Marcadas>>
 }) {
   const receber = filtros.aba === 'receber'
-  // Seleção no navegador (no Bubble ia para o registro do usuário, §2.4/§8.1). Sobrevive à
-  // troca de página e de filtro, como a `merged_with` do Bubble, mas sem gravar no banco.
-  const [marcadas, setMarcadas] = useState<Map<string, Selecionada>>(new Map())
-  const [dialogo, setDialogo] = useState<'baixa' | 'cobranca' | null>(null)
-  // Guardado ao abrir: concluir zera a seleção, e o diálogo não pode sumir antes da mensagem.
-  const [fornecedorCobranca, setFornecedorCobranca] = useState<string | null>(null)
 
   function item(l: ContaReceber | ContaPagar): Selecionada {
     return {
@@ -604,80 +842,10 @@ function PainelContas({
       }
       return mudou ? n : m
     })
-  }, [lista.linhas])
-
-  const sel = [...marcadas.values()]
-  const resumo = resumoSelecao(sel)
-  const t = lista.totais
-  const nomeLista = receber ? 'Receber' : 'Pagar'
+  }, [lista.linhas, setMarcadas])
 
   return (
     <>
-      <section className="fin-cards" aria-label="Totais">
-        <Card
-          titulo={receber ? 'A receber vencidos' : 'A pagar vencidos'}
-          qtd={vencidos.qtd}
-          valor={vencidos.saldo}
-          detalhe={vencidos.falhou ? 'não foi possível somar' :'saldo em aberto, sem filtros'}
-          tom="roxo"
-          ativo={filtros.situacao === 'vencidas'}
-          aoClicar={() => navegar({ situacao: 'vencidas', pagina: 1, sel: null })}
-          teste="card-vencidos"
-        />
-        <Card
-          titulo={`${nomeLista} listado`}
-          qtd={t.qtd}
-          valor={t.comissao}
-          detalhe={t.falhou ? 'não foi possível somar tudo' : `saldo ${reais(t.saldo)}`}
-          tom={receber ? 'verde' : 'vermelho'}
-          teste="card-listado"
-        />
-        <Card
-          titulo={`${nomeLista} selecionado`}
-          qtd={resumo.qtd}
-          valor={resumo.saldo}
-          detalhe="saldo das marcadas"
-          tom="azul"
-          ativo={resumo.qtd > 0}
-          teste="card-selecionado"
-        />
-      </section>
-
-      <div className="fin-acoes">
-        <button
-          type="button"
-          className="botao-primario"
-          disabled={resumo.qtd === 0}
-          onClick={() => setDialogo('baixa')}
-          data-teste="baixar-selecionadas"
-        >
-          {receber ? 'Baixar contas a receber' : 'Baixar contas a pagar'}
-        </button>
-        {receber ? (
-          <button
-            type="button"
-            className="botao-secundario"
-            disabled={resumo.qtd === 0 || !resumo.fornecedorUnico}
-            title={resumo.qtd > 0 && !resumo.fornecedorUnico ? 'A cobrança é de um fornecedor só' : undefined}
-            onClick={() => {
-              setFornecedorCobranca(resumo.fornecedorUnico)
-              setDialogo('cobranca')
-            }}
-            data-teste="enviar-cobranca"
-          >
-            Registrar cobrança
-          </button>
-        ) : null}
-        {resumo.qtd > 0 ? (
-          <button type="button" className="botao-texto" onClick={() => setMarcadas(new Map())}>
-            Desmarcar todas ({resumo.qtd})
-          </button>
-        ) : null}
-        {receber && resumo.qtd > 0 && !resumo.fornecedorUnico ? (
-          <span className="fin-dica">Seleção com mais de um fornecedor: dá para baixar, não para cobrar nem gerar recibo.</span>
-        ) : null}
-      </div>
-
       <section className="fin-corpo" aria-label={receber ? 'Contas a receber' : 'Contas a pagar'} aria-busy={pendente}>
         {lista.falhou ? (
           <p className="aviso" data-tom="erro" role="alert">
@@ -713,24 +881,6 @@ function PainelContas({
         <Paginacao filtros={filtros} total={lista.total} navegar={navegar} />
       </section>
 
-      {dialogo === 'baixa' ? (
-        <DialogoBaixaLote
-          tipo={receber ? 'receber' : 'pagar'}
-          selecionadas={sel}
-          fornecedorUnico={resumo.fornecedorUnico}
-          hoje={hojeSP()}
-          aoConcluir={() => setMarcadas(new Map())}
-          aoFechar={() => setDialogo(null)}
-        />
-      ) : null}
-      {dialogo === 'cobranca' && fornecedorCobranca ? (
-        <DialogoCobranca
-          selecionadas={sel}
-          fornecedorId={fornecedorCobranca}
-          aoConcluir={() => setMarcadas(new Map())}
-          aoFechar={() => setDialogo(null)}
-        />
-      ) : null}
       {ficha ? (
         <FichaContaDialogo
           key={ficha.conta.id}
@@ -854,7 +1004,7 @@ export function TelaFinanceiro({
   filtros,
   lista,
   pendentes,
-  vencidos,
+  rodape,
   opcoes,
   ficha,
   permissoes,
@@ -862,13 +1012,22 @@ export function TelaFinanceiro({
   filtros: FiltrosFinanceiro
   lista: ListaContas<ContaReceber> | ListaContas<ContaPagar> | null
   pendentes: { linhas: EntregaPendente[]; total: number; falhou: boolean } | null
-  vencidos: Totais | null
+  rodape: RodapeTotais | null
   opcoes: Opcoes
   ficha: FichaConta | null
   permissoes: Permissoes
 }) {
   const router = useRouter()
   const [pendente, iniciar] = useTransition()
+  // Seleção no navegador, uma por lista (no Bubble `SelecionadosReceber/Pagar` no registro do
+  // usuário, §2.4/§8.1). Sobrevive à troca de página, filtro e aba, como a `merged_with` do
+  // Bubble, sem gravar no banco. Fica aqui em cima porque a barra do rodapé mostra as duas.
+  const [selReceber, setSelReceber] = useState<Marcadas>(new Map())
+  const [selPagar, setSelPagar] = useState<Marcadas>(new Map())
+  const [dialogo, setDialogo] = useState<Dialogo | null>(null)
+  // Guardado ao abrir: concluir zera a seleção, e o diálogo não pode sumir antes da mensagem.
+  const [aberto, setAberto] = useState<{ lista: Selecionada[]; fornecedor: string | null }>({ lista: [], fornecedor: null })
+  const [versaoFiltros, setVersaoFiltros] = useState(0)
 
   // Estado da tela na URL, como em /vendas e /cadastros: recarregar e mandar o link funcionam.
   function navegar(mudancas: Partial<FiltrosFinanceiro>) {
@@ -877,8 +1036,28 @@ export function TelaFinanceiro({
     })
   }
 
+  const resumoReceber = resumoSelecao([...selReceber.values()])
+  const resumoPagar = resumoSelecao([...selPagar.values()])
+
+  function abrir(d: Dialogo) {
+    const sel = d === 'baixa-pagar' ? resumoPagar : resumoReceber
+    setAberto({ lista: [...(d === 'baixa-pagar' ? selPagar : selReceber).values()], fornecedor: sel.fornecedorUnico })
+    setDialogo(d)
+  }
+
+  // "Limpar Filtros" (WF bTpSc): esvazia as duas seleções e zera os filtros (o período fica).
+  function limpar() {
+    setSelReceber(new Map())
+    setSelPagar(new Map())
+    setVersaoFiltros((v) => v + 1)
+    navegar(FILTROS_LIMPOS)
+  }
+
+  const contas = filtros.aba !== 'entregas'
+  const receber = filtros.aba === 'receber'
+
   return (
-    <div className="financeiro" data-teste="financeiro-conteudo">
+    <div className="financeiro" data-teste="financeiro-conteudo" data-com-rodape={rodape ? 'true' : undefined}>
       <header className="fin-topo">
         <h1>Fluxo Financeiro</h1>
         <nav className="fin-abas" aria-label="Listas">
@@ -897,22 +1076,58 @@ export function TelaFinanceiro({
         </nav>
       </header>
 
-      {/* key: trocar de aba zera os campos digitados que não se aplicam à outra lista */}
-      <Filtros key={`filtros-${filtros.aba}`} filtros={filtros} opcoes={opcoes} navegar={navegar} />
+      <Controles
+        filtros={filtros}
+        selReceber={resumoReceber}
+        selPagar={resumoPagar}
+        abrir={abrir}
+        limpar={limpar}
+        navegar={navegar}
+      />
+      {contas && resumoReceber.qtd > 0 && !resumoReceber.fornecedorUnico ? (
+        <p className="fin-dica">Seleção a receber com mais de um fornecedor: dá para baixar, não para cobrar nem gerar recibo.</p>
+      ) : null}
+
+      {/* key: trocar de aba ou limpar zera os campos digitados */}
+      <Filtros key={`filtros-${filtros.aba}-${versaoFiltros}`} filtros={filtros} opcoes={opcoes} navegar={navegar} />
 
       {filtros.aba === 'entregas' && pendentes ? (
         <PainelEntregas filtros={filtros} pendentes={pendentes} opcoes={opcoes} navegar={navegar} pendente={pendente} />
-      ) : lista && vencidos ? (
-        // key: a seleção de CR não passa para a lista de CP
+      ) : lista ? (
         <PainelContas
           key={`contas-${filtros.aba}`}
           filtros={filtros}
           lista={lista}
-          vencidos={vencidos}
           ficha={ficha}
           permissoes={permissoes}
           navegar={navegar}
           pendente={pendente}
+          marcadas={receber ? selReceber : selPagar}
+          setMarcadas={receber ? setSelReceber : setSelPagar}
+        />
+      ) : null}
+
+      {contas && rodape ? (
+        <Rodape rodape={rodape} filtros={filtros} selReceber={resumoReceber} selPagar={resumoPagar} navegar={navegar} />
+      ) : null}
+
+      {dialogo === 'baixa-receber' || dialogo === 'baixa-pagar' ? (
+        <DialogoBaixaLote
+          tipo={dialogo === 'baixa-pagar' ? 'pagar' : 'receber'}
+          selecionadas={aberto.lista}
+          fornecedorUnico={aberto.fornecedor}
+          hoje={hojeSP()}
+          aoConcluir={() => (dialogo === 'baixa-pagar' ? setSelPagar : setSelReceber)(new Map())}
+          aoFechar={() => setDialogo(null)}
+        />
+      ) : null}
+      {dialogo === 'cobranca' && aberto.fornecedor ? (
+        <DialogoCobranca
+          selecionadas={aberto.lista}
+          fornecedorId={aberto.fornecedor}
+          filialInicial={filtros.filial}
+          aoConcluir={() => setSelReceber(new Map())}
+          aoFechar={() => setDialogo(null)}
         />
       ) : null}
     </div>

@@ -78,6 +78,9 @@ export type ContaPagar = {
 
 export type Totais = { qtd: number; comissao: string; saldo: string; falhou: boolean }
 
+/** Barra fixa do rodapé (Bubble `Group XZZZ`): vencidos + listado das duas listas. */
+export type Rodape = { vencidos: Totais; receber: Totais; pagar: Totais }
+
 export type ListaContas<T> = {
   linhas: T[]
   total: number
@@ -135,6 +138,8 @@ export type Opcoes = {
   vendedores: { id: string; nome: string }[]
   /** só na aba de entregas */
   prazos: Prazo[]
+  /** filtro "Filial Fornecedor" (§2.1), "Nome (CNPJ)"; vazio na aba de entregas */
+  filiais: { id: string; nome_endereco: string; documento: string | null }[]
 }
 
 /** Item da seleção de contas (estado do navegador; no Bubble ia para o registro do usuário). */

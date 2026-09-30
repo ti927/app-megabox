@@ -13,6 +13,14 @@ import {
   podeExcluir,
   STATUS_RESOLVIDO,
 } from '@/lib/sac'
+import { hojeSaoPaulo } from '@/lib/relatorios'
+import {
+  type FiltrosPosVenda,
+  type IndicadoresSac,
+  lerAba,
+  lerFiltrosPosVenda,
+  lerFiltrosRelatorio,
+} from '@/lib/sac-paineis'
 import { clienteServidor } from '@/lib/supabase/servidor'
 
 import { TelaSac } from './tela'
@@ -26,7 +34,9 @@ import type {
   LinhaProtocolo,
   Nps,
   Opcoes,
+  LinhaPosVenda,
   PainelNps,
+  PainelPosVenda,
   Pesquisa,
   Protocolo,
 } from './tipos'
@@ -255,6 +265,46 @@ async function buscarPainelNps(supabase: Supabase, f: FiltrosSac): Promise<Paine
   }
 }
 
+/**
+ * Aba Pós-Venda (`Table D` bUEMt0): convites de pesquisa do tipo 3 (Pós-Venda) com a resposta.
+ * A busca por cliente SOMA ao tipo (no Bubble trocava pela campanha NPS da outra aba) e a
+ * vendedora filtra de verdade (`Input H` bUEoZ não filtrava nada) — sac.md §3.6.
+ */
+async function buscarPosVenda(supabase: Supabase, f: FiltrosPosVenda): Promise<PainelPosVenda> {
+  let consulta = supabase
+    .from('pesquisa_convites')
+    // Colunas explícitas: `token_hash` não tem GRANT para authenticated (D7 da 013).
+    .select(
+      'id, criado_em, pesquisa:pesquisas!inner(tipo_id), ' +
+        `cliente:grupos_clifor${f.q ? '!inner' : ''}(nome), vendedor:usuarios!vendedor_id(nome), ` +
+        'resposta:pesquisa_respostas(nota_atendimento, nota_produto, nota_nps, criticas_sugestoes, respondida_em)',
+      { count: 'exact' },
+    )
+    .eq('pesquisa.tipo_id', TIPO_PESQUISA_POS_VENDA)
+    .is('cancelado_em', null)
+  if (f.q) consulta = consulta.ilike('cliente.nome', `%${escaparLike(f.q)}%`)
+  if (f.vendedor) consulta = consulta.eq('vendedor_id', f.vendedor)
+  const { de, ate } = faixa(f.pagina, POR_PAGINA)
+  const { data, count, error } = await consulta.order('criado_em', { ascending: false }).order('id').range(de, ate)
+  if (error?.code === 'PGRST103') redirect('/sac?aba=posvenda' as Route)
+  if (error) {
+    console.error('sac: pós-venda', { code: error.code, message: error.message })
+    return { linhas: [], total: 0, falhou: true }
+  }
+  type Bruto = Omit<LinhaPosVenda, 'resposta'> & { resposta: LinhaPosVenda['resposta'] | LinhaPosVenda['resposta'][] }
+  return {
+    linhas: ((data ?? []) as unknown as Bruto[]).map((l) => ({
+      ...l,
+      resposta: Array.isArray(l.resposta) ? (l.resposta[0] ?? null) : l.resposta,
+    })),
+    total: count ?? 0,
+    falhou: false,
+  }
+}
+
+/** tipos_pesquisa (003): 3 = Pós-Venda. */
+const TIPO_PESQUISA_POS_VENDA = 3
+
 export default async function PaginaSac({
   searchParams,
 }: {
@@ -262,17 +312,66 @@ export default async function PaginaSac({
 }) {
   // Trava no servidor. No Bubble a página não tem guarda nenhuma (sac.md §1, §7.2).
   const usuario = await exigirAcesso('sac')
-  const filtros = lerFiltros(await searchParams)
+  const params = await searchParams
+  const aba = lerAba(params)
+  const filtros = lerFiltros(params)
   const diretoria = podeExcluir(usuario)
 
   // Cliente da SESSÃO: a RLS decide o que cada um vê. Nunca service_role aqui.
   const supabase = await clienteServidor()
   const opcoes = await buscarOpcoes(supabase)
+  const quem = { id: usuario.id, ehDiretor: usuario.ehDiretor }
+
+  if (aba === 'relatorios') {
+    const { filtros: fr, aviso } = lerFiltrosRelatorio(params, hojeSaoPaulo())
+    // Quem não é Diretor já só enxerga os seus (RLS, 013 D4): o filtro de responsável seria inócuo.
+    if (!usuario.ehDiretor) fr.responsavel = null
+    const r = await supabase.rpc('fn_sac_indicadores', { p_de: fr.de, p_ate: fr.ate, p_responsavel: fr.responsavel })
+    if (r.error) console.error('sac: indicadores', { code: r.error.code, message: r.error.message })
+    return (
+      <TelaSac
+        aba={aba}
+        filtros={filtros}
+        usuario={quem}
+        opcoes={opcoes}
+        abertos={null}
+        lista={null}
+        ficha={null}
+        painel={null}
+        relatorio={{
+          filtros: fr,
+          aviso,
+          dados: (r.data ?? null) as IndicadoresSac | null,
+          falhou: !!r.error,
+          veTodos: usuario.ehDiretor,
+        }}
+      />
+    )
+  }
+
+  if (aba === 'posvenda') {
+    const fp = lerFiltrosPosVenda(params)
+    const painel = await buscarPosVenda(supabase, fp)
+    return (
+      <TelaSac
+        aba={aba}
+        filtros={filtros}
+        usuario={quem}
+        opcoes={opcoes}
+        abertos={null}
+        lista={null}
+        ficha={null}
+        painel={null}
+        posVenda={{ filtros: fp, painel }}
+      />
+    )
+  }
 
   if (filtros.aba === 'nps') {
     const painel = await buscarPainelNps(supabase, filtros)
     return (
       <TelaSac
+        aba={aba}
         filtros={filtros}
         usuario={{ id: usuario.id, ehDiretor: usuario.ehDiretor }}
         opcoes={opcoes}
@@ -292,6 +391,7 @@ export default async function PaginaSac({
 
   return (
     <TelaSac
+      aba={aba}
       filtros={filtros}
       usuario={{ id: usuario.id, ehDiretor: usuario.ehDiretor }}
       opcoes={opcoes}

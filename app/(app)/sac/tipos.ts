@@ -150,3 +150,22 @@ export type EstadoAcao = {
    */
   link?: string
 }
+
+// ---------------------------------------------------------------------- pós-venda
+
+/** Uma linha da aba Pós-Venda (`Table D` bUEMt0): convite de pesquisa do tipo Pós-Venda. */
+export type LinhaPosVenda = {
+  id: string
+  criado_em: string
+  cliente: { nome: string } | null
+  vendedor: { nome: string } | null
+  resposta: {
+    nota_atendimento: number | null
+    nota_produto: number | null
+    nota_nps: number | null
+    criticas_sugestoes: string | null
+    respondida_em: string
+  } | null
+}
+
+export type PainelPosVenda = { linhas: LinhaPosVenda[]; total: number; falhou: boolean }

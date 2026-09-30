@@ -204,6 +204,14 @@ export type FiltrosFinanceiro = {
   pedido: string
   /** `dd arquivados` — só a receber */
   arquivados: boolean
+  /** `filialfornecedor`: endereço de origem (filial do fornecedor), id */
+  filial: string | null
+  /** `fornecedornf`: NF do fornecedor CONTÉM o texto (§3.1) */
+  nfFornecedor: string
+  /** `megaboxnf`: NF MegaBox igual ao texto (§3.1) */
+  nfMegabox: string
+  /** `numcobranca`: número da cobrança (inteiro, só dígitos) */
+  cobranca: string
   pagina: number
   /** conta aberta na ficha */
   sel: string | null
@@ -237,6 +245,8 @@ export function lerFiltros(p: Params, agora = new Date()): FiltrosFinanceiro {
   const situacao = um(p, 'situacao')
   const vendedor = um(p, 'vendedor')
   const sel = um(p, 'sel')
+  const filial = um(p, 'filial')
+  const cobranca = um(p, 'cobranca')
   const pagina = Number(um(p, 'pag'))
   return {
     aba: aba === 'pagar' || aba === 'entregas' ? aba : 'receber',
@@ -249,6 +259,10 @@ export function lerFiltros(p: Params, agora = new Date()): FiltrosFinanceiro {
     vendedor: ehUuid(vendedor) ? vendedor.toLowerCase() : null,
     pedido: um(p, 'pedido').slice(0, 30),
     arquivados: um(p, 'arquivados') === 'sim',
+    filial: ehUuid(filial) ? filial.toLowerCase() : null,
+    nfFornecedor: um(p, 'nffornecedor').slice(0, 40),
+    nfMegabox: um(p, 'nfmegabox').slice(0, 40),
+    cobranca: /^\d{1,9}$/.test(cobranca) ? String(Number(cobranca)) : '',
     pagina: Number.isInteger(pagina) && pagina > 1 && pagina <= MAX_PAGINA ? pagina : 1,
     sel: ehUuid(sel) ? sel.toLowerCase() : null,
   }
@@ -268,11 +282,43 @@ export function paraQuery(atual: FiltrosFinanceiro, mudancas: Partial<FiltrosFin
   if (f.vendedor) q.set('vendedor', f.vendedor)
   if (f.pedido) q.set('pedido', f.pedido)
   if (f.arquivados) q.set('arquivados', 'sim')
+  if (f.filial) q.set('filial', f.filial)
+  if (f.nfFornecedor) q.set('nffornecedor', f.nfFornecedor)
+  if (f.nfMegabox) q.set('nfmegabox', f.nfMegabox)
+  if (f.cobranca) q.set('cobranca', f.cobranca)
   if (f.pagina > 1) q.set('pag', String(f.pagina))
   if (f.sel) q.set('sel', f.sel)
   const s = q.toString()
   return s ? `?${s}` : ''
 }
+
+/**
+ * Filtros que `fn_resumo_financeiro` (db/020) não recebe: com algum deles ligado, o total do
+ * recorte é somado na aplicação (em centavos, `somarReais`) a partir das mesmas linhas.
+ */
+export function temFiltroExtra(f: FiltrosFinanceiro): boolean {
+  return f.filial !== null || f.nfFornecedor !== '' || f.nfMegabox !== '' || f.cobranca !== ''
+}
+
+/**
+ * "Limpar Filtros" (WF bTpSc): zera todos os filtros e o tipo de data. O período fica — o
+ * controle de período é um componente próprio da tela.
+ */
+export const FILTROS_LIMPOS = {
+  data: 'entrega',
+  situacao: '',
+  cliente: '',
+  fornecedor: '',
+  vendedor: null,
+  pedido: '',
+  arquivados: false,
+  filial: null,
+  nfFornecedor: '',
+  nfMegabox: '',
+  cobranca: '',
+  pagina: 1,
+  sel: null,
+} as const satisfies Partial<FiltrosFinanceiro>
 
 /** Status de CR e CP são separados (D5): 1/2 a receber, 3/4 a pagar. */
 export const STATUS = {

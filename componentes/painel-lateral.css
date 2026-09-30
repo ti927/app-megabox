@@ -3,15 +3,18 @@
  * Estrutura sugerida para o conteúdo: .painel-lateral-cabecalho, .painel-lateral-corpo
  * (rola) e .painel-lateral-rodape — todas opcionais. */
 
+/* Começa ABAIXO do cabeçalho (como no Bubble): tema, usuário e engrenagem continuam à vista.
+ * --altura-cabecalho vem da .casca (app/(app)/casca.css); fora dela, topo da janela.
+ * Larguras em --vw (estilos/base.css): com o zoom de 0,75, 1vw encolheria junto. */
 .painel-lateral {
   position: fixed;
-  inset: 0 0 0 auto;
+  inset: var(--altura-cabecalho, 0) 0 0 auto;
   z-index: 60;
   display: flex;
   flex-direction: column;
-  width: min(56vw, calc(100vw - 22rem));
-  min-width: min(26rem, 100vw);
-  max-width: 100vw;
+  width: min(calc(56 * var(--vw)), calc(100 * var(--vw) - 22rem));
+  min-width: min(26rem, calc(100 * var(--vw)));
+  max-width: calc(100 * var(--vw));
   color: var(--texto);
   background: var(--superficie);
   border-left: 1px solid var(--borda-forte);
@@ -113,7 +116,7 @@
 
 @media (max-width: 48rem) {
   .painel-lateral {
-    width: 100vw !important;
+    width: calc(100 * var(--vw)) !important;
     border-left: none;
   }
   .painel-lateral-alca {

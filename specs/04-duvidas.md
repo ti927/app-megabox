@@ -653,6 +653,39 @@ conteúdo aplicado, não o número). Teste: `node scripts/testar-rls-metas-relat
   de foco no campo de data. O bloco do filtro de período não foi tocado (outra frente troca por
   `SeletorPeriodo`).
 
+## Decisões da auditoria de /inicio, /relatorios, /sac e páginas públicas (30/09)
+
+### A1. `/inicio` — matriz Fornecedor × meses (`db/025_inicio_matriz.sql`)
+- Recriada a `Table B` (bUAxV) com o filtro "Intervalo datas" (bUBFN/bUBFT, padrão = mês corrente).
+- **inicio-e-acesso [DÚVIDA 7]** seguida a recomendação: a célula soma `entregas.valor_comissao`
+  (o que a tela do Bubble mostra); o `sum ValorComissaoBruto` do agrupamento não é reproduzido.
+- **[DÚVIDA 8]** o mês agora tem ano. Período dentro de um ano → as 12 colunas jan–dez daquele ano
+  (idêntico ao Bubble); período que cruza o ano → uma coluna por mês com o ano no rótulo. Ganhou
+  coluna e linha de total (o Bubble não tinha). Período ≤ 24 meses.
+- **[DÚVIDA 9]** mantida a regra "só entrega em Financeiro"; o subtítulo da tela a diz.
+- Quem não tem a página `vendas` vê a matriz vazia (RLS de `entregas`, 009). Operador vê só as
+  entregas dele. Casos em `scripts/testar-rls-inicio.mjs`.
+- A contagem "Você tem acesso a N páginas" saiu: contava `inicio` e não batia com os atalhos.
+
+### A2. SAC — abas Relatórios e Pós-Venda (`db/026_sac_indicadores.sql`)
+- **sac [DÚVIDA 1]** o HTML A é o "SLA médio de resolução — média de dias para resolução por mês"
+  (captura sac-03). Painel = cartões (total, não resolvidos, resolvidos, tempo médio/mediano),
+  SLA por mês de abertura, volume por tipo, status e prioridade.
+- **sac [DÚVIDA 2]** período exposto e aplicado a TODOS os números; responsável no lugar de
+  "Departamento". **Divergência da recomendação:** o padrão é **os últimos 12 meses**, não o mês
+  corrente — a série mensal com um mês só vira um ponto. Excluídos ficam fora.
+- Pós-Venda: busca por cliente soma ao tipo Pós-Venda (no Bubble trocava pela campanha NPS da outra
+  aba); "Qual vendedora" filtra (no Bubble não filtrava). Data = criação do convite (Created Date).
+  Convites removidos não aparecem.
+- Casos em `scripts/testar-rls-sac-indicadores.mjs`.
+
+### A3. Relatórios — paleta e rótulos
+- Categóricos com `light-dark()` num bloco só; 1º passo vem do token (`--azul-vivo` / `--azul`, que no
+  escuro é o roxo da marca); o 7º no escuro virou ciano-esverdeado (#2aa3b8) no lugar do violeta
+  que colidia com o roxo. Validados com o script da skill dataviz (claro e escuro).
+- Rótulos de campo e cabeçalhos de tabela em frase, sem ícone. Os controles de período (Mês/Ano,
+  "Entrega de/até") ficaram como estavam: outro agente troca por componente novo.
+
 ## 5. O que fazer com este arquivo
 
 1. **Responder a seção 1 primeiro.** Sem ela não há carga, e sem carga não há tela com dado real.

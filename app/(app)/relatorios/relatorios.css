@@ -5,8 +5,8 @@
  * Ocupa a largura toda: é um aplicativo web, não uma página de leitura.
  *
  * Papéis de cor dos gráficos (--graf-*): tirados dos tokens, para mudarem com o tema. Os oito
- * categóricos (motivos de arquivamento) são a paleta de referência validada da skill dataviz
- * (daltonismo e contraste), com passos próprios para o escuro. */
+ * categóricos (motivos de arquivamento) vêm da paleta de referência da skill dataviz, com o
+ * primeiro passo tirado dos tokens e variante escura sem azul. */
 
 .relatorios {
   --graf-1: var(--azul-vivo);
@@ -20,14 +20,20 @@
   --graf-neutro: var(--borda-forte);
   --graf-trilho: var(--lilas);
   --graf-sobre: var(--sobre-azul);
-  --graf-cat-1: #2a78d6;
-  --graf-cat-2: #eb6834;
-  --graf-cat-3: #1baf7a;
-  --graf-cat-4: #eda100;
-  --graf-cat-5: #e87ba4;
+  /* Categóricos (motivos de arquivamento), em ordem fixa, nunca ciclados. light-dark() escolhe
+   * o passo pelo color-scheme que os tokens já definem (claro/escuro/sistema) — um bloco só.
+   * O 1º é token: azul vivo no claro, o roxo da marca no escuro (--azul vira roxo lá). Validados
+   * com scripts/validate_palette.js da skill dataviz: claro sobre #ffffff (faixa de luz, croma,
+   * daltonismo ΔE ≥ 9,1, visão normal ≥ 19,6; 3 passos < 3:1 → a legenda tem rótulo e número);
+   * escuro sobre #1a1a1e (todas as seis checagens passam, ΔE ≥ 8,4, contraste ≥ 3:1). */
+  --graf-cat-1: light-dark(var(--azul-vivo), var(--azul));
+  --graf-cat-2: light-dark(#eb6834, #d95926);
+  --graf-cat-3: light-dark(#1baf7a, #199e70);
+  --graf-cat-4: light-dark(#eda100, #c98500);
+  --graf-cat-5: light-dark(#e87ba4, #d55181);
   --graf-cat-6: #008300;
-  --graf-cat-7: #4a3aa7;
-  --graf-cat-8: #e34948;
+  --graf-cat-7: light-dark(#4a3aa7, #2aa3b8);
+  --graf-cat-8: light-dark(#e34948, #e66767);
 
   display: flex;
   flex-direction: column;
@@ -38,26 +44,10 @@
 
 :root[data-tema='escuro'] .relatorios {
   --graf-2: var(--azul-escuro);
-  --graf-cat-1: #3987e5;
-  --graf-cat-2: #d95926;
-  --graf-cat-3: #199e70;
-  --graf-cat-4: #c98500;
-  --graf-cat-5: #d55181;
-  --graf-cat-6: #008300;
-  --graf-cat-7: #9085e9;
-  --graf-cat-8: #e66767;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema='claro']) .relatorios {
     --graf-2: var(--azul-escuro);
-    --graf-cat-1: #3987e5;
-    --graf-cat-2: #d95926;
-    --graf-cat-3: #199e70;
-    --graf-cat-4: #c98500;
-    --graf-cat-5: #d55181;
-    --graf-cat-6: #008300;
-    --graf-cat-7: #9085e9;
-    --graf-cat-8: #e66767;
   }
 }
 
@@ -191,10 +181,8 @@
   align-items: center;
   gap: var(--e1);
   padding-right: var(--e3);
-  font-size: 0.6875rem;
+  font-size: var(--t-xs);
   font-weight: var(--peso-forte);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--texto-3);
   border-right: 1px solid var(--borda);
 }
@@ -211,10 +199,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--e1);
-  font-size: 0.6875rem;
+  font-size: var(--t-xs);
   font-weight: var(--peso-medio);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
 }
 .rel-campo > span svg {
   color: var(--azul);
@@ -339,7 +325,7 @@
 }
 .rel-kpi-valor {
   font-size: 1.875rem;
-  font-weight: 800;
+  font-weight: var(--peso-forte);
   line-height: 1.1;
   letter-spacing: -0.02em;
   color: var(--texto);
@@ -406,10 +392,8 @@
   align-items: center;
   gap: var(--e2);
   margin: 0;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: var(--t-xs);
+  font-weight: var(--peso-forte);
   color: var(--texto-3);
 }
 .rel-secao-rotulo h3 svg {
@@ -481,7 +465,7 @@
   gap: var(--e1);
   padding: 3px var(--e3);
   font: inherit;
-  font-size: 0.75rem;
+  font-size: var(--t-xs);
   font-weight: var(--peso-medio);
   white-space: nowrap;
   color: var(--azul);
@@ -534,10 +518,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--e1);
-  font-size: 0.6875rem;
+  font-size: var(--t-xs);
   font-weight: var(--peso-forte);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
   color: var(--azul);
 }
 .rel-pod[data-tom='verde'] .rel-pod-cat {
@@ -549,7 +531,7 @@
 .rel-pod b {
   margin-top: var(--e1);
   font-size: 1.125rem;
-  font-weight: 800;
+  font-weight: var(--peso-forte);
   text-transform: capitalize;
 }
 .rel-pod > span:last-child {
@@ -566,7 +548,7 @@
   place-items: center;
   min-width: 1.5rem;
   height: 1.5rem;
-  font-size: 0.75rem;
+  font-size: var(--t-xs);
   font-weight: var(--peso-forte);
   color: var(--texto-2);
   background: var(--fundo-2);
@@ -645,7 +627,7 @@
   height: 0.75rem;
   margin-top: 3px;
   flex-shrink: 0;
-  border-radius: 3px;
+  border-radius: var(--raio-p);
 }
 .rel-legenda span {
   display: flex;
@@ -658,7 +640,7 @@
 }
 .rel-legenda small,
 .rel-funil-legenda small {
-  font-size: 0.75rem;
+  font-size: var(--t-xs);
   color: var(--texto-3);
 }
 .rel-total-caixa {
@@ -671,13 +653,13 @@
   border-radius: var(--raio-g);
 }
 .rel-total-caixa span {
-  font-size: 0.75rem;
+  font-size: var(--t-xs);
   font-weight: var(--peso-medio);
   color: var(--texto-3);
 }
 .rel-total-caixa b {
   font-size: 1.375rem;
-  font-weight: 800;
+  font-weight: var(--peso-forte);
 }
 .rel-funil {
   display: flex;
@@ -767,7 +749,7 @@
 .rel-dica-linha i {
   width: 0.625rem;
   height: 0.625rem;
-  border-radius: 2px;
+  border-radius: var(--raio-p);
 }
 .rel-dica-linha span {
   color: var(--texto-2);
@@ -805,7 +787,7 @@
 }
 .rel-contagem {
   padding: 2px var(--e3);
-  font-size: 0.75rem;
+  font-size: var(--t-xs);
   color: var(--texto-3);
   background: var(--fundo-2);
   border-radius: var(--raio-pilula);
@@ -831,6 +813,16 @@
   white-space: nowrap;
   color: var(--sobre-azul);
   background: var(--azul);
+}
+/* Detalhamento (25 linhas): rolagem própria para o cabeçalho ficar preso no topo (R3). */
+.rel-rolagem-fixa {
+  max-height: calc(72vh / var(--escala));
+  overflow: auto;
+}
+.rel-rolagem-fixa thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 .rel-tabela-dados thead th svg {
   margin-right: 4px;
@@ -869,7 +861,7 @@
   align-items: center;
   gap: 4px;
   padding: 2px var(--e2);
-  font-size: 0.75rem;
+  font-size: var(--t-xs);
   font-weight: var(--peso-medio);
   border-radius: var(--raio-pilula);
   color: var(--azul);
@@ -903,10 +895,8 @@
   border-bottom: 1px solid var(--borda);
 }
 .rel-tabela-simples thead th {
-  font-size: 0.75rem;
+  font-size: var(--t-xs);
   font-weight: var(--peso-forte);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--texto-3);
 }
 .rel-tabela-simples tbody th {
@@ -995,7 +985,7 @@
   flex-shrink: 0;
 }
 .rel-anel-texto {
-  font-size: 15px;
+  font-size: var(--t-sm);
   font-weight: var(--peso-forte);
   fill: var(--texto);
 }
@@ -1016,10 +1006,8 @@
   align-items: center;
   gap: var(--e2);
   margin: 0;
-  font-size: 0.75rem;
+  font-size: var(--t-xs);
   font-weight: var(--peso-forte);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--azul);
 }
 .rel-vencedor {
@@ -1051,10 +1039,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--e2);
-  font-size: 0.75rem;
+  font-size: var(--t-xs);
   font-weight: var(--peso-forte);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--azul);
 }
 .rel-vencedor[data-tom='ouro'] .rel-vencedor-cat {
@@ -1084,7 +1070,7 @@
 .rel-vencedor-valor {
   margin: 0;
   font-size: 1.75rem;
-  font-weight: 800;
+  font-weight: var(--peso-forte);
   letter-spacing: -0.02em;
 }
 .rel-vencedor-valor small {
@@ -1098,7 +1084,7 @@
   width: 2.25rem;
   height: 2.25rem;
   flex-shrink: 0;
-  font-size: 0.75rem;
+  font-size: var(--t-xs);
   font-weight: var(--peso-forte);
   border-radius: 50%;
   color: var(--sobre-azul);
@@ -1122,8 +1108,9 @@
   background: var(--roxo);
 }
 .rel-avatar[data-tom='ciano'] {
+  /* --azul, não --azul-vivo: branco sobre o vivo dava 4,05:1 (R4); sobre --azul, 5,14:1. */
   color: var(--sobre-azul);
-  background: var(--azul-vivo);
+  background: var(--azul);
 }
 .rel-avatar[data-tom='verde'] {
   color: var(--superficie);
@@ -1145,10 +1132,8 @@
   text-align: left;
 }
 .rel-ranking-prosp thead th {
-  font-size: 0.75rem;
+  font-size: var(--t-xs);
   font-weight: var(--peso-medio);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
   color: var(--texto-3);
 }
 .rel-ranking-prosp tbody tr + tr > * {
@@ -1339,7 +1324,7 @@ th.valor .rel-ordenar {
   min-width: 6rem;
   padding: 4px var(--e2);
   font: inherit;
-  font-size: 0.75rem;
+  font-size: var(--t-xs);
   color: var(--texto);
   background: var(--fundo);
   border: 1px solid var(--borda-campo);
@@ -1369,7 +1354,7 @@ th.valor .rel-ordenar {
   background: var(--fundo-2);
 }
 .rel-dialogo-detalhe {
-  width: min(78rem, calc(100vw - 2 * var(--e4)));
+  width: min(78rem, calc(100 * var(--vw) - 2 * var(--e4)));
 }
 .rel-dialogo-detalhe h2 small {
   font-size: var(--t-sm);
@@ -1396,7 +1381,7 @@ th.valor .rel-ordenar {
 
 /* ------------------------------------------------------ diálogo "como calculamos" */
 .rel-dialogo {
-  width: min(44rem, calc(100vw - 2 * var(--e4)));
+  width: min(44rem, calc(100 * var(--vw) - 2 * var(--e4)));
 }
 .rel-definicoes {
   display: flex;
@@ -1459,4 +1444,29 @@ th.valor .rel-ordenar {
   .rel-rosca {
     align-self: center;
   }
+}
+
+/* "Total por mês" com um mês só: número em destaque no lugar da coluna solitária (R8). */
+.rel-mes-unico {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--e2);
+  min-height: 220px;
+  padding: var(--e4);
+}
+.rel-mes-unico span {
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+  text-transform: capitalize;
+}
+.rel-mes-unico b {
+  font-size: var(--t-xl);
+  font-weight: var(--peso-forte);
+  font-variant-numeric: tabular-nums;
+  color: var(--texto);
+}
+.rel-mes-unico small {
+  font-size: var(--t-xs);
+  color: var(--texto-3);
 }

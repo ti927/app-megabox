@@ -1,5 +1,6 @@
 'use client'
 
+import { SeletorPeriodo } from '@/componentes/seletor-periodo'
 import { FilterX } from 'lucide-react'
 import type { Route } from 'next'
 import { usePathname, useRouter } from 'next/navigation'
@@ -24,14 +25,10 @@ export function FiltroPeriodo({ de, ate }: { de: string; ate: string }) {
 
   return (
     <div className="inicio-filtro" aria-busy={pendente}>
-      <label className="campo">
-        <span>De</span>
-        <input type="date" value={de} max={ate} onChange={(e) => e.target.value && ir(e.target.value, ate)} />
-      </label>
-      <label className="campo">
-        <span>Até</span>
-        <input type="date" value={ate} min={de} onChange={(e) => e.target.value && ir(de, e.target.value)} />
-      </label>
+      <div className="campo">
+        <span>Período</span>
+        <SeletorPeriodo rotulo="Período" de={de} ate={ate} onChange={(novoDe, novoAte) => ir(novoDe, novoAte)} />
+      </div>
       <button
         type="button"
         className="botao-texto"

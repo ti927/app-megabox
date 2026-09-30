@@ -1,5 +1,6 @@
 'use client'
 
+import { SeletorPeriodo } from '@/componentes/seletor-periodo'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { useTransition } from 'react'
@@ -104,14 +105,15 @@ export function RelatoriosSac({
       </header>
 
       <section className="sac-filtros" aria-label="Filtros dos indicadores">
-        <label className="campo">
-          <span>Aberto de</span>
-          <input type="date" value={filtros.de} max={filtros.ate} onChange={(e) => e.target.value && ir({ de: e.target.value })} />
-        </label>
-        <label className="campo">
-          <span>até</span>
-          <input type="date" value={filtros.ate} min={filtros.de} onChange={(e) => e.target.value && ir({ ate: e.target.value })} />
-        </label>
+        <div className="campo">
+          <span>Aberto em</span>
+          <SeletorPeriodo
+            rotulo="Aberto em"
+            de={filtros.de}
+            ate={filtros.ate}
+            onChange={(de, ate) => ir({ de, ate })}
+          />
+        </div>
         {veTodos ? (
           <label className="campo">
             <span>Responsável</span>

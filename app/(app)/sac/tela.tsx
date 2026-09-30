@@ -687,14 +687,17 @@ function GestaoNps({
                 ))}
               </select>
             </label>
-            <label className="campo">
-              <span>Respostas de</span>
-              <input type="date" value={filtros.de ?? ''} onChange={(e) => navegar({ de: e.target.value || null, pagina: 1 })} />
-            </label>
-            <label className="campo">
-              <span>até</span>
-              <input type="date" value={filtros.ate ?? ''} onChange={(e) => navegar({ ate: e.target.value || null, pagina: 1 })} />
-            </label>
+            <div className="campo">
+              <span>Respostas em</span>
+              <SeletorPeriodo
+                rotulo="Respostas em"
+                de={filtros.de ?? ''}
+                ate={filtros.ate ?? ''}
+                vazio="Qualquer data"
+                limpavel
+                onChange={(de, ate) => navegar({ de: de || null, ate: ate || null, pagina: 1 })}
+              />
+            </div>
           </section>
 
           {/* Quatro cards ([DÚVIDA 7]) no lugar de "NPS Atual" (que contava convites) e da média

@@ -1,9 +1,11 @@
-import type { Metadata } from 'next'
+import type { Metadata, Route } from 'next'
+import { redirect } from 'next/navigation'
 
 import { urlsDeLinhas } from '@/lib/arquivos-lote'
 import { exigirAcesso } from '@/lib/autorizacao'
-import { escaparLike } from '@/lib/clifor'
-import { type FiltrosProduto, lerFiltros } from '@/lib/produtos'
+import { escaparLike, faixa } from '@/lib/clifor'
+import { type FiltrosProduto, lerFiltros, paraQuery } from '@/lib/produtos'
+import { lerPagina, POR_PAGINA_PRODUTOS } from '@/lib/produtos-pagina'
 import { FOTOS_PRODUTO, fotoDaLista } from '@/lib/produtos-fotos'
 import { clienteServidor } from '@/lib/supabase/servidor'
 
@@ -17,18 +19,15 @@ export const metadata: Metadata = { title: 'Produtos — MegaBox' }
 type Supabase = Awaited<ReturnType<typeof clienteServidor>>
 
 /**
- * Teto da lista. A base tem 133 produtos; paginar agora seria complexidade sem uso. Se um
- * dia passar disto, a tela avisa que há mais e pede filtro, em vez de cortar calada.
- */
-const LIMITE = 500
-
-/**
  * A lista do `pop.CadastroProdutos` (`rpg modelo produto` bTgcB): Search de ProdutosModelo
  * por nome, tipo, grupo e ativo, ordenada por nome. Colunas: grupo, tipo, modelo, condição,
  * linha, qtd de fornecedores — que aqui conta a ligação POR FILIAL (fornecedor_produtos),
  * e não o campo excluído `QuaisFornecedores - deleted`, que mostrava zero (spec §5).
+ *
+ * Paginada NO SERVIDOR, 50 por página, como /cadastros: a lista inteira numa página só
+ * passava de 8.000 px de altura.
  */
-async function buscarLista(supabase: Supabase, f: FiltrosProduto) {
+async function buscarLista(supabase: Supabase, f: FiltrosProduto, pagina: number) {
   let consulta = supabase
     .from('produtos')
     .select(
@@ -45,7 +44,10 @@ async function buscarLista(supabase: Supabase, f: FiltrosProduto) {
   // fn_unaccent(nome) e o PostgREST não aplica função na coluna. ILIKE simples por ora.
   if (f.q) consulta = consulta.ilike('nome', `%${escaparLike(f.q)}%`)
 
-  const { data, count, error } = await consulta.order('nome').order('id').range(0, LIMITE - 1)
+  const { de, ate } = faixa(pagina, POR_PAGINA_PRODUTOS)
+  const { data, count, error } = await consulta.order('nome').order('id').range(de, ate)
+  // Página além do fim (a lista encolheu, ou a URL foi editada): volta para a primeira.
+  if (error?.code === 'PGRST103') redirect(`/produtos${paraQuery(f)}` as Route)
   if (error) {
     console.error('produtos: lista', error)
     return { linhas: [] as LinhaProduto[], total: 0, falhou: true }
@@ -141,12 +143,14 @@ export default async function PaginaProdutos({
 }) {
   // Trava no servidor. Operador não tem esta página (db/005): a RLS também barra a escrita.
   await exigirAcesso('produtos')
-  const filtros = lerFiltros(await searchParams)
+  const params = await searchParams
+  const filtros = lerFiltros(params)
+  const pagina = lerPagina(params)
 
   // Cliente da SESSÃO: a RLS decide. Nunca service_role aqui.
   const supabase = await clienteServidor()
   const [lista, ativos, opcoes, ficha] = await Promise.all([
-    buscarLista(supabase, filtros),
+    buscarLista(supabase, filtros, pagina),
     contarAtivos(supabase),
     buscarOpcoes(supabase),
     filtros.sel ? buscarFicha(supabase, filtros.sel) : Promise.resolve(null),
@@ -167,7 +171,7 @@ export default async function PaginaProdutos({
       linhas={lista.linhas}
       fotos={fotos}
       total={lista.total}
-      limite={LIMITE}
+      pagina={pagina}
       falhou={lista.falhou}
       ativos={ativos}
       opcoes={opcoes}

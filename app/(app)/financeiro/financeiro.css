@@ -281,6 +281,26 @@ td.fin-num > * {
   font-size: var(--t-xs);
   color: var(--texto-2);
 }
+/* Cliente com a logo à esquerda, como a célula de logo do Bubble. */
+.fin-cliente {
+  display: flex;
+  gap: var(--e2);
+  align-items: center;
+  min-width: 0;
+}
+.fin-logo {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  overflow: hidden;
+  font-size: 0.6875rem;
+  font-weight: var(--peso-forte);
+  color: var(--roxo);
+  background: var(--lilas);
+  border-radius: 50%;
+}
 .fin-saldo {
   font-weight: var(--peso-medio);
   color: var(--vermelho);

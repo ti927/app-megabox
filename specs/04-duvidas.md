@@ -543,6 +543,58 @@ negócio) ou **escopo** (portar ou não).
 
 ---
 
+## Pendências resolvidas em 30/09
+
+Branch `feat/pendencias`. Cada decisão abaixo foi tomada onde o mapa não decidia; a regra está no
+arquivo citado.
+
+### P1. Escritas de venda em transação — `db/022_transacoes_venda.sql`
+
+| Função | Substitui | Decisão |
+|---|---|---|
+| `fn_definir_principal(p_endereco)` | os dois UPDATEs com compensação de `cadastros/acoes-filial.ts` | Só filial **ativa** (23514). Serializa por grupo (`for update`). A action grava a filial primeiro e depois chama a função: se a troca falhar, a filial fica gravada e a principal anterior continua — o grupo nunca fica sem principal. |
+| `fn_alterar_qtd_item(p_item, p_qtd)` | WF bTOYp0 (bTOYv0 + bTOZB0) em `vendas/acoes-cotacao.ts` | Item primeiro, orçamentos depois, na mesma transação: orçamento que recusa (ex.: bruto estoura `numeric(14,2)`, 22003) desfaz a qtd do item. Item sem orçamento não é erro. |
+| `fn_limpar_rascunhos(p_idade default '24 hours')` | WF bTcal ("apaga temporários ao abrir") | Só rascunhos do **próprio** usuário (`vendedor_id = auth.uid()`), inclusive para Diretor/Gerente, que pela RLS poderiam apagar o de outro. "Antigo" = sem atividade na cotação, itens e orçamentos há `p_idade`. Piso de 1 h (22023). Rascunho preso por FK `restrict` fica (bloco por linha). Chamada por `vendas/page.tsx` só com o quadro à vista, em paralelo, e erro só vai para o log. |
+
+As três: `security invoker`, `search_path = ''`, execute só `authenticated` (critério de
+`05-avisos-do-advisor.md` §2). `get_advisors` de segurança sem achado novo depois da 022 e da 023.
+`scripts/testar-rls-vendas.mjs`: 100/100 (anon, dono, atomicidade das três).
+
+### P2. `/produtos` — descartar alteração não gravada
+
+X, Esc, clique fora e "Fechar" do painel pedem confirmação (`window.confirm`, o padrão do app)
+**só** quando o formulário da aba Dados difere do estado ao abrir ou do último gravado
+(`lib/formulario-alterado.ts`, assinatura do FormData). Digitar e apagar de volta não pergunta.
+Vale para produto novo e para edição. **Fora do escopo:** clicar em OUTRA linha da lista com
+edição pendente troca de produto sem perguntar (não passa por "fechar"); se incomodar, o mesmo
+`formularioAlterado` resolve no clique da linha.
+
+### P3. Painel lateral — foco inicial
+
+O foco ao abrir vai para o campo com `autoFocus` (produto novo) ou para o **título**
+(`aria-labelledby`, recebe `tabindex=-1`), nunca mais para o contêiner. O contêiner e o título
+focado por programa não desenham contorno; os controles continuam com o anel do tema. Tab preso,
+Esc e devolução do foco a quem abriu: inalterados.
+
+### P4. Modelos de e-mail de vendas — `db/023_modelos_email.sql`
+
+- Chaves `vendas_proposta`, `vendas_pedido_cliente`, `vendas_pedido_fornecedor`,
+  `vendas_nota_boleto`, `vendas_cancelamento_entrega` (ordem 101–105; 1–100 fica para os 7 de
+  prospecção do histórico). Texto = o que estava fixo em `lib/vendas-fluxo.ts`, e um teste
+  (`lib/vendas-emails.test.ts`) garante que a 023 e o código dizem o mesmo.
+- **Corpo em texto puro** com `{{variavel}}`, não HTML: é o formato do corpo que o vendedor
+  digita (que continua vencendo o modelo) e o servidor escapa tudo com `textoParaHtml`. Quando
+  a tela de modelos existir, editar estes cinco é editar texto.
+- **Fallback por parte:** modelo inexistente, inativo, ou com variável que o código não fornece
+  → aquela parte (assunto ou corpo) usa o texto padrão do código. Nunca sai `{{x}}` para o cliente.
+- `modelo_chave` da fila continua nulo nestes envios (o texto é montado na action, `conteudo`).
+- **Defeito corrigido:** `fn_auditoria` (001) exigia `id` uuid e `modelos_email` tem PK `chave`:
+  toda escrita na tabela falhava com `linha_id` nulo — por isso ela estava vazia. A 023 faz a
+  função usar `md5(tabela:chave)::uuid` quando não há `id`; tabelas com `id` não mudam.
+- Sem envio real: a fila segue em modo registro.
+- **Fora da lista de arquivos da frente:** para usar os modelos, `vendas/acoes-fluxo.ts` mudou
+  nos quatro envios (proposta, pedido, NF/boleto, cancelamento) — só a troca de onde vem o texto.
+
 ## 5. O que fazer com este arquivo
 
 1. **Responder a seção 1 primeiro.** Sem ela não há carga, e sem carga não há tela com dado real.

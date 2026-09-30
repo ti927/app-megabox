@@ -1,31 +1,35 @@
-/* Início: saudação e atalhos para as páginas liberadas (mesmos ícones do menu).
- * Grade que preenche a largura toda (desktop-first); cada atalho é um link inteiro. */
-.inicio-sub {
-  margin: 0 0 var(--e5);
-  color: var(--texto-2);
+/* Painel inicial: faixa compacta de atalhos (as páginas liberadas, mesmos ícones do menu) e a
+ * matriz Fornecedor × meses do Bubble (`Table B` bUAxV), que ocupa a largura toda. */
+.inicio {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e5);
+  min-width: 0;
 }
 
+/* ------------------------------------------------------------------ atalhos */
 .inicio-atalhos {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
-  gap: var(--e3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .inicio-atalho {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--e3);
-  min-height: 4rem;
-  padding: var(--e3) var(--e4);
+  gap: var(--e2);
+  min-height: 2.5rem;
+  padding: var(--e2) var(--e3);
+  font-size: var(--t-sm);
+  font-weight: var(--peso-medio);
   color: var(--texto);
   text-decoration: none;
   background: var(--superficie);
   border: 1px solid var(--borda);
-  border-radius: var(--raio-g);
-  box-shadow: var(--sombra-1);
+  border-radius: var(--raio);
   transition:
     border-color var(--dur-1) var(--curva),
     background-color var(--dur-1) var(--curva);
@@ -36,24 +40,9 @@
   background: var(--azul-claro);
   border-color: var(--azul);
 }
-
 .inicio-atalho-icone {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
   color: var(--roxo);
-  background: var(--lilas);
-  border-radius: var(--raio);
 }
-
-.inicio-atalho-nome {
-  flex: 1;
-  min-width: 0;
-  font-weight: var(--peso-medio);
-}
-
 .inicio-atalho-seta {
   color: var(--texto-3);
   transition: transform var(--dur-1) var(--curva);
@@ -61,4 +50,115 @@
 .inicio-atalho:hover .inicio-atalho-seta {
   color: var(--azul);
   transform: translateX(2px);
+}
+
+/* ------------------------------------------------------------------ matriz */
+.inicio-painel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+  min-width: 0;
+}
+.inicio-painel-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--e4);
+}
+.inicio-painel-topo h1 {
+  margin: 0;
+}
+.inicio-sub {
+  margin: var(--e1) 0 0;
+  color: var(--texto-2);
+}
+.inicio-filtro {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--e3);
+}
+.inicio-filtro .campo {
+  width: 10.5rem;
+}
+.inicio-filtro[aria-busy='true'] {
+  opacity: 0.7;
+}
+
+.inicio-rolagem {
+  max-height: calc(72vh / var(--escala));
+  overflow: auto;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
+}
+.inicio-matriz {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums;
+}
+.inicio-matriz th,
+.inicio-matriz td {
+  padding: var(--e2) var(--e3);
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--borda);
+}
+.inicio-matriz .valor {
+  text-align: right;
+}
+.inicio-matriz thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  font-weight: var(--peso-medio);
+  color: var(--texto-2);
+  background: var(--lilas-cabeca);
+}
+/* Fornecedor fixo à esquerda quando os meses rolam para o lado. */
+.inicio-matriz tr > :first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  max-width: calc(22 * var(--vw));
+  min-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: var(--peso-medio);
+  background: var(--superficie);
+}
+.inicio-matriz thead tr > :first-child {
+  z-index: 3;
+  background: var(--lilas-cabeca);
+}
+.inicio-matriz tbody tr:hover > * {
+  background: var(--fundo-2);
+}
+.inicio-total-linha {
+  font-weight: var(--peso-medio);
+}
+.inicio-matriz tfoot > tr > * {
+  position: sticky;
+  bottom: 0;
+  font-weight: var(--peso-forte);
+  color: var(--azul);
+  background: var(--azul-claro);
+  border-top: 2px solid var(--azul);
+  border-bottom: none;
+}
+.inicio-matriz tfoot tr > :first-child {
+  z-index: 3;
+  background: var(--azul-claro);
+}
+.inicio-vazio {
+  padding: var(--e6) var(--e4) !important;
+  color: var(--texto-2);
+  text-align: center !important;
+}
+.inicio-matriz .inicio-vazio {
+  position: static;
+  max-width: none;
 }

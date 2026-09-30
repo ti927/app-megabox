@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertTriangle, Building2, FileText, Paperclip, Users, X } from 'lucide-react'
+import { AlertTriangle, Building2, FileText, Paperclip, X } from 'lucide-react'
 import { startTransition, useActionState, useEffect, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
@@ -14,7 +14,11 @@ import { AbaAnexos } from './anexos'
 import { AbaContatos, AbaFiliais } from './filiais-contatos'
 import type { EstadoAcao, Ficha, Opcoes, Permissoes } from './tipos'
 
-type Aba = 'dados' | 'filiais' | 'contatos' | 'anexos'
+/**
+ * Abas da ficha. "geral" = filiais E contatos juntos, como o `gp cadastros` (bUCYr0) do
+ * Bubble mostra as duas tabelas ao mesmo tempo (spec §3.3); é a aba de entrada.
+ */
+export type AbaFicha = 'geral' | 'dados' | 'anexos'
 
 /** Botão de envio DENTRO do form: useFormStatus só enxerga o form que o contém. */
 function BotaoEnviar({ children, className = 'botao-primario' }: {
@@ -212,17 +216,19 @@ function FormularioGrupo({
 // ----------------------------------------------------------------------- a ficha
 
 /**
- * Ficha do grupo (cliente ou fornecedor): dados, filiais e contatos. É o CONTEÚDO do
+ * Ficha do grupo (cliente ou fornecedor): filiais e contatos, dados e anexos. É o CONTEÚDO do
  * painel lateral (componentes/painel-lateral.tsx), que a tela monta uma vez só: trocar de
  * grupo troca só isto (key = id), sem refazer a animação do painel.
  *
  * Substitui o painel `gp cadastros` (bUCYr0) da página do Bubble. Filiais e contatos são
  * criados e editados nas próprias abas (filiais-contatos.tsx — porta de pop.AddEditaEndereço
- * e pop.AddEditaContato, specs/paginas/enderecos-e-contatos.md).
+ * e pop.AddEditaContato, specs/paginas/enderecos-e-contatos.md). Como no Bubble, filiais e
+ * contatos aparecem juntos na aba de entrada; Dados e Anexos ficam nas outras abas.
  */
 export function FichaGrupo({
   ficha,
   novoTipo,
+  pedidoAba,
   opcoes,
   permissoes,
   aoCriar,
@@ -230,12 +236,21 @@ export function FichaGrupo({
 }: {
   ficha: Ficha | null
   novoTipo: TipoClifor | null
+  /** aba pedida pela lista (Anexos, Bloquear); `n` muda a cada pedido */
+  pedidoAba?: { aba: AbaFicha; n: number }
   opcoes: Opcoes
   permissoes: Permissoes
   aoCriar: (id: string) => void
   aoFechar: () => void
 }) {
-  const [aba, setAba] = useState<Aba>('dados')
+  const [aba, setAba] = useState<AbaFicha>(ficha ? (pedidoAba?.aba ?? 'geral') : 'dados')
+  // Pedido novo da lista com a ficha já aberta: troca de aba sem remontar (o que foi
+  // digitado em Dados fica).
+  const [pedidoVisto, setPedidoVisto] = useState(pedidoAba?.n)
+  if (pedidoAba && pedidoAba.n !== pedidoVisto) {
+    setPedidoVisto(pedidoAba.n)
+    if (ficha) setAba(pedidoAba.aba)
+  }
   const [estado, salvar, salvando] = useActionState(salvarGrupo, {})
   const [estadoAtivo, acaoAtivo] = useActionState(definirAtivoGrupo, {})
 
@@ -258,12 +273,12 @@ export function FichaGrupo({
             .length > 0,
       ).length
     : 0
+  const bloqueadas = ficha ? ficha.filiais.filter((f) => !f.liberado).length : 0
 
-  const abas: { id: Aba; rotulo: string; qtd?: number; Icone: typeof FileText }[] = ficha
+  const abas: { id: AbaFicha; rotulo: string; qtd?: number; Icone: typeof FileText }[] = ficha
     ? [
+        { id: 'geral', rotulo: 'Filiais e contatos', Icone: Building2 },
         { id: 'dados', rotulo: 'Dados', Icone: FileText },
-        { id: 'filiais', rotulo: 'Filiais', qtd: ficha.filiais.length, Icone: Building2 },
-        { id: 'contatos', rotulo: 'Contatos', qtd: ficha.contatos.length, Icone: Users },
         { id: 'anexos', rotulo: 'Anexos', qtd: ficha.anexos.length, Icone: Paperclip },
       ]
     : []
@@ -282,15 +297,43 @@ export function FichaGrupo({
         <div className="ficha-titulo">
           <p className="ficha-tipo">{tipo === 'cliente' ? 'Cliente' : 'Fornecedor'}</p>
           <h2 id="ficha-titulo">{g ? g.nome : `Novo ${tipo}`}</h2>
-          {g ? (
-            <p className="ficha-selos">
-              <span className="selo" data-tom={g.ativo ? 'ok' : 'erro'}>
-                {g.ativo ? 'Ativo' : 'Inativo'}
-              </span>
-              {g.tipo === 'fornecedor' && g.nao_faz_contrato_parceria ? (
-                <span className="selo">Não faz contrato de parceria</span>
-              ) : null}
-            </p>
+          {g && ficha ? (
+            <>
+              {/* "Contém: N Endereços | M Contatos · Criado em · Por" — o cartão do topo do
+                  gp cadastros (captura cadastros-03), mais a carteira. */}
+              <p className="ficha-resumo">
+                <span>
+                  Contém: {ficha.filiais.length} {ficha.filiais.length === 1 ? 'filial' : 'filiais'} |{' '}
+                  {ficha.contatos.length} {ficha.contatos.length === 1 ? 'contato' : 'contatos'}
+                </span>
+                {g.tipo === 'cliente' ? (
+                  <span>
+                    Carteira: <strong>{g.carteira?.nome ?? 'sem carteira'}</strong>
+                  </span>
+                ) : null}
+                <span>
+                  Criado em {formatarData(g.criado_em)}
+                  {g.autor ? ` por ${g.autor.nome}` : ''}
+                </span>
+              </p>
+              <p className="ficha-selos">
+                <span className="selo" data-tom={g.ativo ? 'ok' : 'erro'}>
+                  {g.ativo ? 'Ativo' : 'Inativo'}
+                </span>
+                {bloqueadas > 0 || !g.liberado ? (
+                  <span className="selo" data-tom="erro">
+                    {bloqueadas > 0
+                      ? `${bloqueadas} ${bloqueadas === 1 ? 'filial bloqueada' : 'filiais bloqueadas'}`
+                      : 'Bloqueado'}
+                  </span>
+                ) : (
+                  <span className="selo">Liberado</span>
+                )}
+                {g.tipo === 'fornecedor' && g.nao_faz_contrato_parceria ? (
+                  <span className="selo">Não faz contrato de parceria</span>
+                ) : null}
+              </p>
+            </>
           ) : null}
         </div>
         <button type="button" className="painel-lateral-fechar" aria-label="Fechar" onClick={aoFechar}>
@@ -312,9 +355,9 @@ export function FichaGrupo({
             >
               <a.Icone size={16} aria-hidden="true" />
               {a.rotulo}
-              {a.qtd !== undefined ? <span className="ficha-aba-qtd">{a.qtd}</span> : null}
-              {a.id === 'filiais' && qtdDuplicados > 0 ? (
-                <AlertTriangle size={15} className="ficha-alerta" aria-label="com documento repetido" />
+              {a.qtd !== undefined ? <span className="aba-qtd">{a.qtd}</span> : null}
+              {a.id === 'geral' && qtdDuplicados > 0 ? (
+                <AlertTriangle size={16} className="ficha-alerta" aria-label="com documento repetido" />
               ) : null}
             </button>
           ))}
@@ -327,14 +370,31 @@ export function FichaGrupo({
         id={`painel-${aba}`}
         aria-labelledby={abas.length > 0 ? `aba-${aba}` : undefined}
       >
-        {qtdDuplicados > 0 && aba !== 'filiais' ? (
+        {qtdDuplicados > 0 && aba !== 'geral' ? (
           <p className="aviso ficha-aviso-topo" data-teste="aviso-duplicado-resumo">
             {qtdDuplicados === 1 ? '1 filial tem' : `${qtdDuplicados} filiais têm`} documento repetido em
             outro cadastro.{' '}
-            <button type="button" className="link" onClick={() => setAba('filiais')}>
+            <button type="button" className="link" onClick={() => setAba('geral')}>
               Ver filiais
             </button>
           </p>
+        ) : null}
+
+        {/* Filiais e contatos visíveis juntos (gp cadastros: rpg enderecos + rpg contatos). */}
+        {ficha && aba === 'geral' ? (
+          <div className="ficha-geral">
+            <section className="ficha-secao" aria-label="Filiais">
+              <AbaFiliais
+                ficha={ficha}
+                opcoes={opcoes}
+                escreve={escreve}
+                podeBloquear={permissoes.bloquearFilial}
+              />
+            </section>
+            <section className="ficha-secao" aria-label="Contatos">
+              <AbaContatos ficha={ficha} />
+            </section>
+          </div>
         ) : null}
 
         {/* hidden em vez de desmontar: trocar de aba não pode perder o que foi digitado. */}
@@ -353,15 +413,6 @@ export function FichaGrupo({
             enviar={(form) => startTransition(() => salvar(form))}
           />
         </div>
-        {ficha && aba === 'filiais' ? (
-          <AbaFiliais
-            ficha={ficha}
-            opcoes={opcoes}
-            escreve={escreve}
-            podeBloquear={permissoes.bloquearFilial}
-          />
-        ) : null}
-        {ficha && aba === 'contatos' ? <AbaContatos ficha={ficha} /> : null}
         {ficha && aba === 'anexos' ? (
           <AbaAnexos ficha={ficha} opcoes={opcoes} podeApagar={permissoes.apagarAnexo} />
         ) : null}

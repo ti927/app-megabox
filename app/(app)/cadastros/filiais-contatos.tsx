@@ -54,7 +54,7 @@ function BotaoAlternar({ ativo }: { ativo: boolean }) {
   const { pending } = useFormStatus()
   return (
     <button type="submit" className="link" disabled={pending}>
-      {ativo ? <PowerOff size={14} aria-hidden="true" /> : <Power size={14} aria-hidden="true" />}
+      {ativo ? <PowerOff size={16} aria-hidden="true" /> : <Power size={16} aria-hidden="true" />}
       {pending ? 'Gravando…' : ativo ? 'Desativar' : 'Reativar'}
     </button>
   )
@@ -490,7 +490,7 @@ export function AbaFiliais({
                         }}
                         data-teste="editar-filial"
                       >
-                        <Pencil size={14} aria-hidden="true" />
+                        <Pencil size={16} aria-hidden="true" />
                         Editar
                       </button>
                       <form
@@ -742,7 +742,7 @@ export function AbaContatos({ ficha }: { ficha: Ficha }) {
                     }}
                     data-teste="editar-contato"
                   >
-                    <Pencil size={14} aria-hidden="true" />
+                    <Pencil size={16} aria-hidden="true" />
                     Editar
                   </button>
                   <form

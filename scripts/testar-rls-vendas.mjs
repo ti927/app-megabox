@@ -286,6 +286,16 @@ async function main() {
   caso('anon executa fn_aliquota_icms', 'negado', rpcAnon.error?.code === RECUSADO ? 'negado' : 'permitido')
   const vencAnon = await anonimo.rpc('fn_definir_vencedor', { p_orcamento: '00000000-0000-0000-0000-000000000000' })
   caso('anon executa fn_definir_vencedor', 'negado', vencAnon.error?.code === RECUSADO ? 'negado' : 'permitido')
+  // 022: as três transações também não abrem para anon.
+  const ZERO = '00000000-0000-0000-0000-000000000000'
+  for (const [fn, args] of [
+    ['fn_definir_principal', { p_endereco: ZERO }],
+    ['fn_alterar_qtd_item', { p_item: ZERO, p_qtd: 1 }],
+    ['fn_limpar_rascunhos', {}],
+  ]) {
+    const r = await anonimo.rpc(fn, args)
+    caso(`anon executa ${fn}`, 'negado', r.error?.code === RECUSADO ? 'negado' : 'permitido')
+  }
 
   const dir = await entrar(env.QA_EMAIL, env.QA_SENHA)
   const op = await entrar(env.QA_OPERADOR_EMAIL, env.QA_OPERADOR_SENHA)
@@ -521,6 +531,118 @@ async function main() {
   caso('substituto define vencedor (42501)', RECUSADO, vencSub.error?.code ?? 'sem erro')
   const { data: aindaOrc1 } = await admin.from('orcamentos_fornecedor').select('vencedor').eq('id', d.orc).single()
   caso('recusa do substituto é atômica (o vencedor não foi desmarcado)', true, aindaOrc1?.vencedor)
+
+  // ---------------------------------------------------------------- 022: transações
+  console.log('\nTransações da 022 (principal, qtd do item, limpeza de rascunhos):')
+
+  // fn_alterar_qtd_item (bTOYp0): item e TODOS os orçamentos juntos.
+  const qtds = async (item) => {
+    const [{ data: it }, { data: os }] = await Promise.all([
+      admin.from('cotacao_itens').select('qtd').eq('id', item).single(),
+      admin.from('orcamentos_fornecedor').select('qtd_venda').eq('cotacao_item_id', item),
+    ])
+    return `${Number(it?.qtd)}|${[...new Set((os ?? []).map((o) => Number(o.qtd_venda)))].join(',')}`
+  }
+  const q4 = await dir.cliente.rpc('fn_alterar_qtd_item', { p_item: d.item, p_qtd: 4 })
+  caso('fn_alterar_qtd_item grava item e todos os orçamentos', '4|4', q4.error ? `erro ${q4.error.code}` : await qtds(d.item))
+  // Atomicidade: o item aceita 99999999999, mas o bruto gerado do orc2 (× 12,00) estoura
+  // numeric(14,2) — o erro vem DEPOIS de gravar o item, e tem de desfazê-lo.
+  const estouro = await dir.cliente.rpc('fn_alterar_qtd_item', { p_item: d.item, p_qtd: 99999999999 })
+  caso('fn_alterar_qtd_item: orçamento recusa → erro 22003', '22003', estouro.error?.code ?? 'sem erro')
+  caso('fn_alterar_qtd_item é atômica (item não ficou com a qtd recusada)', '4|4', await qtds(d.item))
+  const qZero = await dir.cliente.rpc('fn_alterar_qtd_item', { p_item: d.item, p_qtd: 0 })
+  caso('fn_alterar_qtd_item: qtd 0 recusada (23514)', '23514', qZero.error?.code ?? 'sem erro')
+  const qAlheia = await o.rpc('fn_alterar_qtd_item', { p_item: itemSigilo.id, p_qtd: 5 })
+  caso('SIGILO: Operador altera qtd em cotação de outro (P0002)', 'P0002', qAlheia.error?.code ?? 'sem erro')
+  const qSub = await o.rpc('fn_alterar_qtd_item', { p_item: d.item, p_qtd: 5 })
+  caso('substituto altera qtd do item (42501)', RECUSADO, qSub.error?.code ?? 'sem erro')
+  caso('recusa do substituto na qtd não mexe em nada', '4|4', await qtds(d.item))
+  await dir.cliente.rpc('fn_alterar_qtd_item', { p_item: d.item, p_qtd: 3 })
+
+  // fn_definir_principal: troca atômica da filial principal do grupo cliente.
+  const [filial2] = await exigir(
+    admin
+      .from('enderecos_clifor')
+      .insert({ grupo_id: d.cliente, nome_endereco: `${NOME}2`, tipo_pessoa: 'cnpj', regime_tributario_id: 1, uf: 'SP' })
+      .select('id'),
+    'segunda filial',
+  )
+  const [inativa] = await exigir(
+    admin
+      .from('enderecos_clifor')
+      .insert({ grupo_id: d.cliente, nome_endereco: `${NOME}3`, tipo_pessoa: 'cnpj', regime_tributario_id: 1, uf: 'SP', ativo: false })
+      .select('id'),
+    'filial inativa',
+  )
+  const principais = async () => {
+    const { data } = await admin.from('enderecos_clifor').select('id').eq('grupo_id', d.cliente).eq('principal', true)
+    return (data ?? []).map((x) => (x.id === d.destino ? 'f1' : x.id === filial2.id ? 'f2' : 'outra')).join(',')
+  }
+  const p1 = await dir.cliente.rpc('fn_definir_principal', { p_endereco: d.destino })
+  caso('fn_definir_principal marca a primeira principal', 'f1', p1.error ? `erro ${p1.error.code}` : await principais())
+  const p2 = await dir.cliente.rpc('fn_definir_principal', { p_endereco: filial2.id })
+  caso('fn_definir_principal troca a principal (uma só)', 'f2', p2.error ? `erro ${p2.error.code}` : await principais())
+  const pIn = await dir.cliente.rpc('fn_definir_principal', { p_endereco: inativa.id })
+  caso('fn_definir_principal: filial inativa recusada (23514)', '23514', pIn.error?.code ?? 'sem erro')
+  caso('recusa da inativa não mexe na principal', 'f2', await principais())
+  // O Operador lê filiais (fn_usuario_ativo) mas só grava com a página cadastros.
+  const { data: opCadastros } = await o.rpc('fn_pode_acessar_pagina', { p_slug: 'cadastros' })
+  const pOp = await o.rpc('fn_definir_principal', { p_endereco: d.destino })
+  if (opCadastros) {
+    caso('Operador com cadastros troca a principal', 'f1', pOp.error ? `erro ${pOp.error.code}` : await principais())
+  } else {
+    caso('Operador sem cadastros troca a principal (42501)', RECUSADO, pOp.error?.code ?? 'sem erro')
+    caso('recusa do Operador é atômica (a principal não foi desmarcada)', 'f2', await principais())
+  }
+
+  // fn_limpar_rascunhos (bTcal): só rascunhos do PRÓPRIO usuário, sem atividade há p_idade.
+  const velho = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString()
+  const rasc = await exigir(
+    admin
+      .from('cotacoes')
+      .insert([
+        { cliente_id: d.cliente, vendedor_id: dir.id, empresa_emissora_id: 1, rascunho: true, criado_em: velho },
+        { cliente_id: d.cliente, vendedor_id: dir.id, empresa_emissora_id: 1, rascunho: true, criado_em: new Date().toISOString() },
+        { cliente_id: d.cliente, vendedor_id: dir.id, empresa_emissora_id: 1, rascunho: false, criado_em: velho },
+        { cliente_id: d.cliente, vendedor_id: op.id, empresa_emissora_id: 1, rascunho: true, criado_em: velho },
+        { cliente_id: d.cliente, vendedor_id: dir.id, empresa_emissora_id: 1, rascunho: true, criado_em: velho },
+        { cliente_id: d.cliente, vendedor_id: dir.id, empresa_emissora_id: 1, rascunho: true, criado_em: velho },
+      ])
+      .select('id'),
+    'rascunhos',
+  )
+  const [rVelho, rNovo, rFirme, rDoOp, rAtivo, rPreso] = rasc.map((r) => r.id)
+  // Rascunho velho com item de agora: está em uso, fica.
+  await exigir(
+    admin
+      .from('cotacao_itens')
+      .insert({ cotacao_id: rAtivo, produto_id: d.produto, qtd: 1, endereco_destino_id: d.destino })
+      .select('id'),
+    'item do rascunho em uso',
+  )
+  // Rascunho velho preso por FK restrict (pedido): fica, sem derrubar a limpeza dos outros.
+  const [propPreso] = await exigir(
+    admin.from('propostas').insert({ cotacao_id: rPreso, numero: 1, vendedor_id: dir.id }).select('id'),
+    'proposta do rascunho preso',
+  )
+  await exigir(
+    admin.from('pedidos').insert({ proposta_id: propPreso.id, cotacao_id: rPreso, vendedor_id: dir.id }).select('id'),
+    'pedido do rascunho preso',
+  )
+  const existe = async (id) => {
+    const { data } = await admin.from('cotacoes').select('id').eq('id', id)
+    return data?.length === 1 ? 'fica' : 'apagado'
+  }
+  const curto = await dir.cliente.rpc('fn_limpar_rascunhos', { p_idade: '5 minutes' })
+  caso('fn_limpar_rascunhos: idade < 1 h recusada (22023)', '22023', curto.error?.code ?? 'sem erro')
+  const limpa = await dir.cliente.rpc('fn_limpar_rascunhos')
+  caso('fn_limpar_rascunhos roda sem erro', 'ok', limpa.error ? `erro ${limpa.error.code} ${limpa.error.message}` : 'ok')
+  caso('limpeza: rascunho próprio antigo é apagado', 'apagado', await existe(rVelho))
+  caso('limpeza: rascunho próprio recente fica', 'fica', await existe(rNovo))
+  caso('limpeza: cotação de verdade (não rascunho) fica', 'fica', await existe(rFirme))
+  caso('limpeza: rascunho de OUTRO vendedor fica (mesmo para perfil 1)', 'fica', await existe(rDoOp))
+  caso('limpeza: rascunho antigo com item recente fica', 'fica', await existe(rAtivo))
+  caso('limpeza: rascunho preso por FK (pedido) fica', 'fica', await existe(rPreso))
 
   // Perfil 1 enxerga o que é do Operador (hierarquia ≤ 2).
   caso('perfil 1 lê a cotação do Operador', 'permitido', await enxerga(dir.cliente, 'cotacoes', minha.data?.[0]?.id))

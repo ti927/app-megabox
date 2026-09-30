@@ -38,6 +38,8 @@ function traduzirErro(contexto: string, erro: { code?: string; message?: string 
       return 'Um dos valores escolhidos não existe mais. Recarregue a página.'
     case '23505':
       return 'Outra pessoa acabou de trocar a filial principal deste cadastro. Recarregue e tente de novo.'
+    case 'P0002':
+      return 'Esta filial não existe mais. Recarregue a página.'
     default:
       return 'Não foi possível gravar agora. Tente de novo em instantes.'
   }
@@ -192,47 +194,31 @@ export async function salvarFilial(_anterior: EstadoItem, form: FormData): Promi
     avisos.push('Filial inativa não pode ser a principal; a principal continua a mesma.')
   }
 
-  // Troca de principal numa sequência segura: DESMARCA a anterior → grava esta marcada.
-  // O índice único parcial um_principal_por_grupo impede duas. Se a segunda gravação falhar,
-  // a anterior é REMARCADA; se até isso falhar, a mensagem diz que o grupo ficou sem principal.
-  // (Sem transação entre chamadas do PostgREST — ver o relatório: uma função SQL resolveria.)
-  let desmarcou: string | null = null
-  if (tornarPrincipal && anteriorPrincipalId && anteriorPrincipalId !== id) {
-    const { data, error } = await supabase
-      .from('enderecos_clifor')
-      .update({ principal: false })
-      .eq('id', anteriorPrincipalId)
-      .select('id')
-    if (error) return { erro: traduzirErro('desmarcar principal', error) }
-    if (!data || data.length === 0) return { erro: 'Você não tem permissão para alterar este cadastro.' }
-    desmarcou = anteriorPrincipalId
-  }
-
-  const registro = { ...dados, ...(tornarPrincipal ? { principal: true } : {}) }
+  // 1º grava a filial (sem mexer em `principal`); 2º, se for o caso, troca a principal do grupo
+  // numa transação só (db/022 fn_definir_principal: desmarca a anterior e marca esta juntas).
+  // Se a troca falhar, a filial está gravada e a principal anterior continua — o grupo nunca
+  // fica sem principal, que era o risco dos dois UPDATEs com compensação de antes.
   const gravacao = id
-    ? await supabase.from('enderecos_clifor').update(registro).eq('id', id).select('id')
+    ? await supabase.from('enderecos_clifor').update(dados).eq('id', id).select('id')
     : await supabase
         .from('enderecos_clifor')
-        .insert({ ...registro, grupo_id: grupoId, criado_por: usuario.id })
+        .insert({ ...dados, grupo_id: grupoId, criado_por: usuario.id })
         .select('id')
 
   const falhou = gravacao.error ?? (!gravacao.data || gravacao.data.length === 0 ? { code: '42501' } : null)
-  if (falhou) {
-    const mensagem = traduzirErro(id ? 'editar filial' : 'criar filial', falhou)
-    if (desmarcou) {
-      const { error: erroVolta } = await supabase
-        .from('enderecos_clifor')
-        .update({ principal: true })
-        .eq('id', desmarcou)
+  if (falhou) return { erro: traduzirErro(id ? 'editar filial' : 'criar filial', falhou) }
+
+  const gravadaId = (gravacao.data?.[0]?.id as string | undefined) ?? id
+  if (tornarPrincipal && gravadaId && anteriorPrincipalId !== gravadaId) {
+    const { error } = await supabase.rpc('fn_definir_principal', { p_endereco: gravadaId })
+    if (error) {
       revalidatePath('/cadastros')
-      if (erroVolta) {
-        traduzirErro('remarcar principal', erroVolta)
-        return {
-          erro: `${mensagem} Atenção: a filial principal anterior foi desmarcada e não deu para remarcar — o cadastro está sem principal. Marque uma filial como principal.`,
-        }
+      return {
+        erro: `Filial gravada, mas não deu para torná-la a principal — a principal continua a mesma. ${
+          error.code === '23514' ? 'Filial inativa não pode ser a principal.' : traduzirErro('definir principal', error)
+        }`,
       }
     }
-    return { erro: mensagem }
   }
 
   revalidatePath('/cadastros')

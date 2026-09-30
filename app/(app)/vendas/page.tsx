@@ -319,6 +319,12 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
   }
 }
 
+/** WF bTcal (db/022). Erro só vai para o log: a limpeza é faxina, não pode derrubar o quadro. */
+async function limparRascunhos(supabase: Supabase): Promise<void> {
+  const { error } = await supabase.rpc('fn_limpar_rascunhos')
+  if (error) console.error('vendas: limpar rascunhos', error)
+}
+
 export default async function PaginaVendas({
   searchParams,
 }: {
@@ -337,8 +343,12 @@ export default async function PaginaVendas({
   // Com a cotação aberta em TELA CHEIA o quadro fica coberto: não se consulta. Cada gravação na
   // ficha (revalidatePath) refazia as 4 colunas — no banco Micro isso gerava rajadas de 57014.
   // A tela mantém o último quadro recebido e o refaz ao fechar a ficha.
-  const [kanban, opcoes, ficha, opcoesFicha] = await Promise.all([
+  const [kanban, , opcoes, ficha, opcoesFicha] = await Promise.all([
     filtros.sel ? Promise.resolve(null) : buscarKanban(supabase, filtros, usuario),
+    // WF bTcal: ao abrir, apaga os carrinhos (rascunhos) do PRÓPRIO usuário parados há 24 h
+    // (db/022 fn_limpar_rascunhos). Só com o quadro à vista — não a cada gravação na ficha — e
+    // em paralelo; falha aqui não impede a tela.
+    filtros.sel ? null : limparRascunhos(supabase),
     buscarOpcoes(supabase, filtrarVendedor, usuario.nome),
     filtros.sel ? buscarFicha(supabase, filtros.sel) : Promise.resolve(null),
     filtros.sel ? buscarOpcoesFicha(supabase) : Promise.resolve(null),

@@ -15,6 +15,15 @@ export async function clienteServidor() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: {
+        fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+          const t0 = performance.now()
+          const r = await fetch(input, init)
+          const u = new URL(String(input instanceof Request ? input.url : input))
+          console.log(`[perf] ${(performance.now() - t0).toFixed(0).padStart(5)} ms ${init?.method ?? 'GET'} ${u.pathname.replace('/rest/v1/', '')} ${r.status}`)
+          return r
+        },
+      },
       cookies: {
         getAll() {
           return jar.getAll()

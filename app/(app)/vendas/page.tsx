@@ -13,26 +13,12 @@ import {
 } from '@/lib/vendas'
 import { lerCrescente } from '@/lib/vendas-ordem'
 
-import { buscarOpcoesFicha } from './consultas'
-import { comFotoFicha, comFotosKanban } from './fotos'
+import { PARTES_CARRINHO, PARTES_FICHA } from '@/lib/vendas-ficha'
+
+import { buscarFicha } from './consultas'
+import { comFotosKanban } from './fotos'
 import { TelaVendas } from './tela'
-import type {
-  CartaoCotacao,
-  CartaoEntrega,
-  CartaoPedido,
-  ColunaDados,
-  Cotacao,
-  DocumentoItem,
-  EmpresaEmissora,
-  EntregaFicha,
-  Ficha,
-  Item,
-  Kanban,
-  Opcoes,
-  Orcamento,
-  Pedido,
-  Proposta,
-} from './tipos'
+import type { CartaoCotacao, CartaoEntrega, CartaoPedido, ColunaDados, Kanban, Opcoes } from './tipos'
 
 import './vendas.css'
 
@@ -185,168 +171,6 @@ async function buscarOpcoes(supabase: Supabase, filtrarVendedor: boolean, eu: st
   }
 }
 
-/** Colunas de `v_orcamento_valores` (db/007): os derivados já calculados pelo banco. */
-const COLUNAS_VALORES =
-  'id, cotacao_item_id, valor_venda_unit::text, valor_comissao_unit::text, valor_frete::text, ' +
-  'tipo_frete_id, aliquota_icms::text, aliquota_pis_cofins::text, valor_venda_bruto::text, ' +
-  'valor_comissao_bruto::text, valor_icms::text, valor_pis_cofins::text, valor_tributos::text, ' +
-  'valor_venda_liquido::text, valor_unit_liquido::text, vencedor'
-
-/** A ficha da cotação aberta: cabeçalho, itens, orçamentos, propostas, pedidos e entregas. */
-async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null> {
-  const { data: cotacao, error } = await supabase
-    .from('cotacoes')
-    .select(
-      'id, numero, criado_em, data_validade, amostra, arquivado, etapa_id, vendedor_id, cliente_id, ' +
-        'empresa_emissora_id, rascunho, ' +
-        'cliente:grupos_clifor(nome), vendedor:usuarios!vendedor_id(nome), ' +
-        'empresa:empresas_emissoras(nome), status:cotacao_status(nome), etapa:etapas(nome), ' +
-        'motivo:motivos_arquivamento(nome)',
-    )
-    .eq('id', id)
-    .maybeSingle()
-  if (error) console.error('vendas: ficha', error)
-  // Sem linha = não existe OU a RLS não deixa ver (cotação de outro vendedor). Mesma resposta.
-  if (!cotacao) return null
-  const c = cotacao as unknown as Cotacao
-
-  const [itens, valores, nomes, propostas, pedidos, entregas, destinos, documento, empresa] = await Promise.all([
-    supabase
-      .from('cotacao_itens')
-      .select(
-        'id, qtd::text, medida, produto_id, condicao_id, linha_id, endereco_destino_id, ' +
-          'produto:produtos(nome, grupo_id), condicao:condicoes_produto(nome), ' +
-          'linha:linhas_produto(nome), destino:enderecos_clifor(nome_endereco, uf, municipio)',
-      )
-      .eq('cotacao_id', id)
-      .order('criado_em')
-      .order('id'),
-    supabase.from('v_orcamento_valores').select(COLUNAS_VALORES).eq('cotacao_id', id).order('id'),
-    supabase
-      .from('orcamentos_fornecedor')
-      .select(
-        'id, criado_em, fornecedor_id, fornecedor:grupos_clifor(nome), frete:tipos_frete(nome), ' +
-          'origem:enderecos_clifor!endereco_origem_id(nome_endereco, uf, regime:regimes_tributarios(nome))',
-      )
-      .eq('cotacao_id', id),
-    supabase
-      .from('propostas')
-      .select(
-        'id, numero, enviada, enviada_em, criado_em, data_prev_entrega, condicao_pagamento, ' +
-          'info_adicional, emails_copia, corpo_email, enviar_para_contato_id, faturar_para_endereco_id, ' +
-          'vendedor:usuarios!vendedor_id(nome), ' +
-          'itens:proposta_itens(id, qtd::text, valor_venda_unit::text, valor_frete::text, ' +
-          'orcamento:orcamentos_fornecedor(id, fornecedor_id, produto:produtos(nome), fornecedor:grupos_clifor(nome))), ' +
-          // cabeçalho do documento (bTace…bTacl, bTziU)
-          'faturar:enderecos_clifor!faturar_para_endereco_id(documento, municipio, uf, grupo:grupos_clifor(nome)), ' +
-          'contato:contatos_clifor!enviar_para_contato_id(nome, telefone), ' +
-          'fornecedor_cnpj:enderecos_clifor!cnpj_fornecedor_endereco_id(documento, razao)',
-      )
-      .eq('cotacao_id', id)
-      .order('criado_em', { ascending: false }),
-    supabase
-      .from('pedidos')
-      .select(
-        'id, numero, criado_em, etapa_id, formalizado, formalizado_em, finalizado, motivo_cancelamento, ' +
-          'ordem_compra_numero, info_adicional, proposta_id, forma_pagamento_id, contato_cliente_id, ' +
-          'contato_fornecedor_id, emails_copia_cliente, emails_copia_fornecedor, corpo_email_cliente, ' +
-          'corpo_email_fornecedor, proposta:propostas(numero), forma:formas_pagamento(nome), etapa:etapas(nome), ' +
-          'prazos:pedido_prazos(prazo_id)',
-      )
-      .eq('cotacao_id', id)
-      .order('criado_em', { ascending: false }),
-    // Tabela, não a view do kanban: a ficha precisa de NF, motivo e arquivos, e não do join
-    // de nomes. A RLS de entregas (009) decide o que aparece.
-    supabase
-      .from('entregas')
-      .select(
-        'id, pedido_id, orcamento_fornecedor_id, status_id, qtd::text, dt_prev_entrega, dt_entrega, ' +
-          'saiu_entrega, nao_emite_nf, nf_fornecedor_numero, dt_emissao_nf, nota_boleto_enviada, ' +
-          'motivo_cancelamento, valor_venda_bruto::text, valor_comissao::text, valor_venda_liquido::text, ' +
-          'vendedor_substituto_id, arquivos:entrega_arquivos(id, tipo, nome_arquivo, path, enviado_em)',
-      )
-      .eq('cotacao_id', id)
-      .order('dt_prev_entrega', { ascending: true, nullsFirst: false })
-      .order('criado_em'),
-    supabase
-      .from('enderecos_clifor')
-      .select('id, nome_endereco, uf, municipio')
-      .eq('grupo_id', c.cliente_id)
-      .eq('ativo', true)
-      .order('principal', { ascending: false })
-      .order('nome_endereco'),
-    // Documento da proposta (db/024): bruto do item e total somados no banco.
-    supabase
-      .from('v_proposta_documento_itens')
-      .select(
-        'id, proposta_id, qtd::text, valor_venda_unit::text, valor_frete::text, aliquota_icms::text, ' +
-          'aliquota_pis_cofins::text, medida, produto_nome, condicao_nome, linha_nome, frete_nome, ' +
-          'fornecedor_nome, destino_municipio, destino_uf, valor_total_bruto::text, ' +
-          'valor_unit_liquido::text, total_proposta::text',
-      )
-      .eq('cotacao_id', id)
-      .order('criado_em')
-      .order('id'),
-    supabase.from('empresas_emissoras').select('id, nome, email, telefone').eq('id', c.empresa_emissora_id).maybeSingle(),
-  ])
-
-  type Nomes = {
-    id: string
-    criado_em: string
-    fornecedor_id: string
-    fornecedor: { nome: string } | null
-    frete: { nome: string } | null
-    origem: Orcamento['origem']
-  }
-  const porId = new Map(((nomes.data ?? []) as unknown as Nomes[]).map((n) => [n.id, n]))
-  const chegada = (id: string) => porId.get(id)?.criado_em ?? ''
-  const orcamentos: Orcamento[] = ((valores.data ?? []) as unknown as Omit<Orcamento, 'fornecedor_nome' | 'origem' | 'frete_nome'>[])
-    // ordem de chegada, como a lista do Bubble (QuaisOrcamentosForncededores)
-    .sort((a, b) => chegada(a.id).localeCompare(chegada(b.id)))
-    .map((v) => {
-      const n = porId.get(v.id)
-      return {
-        ...v,
-        fornecedor_nome: n?.fornecedor?.nome ?? '—',
-        origem: n?.origem ?? null,
-        frete_nome: n?.frete?.nome ?? '—',
-      }
-    })
-
-  // Agenda de contatos (bTPJB, bTbnk, bTcZi): contatos ATIVOS com e-mail do cliente e dos
-  // fornecedores orçados. É daqui que sai o destinatário: a action relê pelo id, no banco.
-  const grupos = [...new Set([c.cliente_id, ...[...porId.values()].map((n) => n.fornecedor_id)])]
-  const { data: contatos, error: eContatos } = await supabase
-    .from('contatos_clifor')
-    .select('id, grupo_id, nome, email')
-    .in('grupo_id', grupos)
-    .eq('ativo', true)
-    .not('email', 'is', null)
-    .order('nome')
-    .limit(500)
-  if (eContatos) console.error('vendas: contatos da ficha', eContatos)
-
-  // Parte da ficha que falhou (timeout, rede) NÃO vira lista vazia calada: o carrinho sem itens
-  // seria lido como "os produtos sumiram". A tela avisa e pede para recarregar.
-  const partes = { itens, valores, nomes, propostas, pedidos, entregas, destinos, documento, empresa }
-  const falhas = Object.entries(partes).filter(([, r]) => r.error)
-  for (const [nome, r] of falhas) console.error(`vendas: ficha (${nome})`, r.error)
-
-  return {
-    cotacao: c,
-    incompleta: falhas.length > 0,
-    contatos: ((contatos ?? []) as Ficha['contatos']).filter((x) => x.email.trim() !== ''),
-    itens: (itens.data ?? []) as unknown as Item[],
-    orcamentos,
-    propostas: (propostas.data ?? []) as unknown as Proposta[],
-    pedidos: (pedidos.data ?? []) as unknown as Pedido[],
-    entregas: (entregas.data ?? []) as unknown as EntregaFicha[],
-    destinos: (destinos.data ?? []) as Ficha['destinos'],
-    documentoItens: (documento.data ?? []) as unknown as DocumentoItem[],
-    empresaEmissora: (empresa.data ?? null) as EmpresaEmissora | null,
-  }
-}
-
 /** WF bTcal (db/022). Erro só vai para o log: a limpeza é faxina, não pode derrubar o quadro. */
 async function limparRascunhos(supabase: Supabase): Promise<void> {
   const { error } = await supabase.rpc('fn_limpar_rascunhos')
@@ -374,15 +198,19 @@ export default async function PaginaVendas({
   // Com a cotação aberta em TELA CHEIA o quadro fica coberto: não se consulta. Cada gravação na
   // ficha (revalidatePath) refazia as 4 colunas — no banco Micro isso gerava rajadas de 57014.
   // A tela mantém o último quadro recebido e o refaz ao fechar a ficha.
-  const [kanban, , opcoes, ficha, opcoesFicha] = await Promise.all([
+  //
+  // Da ficha, na aba Cotação só vão carrinho e orçamentos: propostas/pedidos/documento (as
+  // consultas mais pesadas, que caíam em 57014) a tela pede depois, sem travar a abertura
+  // (lib/vendas-ficha). As listas dos selects (produtos etc.) a tela pede UMA vez e guarda.
+  const partes = filtros.aba === 'cotacao' ? PARTES_CARRINHO : PARTES_FICHA
+  const [kanban, , opcoes, ficha] = await Promise.all([
     filtros.sel ? Promise.resolve(null) : buscarKanban(supabase, filtros, usuario, crescente).then(comFotosKanban),
     // WF bTcal: ao abrir, apaga os carrinhos (rascunhos) do PRÓPRIO usuário parados há 24 h
     // (db/022 fn_limpar_rascunhos). Só com o quadro à vista — não a cada gravação na ficha — e
     // em paralelo; falha aqui não impede a tela.
     filtros.sel ? null : limparRascunhos(supabase),
     buscarOpcoes(supabase, filtrarVendedor, usuario.nome),
-    filtros.sel ? buscarFicha(supabase, filtros.sel).then(comFotoFicha) : Promise.resolve(null),
-    filtros.sel ? buscarOpcoesFicha(supabase) : Promise.resolve(null),
+    filtros.sel ? buscarFicha(supabase, filtros.sel, partes) : Promise.resolve(null),
   ])
 
   return (
@@ -391,8 +219,8 @@ export default async function PaginaVendas({
       crescente={crescente}
       kanban={kanban}
       opcoes={opcoes}
-      ficha={ficha}
-      opcoesFicha={opcoesFicha}
+      ficha={ficha === 'erro' ? null : ficha}
+      fichaFalhou={ficha === 'erro'}
       usuario={{ id: usuario.id, perfilId: usuario.perfilId }}
       permissoes={{ filtrarVendedor, ehDiretor: usuario.perfilId === 1 }}
     />

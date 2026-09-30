@@ -1,7 +1,5 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
-
 import { exigirAcesso } from '@/lib/autorizacao'
 import { clienteServidor } from '@/lib/supabase/servidor'
 import {
@@ -16,8 +14,14 @@ import {
   validarOrcamento,
 } from '@/lib/vendas'
 
+import type { CarrinhoRelido } from '@/lib/vendas-ficha'
+
+import { carrinhoAtual } from './consultas'
 import { cotacaoEditavel, traduzirErro } from './regras-servidor'
 import type { EstadoAcao, FornecedorParaItem } from './tipos'
+
+/** EstadoAcao + o carrinho relido do banco (lib/vendas-ficha): a tela troca só ele. */
+export type EstadoCarrinho = EstadoAcao & { carrinho?: CarrinhoRelido }
 
 /*
  * Escrita da página de vendas: cotação, item e orçamento de fornecedor.
@@ -30,6 +34,12 @@ import type { EstadoAcao, FornecedorParaItem } from './tipos'
  * as alíquotas vêm do trigger fn_orcamento_derivados, e o líquido de v_orcamento_valores.
  * E-mail (proposta, pedido) fica fora desta versão: a fila email_outbox só aceita escrita
  * de servidor com service_role, e o envio real ainda não existe.
+ *
+ * DESEMPENHO: nenhuma action daqui revalida a página. Revalidar re-renderizava layout +
+ * página + a ficha inteira (propostas, pedidos, documento…) a cada clique — era o que deixava
+ * "adicionar ao carrinho" e o troféu em 5–10 s e fazia a ficha cair em 57014. Quem muda o
+ * carrinho devolve o carrinho relido (`carrinho`), e a tela troca só ele; o quadro é refeito
+ * quando a ficha fecha (navegação sem `sel`).
  */
 
 /** regimes_tributarios.id 1 = 'lucro_real' ("Lucro Real/Presumido"), seed fixo da 003. */
@@ -96,7 +106,6 @@ export async function criarCotacao(_anterior: EstadoAcao, form: FormData): Promi
   // 23505 aqui = número repetido: a sequence não foi ajustada depois da carga (db/007 D7).
   if (error) return { erro: traduzirErro('criar cotação', error, 'Número de cotação repetido. Avise o suporte.') }
 
-  revalidatePath('/vendas')
   return { ok: `Cotação nº ${data.numero} criada. Agora adicione os produtos.`, id: data.id as string }
 }
 
@@ -118,7 +127,6 @@ export async function arquivarCotacao(_anterior: EstadoAcao, form: FormData): Pr
   if (error) return { erro: traduzirErro('arquivar', error) }
   // UPDATE barrado pela RLS (ou fora da etapa) não dá erro: devolve zero linhas.
   if (!data || data.length === 0) return { erro: 'Não foi possível arquivar esta cotação.' }
-  revalidatePath('/vendas')
   return { ok: 'Cotação arquivada.', id: validacao.dados.cotacao_id }
 }
 
@@ -134,7 +142,6 @@ export async function desarquivarCotacao(_anterior: EstadoAcao, form: FormData):
     .select('id')
   if (error) return { erro: traduzirErro('desarquivar', error) }
   if (!data || data.length === 0) return { erro: 'Não foi possível desarquivar esta cotação.' }
-  revalidatePath('/vendas')
   return { ok: 'Cotação desarquivada.', id }
 }
 
@@ -144,7 +151,7 @@ export async function desarquivarCotacao(_anterior: EstadoAcao, form: FormData):
  * "Adicionar produto ao carrinho" (WF bTOir0 → bTOiw0): produto, condição, linha, medida,
  * qtd e destino = endereço de entrega do cliente.
  */
-export async function adicionarItem(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+export async function adicionarItem(_anterior: EstadoAcao, form: FormData): Promise<EstadoCarrinho> {
   const usuario = await exigirAcesso('vendas')
   const validacao = validarItem(form)
   if (!validacao.ok) return { erro: validacao.erro }
@@ -194,8 +201,7 @@ export async function adicionarItem(_anterior: EstadoAcao, form: FormData): Prom
   })
   if (error) return { erro: traduzirErro('adicionar item', error) }
 
-  revalidatePath('/vendas')
-  return { ok: 'Produto adicionado.', id: dados.cotacao_id }
+  return { ok: 'Produto adicionado.', id: dados.cotacao_id, carrinho: await carrinhoAtual(supabase, dados.cotacao_id) }
 }
 
 // --------------------------------------------------------------------- orçamento
@@ -272,7 +278,7 @@ export async function fornecedoresParaItem(itemId: string): Promise<FornecedorPa
  * [DÚVIDA vendas 3] Origem Lucro Real/Presumido com destino em outro regime: o Bubble NÃO
  * cria o orçamento, em silêncio. Aqui também não cria — mas diz por quê, em vez de sumir.
  */
-export async function adicionarOrcamento(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+export async function adicionarOrcamento(_anterior: EstadoAcao, form: FormData): Promise<EstadoCarrinho> {
   const usuario = await exigirAcesso('vendas')
   const validacao = validarOrcamento(form)
   if (!validacao.ok) return { erro: validacao.erro }
@@ -360,8 +366,7 @@ export async function adicionarOrcamento(_anterior: EstadoAcao, form: FormData):
   })
   if (error) return { erro: traduzirErro('adicionar orçamento', error) }
 
-  revalidatePath('/vendas')
-  return { ok: 'Fornecedor adicionado ao produto.', id: it.cotacao_id }
+  return { ok: 'Fornecedor adicionado ao produto.', id: it.cotacao_id, carrinho: await carrinhoAtual(supabase, it.cotacao_id) }
 }
 
 /**
@@ -371,7 +376,7 @@ export async function adicionarOrcamento(_anterior: EstadoAcao, form: FormData):
  * Marcar é a RPC `fn_definir_vencedor` (db/015): troca atômica, com a regra bTOUP0 no banco.
  * Etapa e arquivamento (cotacaoEditavel) continuam aqui.
  */
-export async function definirVencedor(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+export async function definirVencedor(_anterior: EstadoAcao, form: FormData): Promise<EstadoCarrinho> {
   const usuario = await exigirAcesso('vendas')
   const id = form.get('orcamento_id')
   const marcar = form.get('marcar')
@@ -398,8 +403,7 @@ export async function definirVencedor(_anterior: EstadoAcao, form: FormData): Pr
   if (marcar === 'false') {
     const { error } = await supabase.from('orcamentos_fornecedor').update({ vencedor: false }).eq('id', id)
     if (error) return { erro: traduzirErro('desmarcar vencedor', error) }
-    revalidatePath('/vendas')
-    return { ok: 'Vencedor desmarcado.', id: o.cotacao_id }
+    return { ok: 'Vencedor desmarcado.', id: o.cotacao_id, carrinho: await carrinhoAtual(supabase, o.cotacao_id) }
   }
 
   // Pré-checagem para a mensagem sair sem ida ao banco; a regra que vale é a da função.
@@ -411,20 +415,20 @@ export async function definirVencedor(_anterior: EstadoAcao, form: FormData): Pr
   // security invoker: a RLS decide). No Bubble eram dois passos (bTOUa0/bTOUU0), e falhar no
   // meio deixava o item sem vencedor.
   const { error } = await supabase.rpc('fn_definir_vencedor', { p_orcamento: id })
-  // 23514 = a regra bTOUP0 recusou e a função desfez tudo: nada mudou, então não há o que
-  // recarregar (revalidar refaz as 4 colunas do kanban e a ficha — db/020). Os outros erros
-  // podem vir de mudança feita por outra pessoa (orçamento apagado, vencedor trocado), e aí a
-  // tela precisa da versão nova.
+  // 23514 = a regra bTOUP0 recusou e a função desfez tudo: nada mudou (a tela desfaz o troféu
+  // otimista). Os outros erros podem vir de mudança feita por outra pessoa (orçamento apagado,
+  // vencedor trocado): aí vai o carrinho relido, e a tela mostra a versão do banco.
   if (error?.code === '23514') {
     return { erro: 'Para ser vencedor, informe valor unitário e comissão unitária (mínimo R$ 0,01).', id: o.cotacao_id }
   }
-  revalidatePath('/vendas')
+  const carrinho = await carrinhoAtual(supabase, o.cotacao_id)
   if (error) {
-    if (error.code === 'P0002') return { erro: 'Este orçamento não existe mais. Recarregue a página.' }
+    if (error.code === 'P0002') return { erro: 'Este orçamento não existe mais.', carrinho }
     return {
       erro: traduzirErro('definir vencedor', error, 'Outro orçamento deste produto já é o vencedor.'),
       id: o.cotacao_id,
+      carrinho,
     }
   }
-  return { ok: 'Vencedor definido.', id: o.cotacao_id }
+  return { ok: 'Vencedor definido.', id: o.cotacao_id, carrinho }
 }

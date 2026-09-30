@@ -595,6 +595,64 @@ Esc e devolução do foco a quem abriu: inalterados.
 - **Fora da lista de arquivos da frente:** para usar os modelos, `vendas/acoes-fluxo.ts` mudou
   nos quatro envios (proposta, pedido, NF/boleto, cancelamento) — só a troca de onde vem o texto.
 
+## Metas: relatórios e pódio
+
+Decisões da frente `fix/metas` (30/09). Migration `db/027_metas_relatorios.sql` (criada como
+`024_*`; renomeada porque o 024 ficou com `024_proposta_documento.sql` — o banco guarda o
+conteúdo aplicado, não o número). Teste: `node scripts/testar-rls-metas-relatorios.mjs` (26 casos).
+
+- **"Valores da tabela errados vs Bubble" — CAUSA: o Bubble comparado é o `version-test`.** O
+  logotipo da captura diz "TESTE megabox" e o bloco HTML "Análise de Entregas" mostra o selo
+  VERSION-TEST. O banco de desenvolvimento do Bubble parou em 03/09/2026 (última modificação
+  de entrega em setembro): lá a Barbara tem 2 entregas em setembro (01/09, R$ 700 + R$ 720 =
+  R$ 1.420), a Juliane 5 (R$ 860), a Nubia 3 (R$ 1.000). Conferido pela Data API nos dois
+  ambientes. No Bubble de PRODUÇÃO a mesma regra dá Barbara 23 entregas / R$ 12.851,21,
+  Juliane R$ 5.150,10 (igual ao app novo), Nubia R$ 13.786,68, Gabriella R$ 46.081,40 — o app
+  novo tem R$ 10.616,21 / 5.150,10 / 12.439,68 / 43.422,90 porque a carga é anterior às
+  últimas entregas de setembro. **A fórmula está certa e é a do mapa** (Ipt valor faturado
+  bTvpn / CalculaRanking bTwAv): soma de `valorcomissao` (= `ValorComissaoBruto`, comissão
+  MegaBox) das entregas com status Financeiro e `dtentrega` (data REAL de entrega) no período,
+  do vendedor titular sem substituto (Regular) ou em que ele é o substituto (Substituição).
+  Nada foi mudado em `fn_status_realizado`/`fn_entregas_da_meta`/`fn_calculo_meta`. O
+  "11/100" do Bubble é `floor(faturado × 100 ÷ meta)` (Progress-Bar A): 1.420 ÷ 12.000 = 11,8%
+  → 11. **Ação para o dono:** comparar com o Bubble de produção (sem `/version-test`) e,
+  para bater ao centavo, rodar a carga incremental de entregas antes do corte.
+- **Diferença conhecida (011 D3):** o app novo conta Financeiro **e** Concluído; o Bubble, só
+  Financeiro. Em setembro/2026 não há entrega Concluída, então o número é o mesmo.
+- **Popup do valor faturado = a regra ao vivo** (`fn_metas_entregas_meta` → `fn_entregas_da_meta`),
+  como o popup do Bubble (que filtra `rpg entregas gerais` também para meta fechada). Meta
+  aberta: soma do popup = valor da linha, sempre (teste). Meta FECHADA mostra na linha o valor
+  congelado (011 D7); em metas fechadas no Bubble o congelado nem sempre bate com as entregas de
+  hoje (a lista `QuaisEntregas` misturava titular e substituto e as entregas mudaram depois) — o
+  popup mostra um aviso com os dois valores em vez de esconder. Metas fechadas pelo app novo
+  congelam esta mesma lista.
+- **Exportar para Excel = .xlsx de verdade, sem dependência** (`lib/xlsx-simples.ts`, ZIP sem
+  compressão, testado e aberto no openpyxl): SheetJS/ExcelJS custariam 400–900 KB para uma
+  tabela. Valor em célula numérica com formato R$. **Imprimir** = folha "Metas & Bonus" com data,
+  vendedor, período e a mesma tabela filtrada, por `@media print` (a casca do app some).
+- **Análise de Entregas (HTML A bUEzP):** realizadas = status do realizado (`fn_status_realizado`,
+  para bater com a tabela; o HTML usava só Financeiro) por data de entrega; em andamento e
+  canceladas pela data PREVISTA. Diretor vê os três; os demais não veem "realizadas" e veem só as
+  próprias — no banco, não só na tela.
+- **Relatório Anual (HTML C bUFCJ), só perfil 1 (o banco recusa os demais com 42501).** O
+  `STATUS_MAP` do HTML procura rótulos que não existem nas Etapas ("Fechado", "Entregue"…); na
+  prática só Financeiro e Cancelado eram reconhecidos e Fechado = Entregue = Faturado. Mantida a
+  INTENÇÃO com as etapas reais: Fechado = Pedido/Em Entrega/Financeiro/Concluído (data do pedido),
+  Entregue = Financeiro/Concluído (data de entrega), Faturado = status do realizado (data de
+  entrega), Cancelado (data do pedido). Mês com meta fechada usa as entregas do fechamento (regra
+  do HTML). "Status financeiro" sai do detalhamento (não migrou). Os alertas de consistência do
+  HTML iam só para o console; não foram reproduzidos. **Dado a conferir:** a base carregada tem
+  entregas de 2024–2025 com comissão absurda (máx. R$ 19.600.000,00 numa entrega de fev/2025),
+  o que faz "Faturado em 2025" dar R$ 26,9 milhões — é dado do Bubble, não conta do relatório.
+- **Pódio em 4 estilos para o dono escolher** (seletor "Estilo do pódio A | B | C | D" no cartão,
+  cookie `mb-podio` + localStorage, padrão A): A escudos com o % dentro; B degraus; C medalhas com
+  anel de progresso; D placar com a linha de 100% da meta. **[DÚVIDA]** qual fica — quando o dono
+  escolher, apagar os outros três e o seletor.
+- Auditoria: M2 níveis em tabela com cabeçalho único; M3 `vw` → `--vw`; M4 nomes do ranking em
+  até duas linhas com o nome inteiro no `title`; M5 "✕" → ícone e valores fora dos tokens; M6 anel
+  de foco no campo de data. O bloco do filtro de período não foi tocado (outra frente troca por
+  `SeletorPeriodo`).
+
 ## 5. O que fazer com este arquivo
 
 1. **Responder a seção 1 primeiro.** Sem ela não há carga, e sem carga não há tela com dado real.

@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 import { Foto } from '@/componentes/foto'
 import { Icone } from '@/componentes/icone'
+import { SeletorPeriodo } from '@/componentes/seletor-periodo'
 import { formatarData } from '@/lib/datas'
 import {
   type Aba,
@@ -108,26 +109,17 @@ function Filtros({ filtros, opcoes, navegar }: { filtros: FiltrosFinanceiro; opc
               ))}
             </select>
           </label>
-          <label className="campo">
-            <span>De</span>
-            <input
-              type="date"
-              value={filtros.de}
-              max={filtros.ate}
-              disabled={filtros.situacao === 'vencidas'}
-              onChange={(e) => e.target.value && filtrar({ de: e.target.value })}
+          <div className="campo">
+            <span>Período</span>
+            <SeletorPeriodo
+              rotulo={`Período (${TIPOS_DATA[filtros.data].rotulo})`}
+              de={filtros.de}
+              ate={filtros.ate}
+              desabilitado={filtros.situacao === 'vencidas'}
+              onChange={(de, ate) => filtrar({ de, ate })}
+              data-teste="filtro-periodo"
             />
-          </label>
-          <label className="campo">
-            <span>Até</span>
-            <input
-              type="date"
-              value={filtros.ate}
-              min={filtros.de}
-              disabled={filtros.situacao === 'vencidas'}
-              onChange={(e) => e.target.value && filtrar({ ate: e.target.value })}
-            />
-          </label>
+          </div>
           <label className="campo">
             <span>Situação</span>
             <select value={filtros.situacao} onChange={(e) => filtrar({ situacao: e.target.value as Situacao })}>

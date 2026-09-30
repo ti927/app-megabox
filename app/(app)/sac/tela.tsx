@@ -7,6 +7,7 @@ import { startTransition, useActionState, useEffect, useRef, useState, useTransi
 import { Check, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
 
 import { Icone } from '@/componentes/icone'
+import { SeletorPeriodo } from '@/componentes/seletor-periodo'
 import { totalPaginas } from '@/lib/clifor'
 import { formatarData } from '@/lib/datas'
 import {
@@ -236,14 +237,18 @@ function Chamados({
             ))}
           </select>
         </label>
-        <label className="campo">
-          <span>Aberto de</span>
-          <input type="date" value={filtros.de ?? ''} onChange={(e) => filtrar({ de: e.target.value || null })} />
-        </label>
-        <label className="campo">
-          <span>até</span>
-          <input type="date" value={filtros.ate ?? ''} onChange={(e) => filtrar({ ate: e.target.value || null })} />
-        </label>
+        <div className="campo">
+          <span>Aberto em</span>
+          <SeletorPeriodo
+            rotulo="Aberto em"
+            vazio="Qualquer data"
+            limpavel
+            de={filtros.de ?? ''}
+            ate={filtros.ate ?? ''}
+            onChange={(de, ate) => filtrar({ de: de || null, ate: ate || null })}
+            data-teste="filtro-periodo"
+          />
+        </div>
         <div className="sac-acoes">
           {usuario.ehDiretor ? (
             <label className="caixa">

@@ -17,6 +17,19 @@ function focaveis(raiz: HTMLElement) {
   )
 }
 
+/**
+ * Escala do app (`--escala`, estilos/base.css: 0,75 no desktop). window.innerWidth e
+ * clientX vêm em px da janela; a largura do painel é aplicada em px CSS, que o zoom encolhe.
+ */
+function escala(): number {
+  const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--escala'))
+  return Number.isFinite(v) && v > 0 ? v : 1
+}
+/** Largura da janela em px CSS (já descontado o zoom). */
+function janelaCss(): number {
+  return window.innerWidth / escala()
+}
+
 function lerLargura(chave: string | undefined): number | null {
   if (!chave) return null
   try {
@@ -60,7 +73,8 @@ export type PropsPainelLateral = {
 }
 
 /**
- * Painel lateral (drawer) à direita, altura total, redimensionável pela borda esquerda.
+ * Painel lateral (drawer) à direita, do cabeçalho ao pé da janela, redimensionável pela borda
+ * esquerda.
  *
  * Diferente do `<dialog>` central: a página continua visível e clicável à esquerda, para
  * trocar o registro sem fechar. Para o teclado ele se comporta como diálogo — `role=dialog`,
@@ -99,7 +113,7 @@ export function PainelLateral({
   // Largura: lembrada ou fração da janela; acompanha o redimensionamento da janela.
   useEffect(() => {
     const ajustar = () => {
-      const w = window.innerWidth
+      const w = janelaCss()
       setJanela(w)
       setLargura((atual) => limitarLargura(atual ?? lerLargura(chaveLargura) ?? larguraInicial(w, fracaoInicial), w))
     }
@@ -195,7 +209,7 @@ export function PainelLateral({
 
   const mudarLargura = useCallback(
     (px: number) => {
-      const nova = limitarLargura(px, window.innerWidth)
+      const nova = limitarLargura(px, janelaCss())
       setLargura(nova)
       gravarLargura(chaveLargura, nova)
     },
@@ -208,7 +222,7 @@ export function PainelLateral({
     const alca = e.currentTarget
     alca.setPointerCapture(e.pointerId)
     setArrastando(true)
-    const mover = (ev: PointerEvent) => mudarLargura(window.innerWidth - ev.clientX)
+    const mover = (ev: PointerEvent) => mudarLargura((window.innerWidth - ev.clientX) / escala())
     const soltar = () => {
       setArrastando(false)
       alca.removeEventListener('pointermove', mover)
@@ -257,7 +271,7 @@ export function PainelLateral({
         tabIndex={0}
         onPointerDown={comecarArrasto}
         onKeyDown={teclaAlca}
-        onDoubleClick={() => mudarLargura(larguraInicial(window.innerWidth, fracaoInicial))}
+        onDoubleClick={() => mudarLargura(larguraInicial(janelaCss(), fracaoInicial))}
       />
       {children}
     </div>

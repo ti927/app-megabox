@@ -155,7 +155,7 @@ export function Casca({
         </button>
 
         <Link href="/inicio" className="cabecalho-marca" aria-label="MegaBox — Início">
-          <Marca tamanho={44} prioridade />
+          <Marca tamanho={56} prioridade />
         </Link>
 
         <div className="cabecalho-usuario">

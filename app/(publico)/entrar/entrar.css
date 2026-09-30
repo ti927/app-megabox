@@ -33,7 +33,7 @@
   padding: var(--e6) var(--e6) var(--e5);
   background: var(--superficie);
   border: 1px solid var(--borda);
-  border-radius: 14px;
+  border-radius: var(--raio-g);
   box-shadow: var(--sombra-2);
 }
 

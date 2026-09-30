@@ -32,7 +32,10 @@ import {
   validarSaida,
 } from '@/lib/vendas-fluxo'
 
+import { dividirQuantidade } from '@/lib/fluxo-tela'
+
 import type { EstadoAcao } from './tipos'
+import type { EnderecoDoc, ExtrasPedido, ExtrasProposta, Parcela, SaldoItem } from './tipos-fluxo'
 
 /*
  * Escrita do fluxo DEPOIS da cotação: proposta → pedido → entregas (specs/paginas/vendas.md
@@ -1073,4 +1076,167 @@ export async function abrirArquivoEntrega(path: string): Promise<{ url: string }
   if (typeof path !== 'string' || !path.startsWith('entregas/')) return { erro: 'Arquivo indisponível.' }
   const r = await urlAssinada(path, { segundos: 120 })
   return r.ok ? { url: r.url } : { erro: r.erro }
+}
+
+// ============================================================ LEITURAS DA TELA NOVA
+/*
+ * A tela de proposta/pedido (proposta-tela, pedido-tela) mostra o DOCUMENTO ao vivo, e o
+ * documento precisa de dados que a ficha não traz: CNPJ/endereço completo, telefone do A/C,
+ * o saldo do item em dinheiro (v_pedido_item_saldo, db/029), os modelos de e-mail (para o
+ * texto aparecer pronto no campo) e a prévia do rateio (fn_rateio_prazos, db/029). Todas com o
+ * cliente da SESSÃO: a RLS decide o que volta. Nenhuma escreve.
+ */
+
+const COLUNAS_ENDERECO =
+  'id, nome_endereco, razao, documento, insc_estadual, logradouro, numero, complemento, bairro, municipio, uf, cep'
+
+export async function extrasProposta(cotacaoId: string): Promise<ExtrasProposta | { erro: string }> {
+  const usuario = await exigirAcesso('vendas')
+  if (!ehUuid(cotacaoId)) return { erro: 'Cotação inválida.' }
+  const supabase = await clienteServidor()
+  const { data: cot } = await supabase.from('cotacoes').select('cliente_id').eq('id', cotacaoId).maybeSingle()
+  const cliente = (cot as { cliente_id: string } | null)?.cliente_id
+  if (!cliente) return { erro: 'Esta cotação não existe mais. Recarregue a página.' }
+  const [ends, contatos, modelos] = await Promise.all([
+    supabase
+      .from('enderecos_clifor')
+      .select(COLUNAS_ENDERECO)
+      .eq('grupo_id', cliente)
+      .eq('ativo', true)
+      .order('principal', { ascending: false })
+      .order('nome_endereco'),
+    supabase.from('contatos_clifor').select('id, telefone').eq('grupo_id', cliente).eq('ativo', true),
+    lerModelosEmailVendas(supabase, ['vendas_proposta']),
+  ])
+  if (ends.error) console.error('vendas (fluxo): endereços do documento', ends.error)
+  const telefones: Record<string, string | null> = {}
+  for (const c of (contatos.data ?? []) as { id: string; telefone: string | null }[]) telefones[c.id] = c.telefone
+  return { enderecos: (ends.data ?? []) as EnderecoDoc[], telefones, modelos, eu: usuario.nome }
+}
+
+export async function extrasPedido(pedidoId: string): Promise<ExtrasPedido | { erro: string }> {
+  const usuario = await exigirAcesso('vendas')
+  if (!ehUuid(pedidoId)) return { erro: 'Pedido inválido.' }
+  const supabase = await clienteServidor()
+  const { data: ped } = await supabase
+    .from('pedidos')
+    .select(
+      'proposta:propostas(faturar_para_endereco_id, itens:proposta_itens(orcamento:orcamentos_fornecedor(id, endereco_origem_id, endereco_destino_id)))',
+    )
+    .eq('id', pedidoId)
+    .maybeSingle()
+  const p = ped as unknown as {
+    proposta: {
+      faturar_para_endereco_id: string | null
+      itens: { orcamento: { id: string; endereco_origem_id: string; endereco_destino_id: string } | null }[]
+    } | null
+  } | null
+  if (!p) return { erro: 'Este pedido não existe mais. Recarregue a página.' }
+  const orcs = (p.proposta?.itens ?? []).map((i) => i.orcamento).filter((o): o is NonNullable<typeof o> => !!o)
+  const faturarId = p.proposta?.faturar_para_endereco_id ?? null
+  const ids = [...new Set([...orcs.flatMap((o) => [o.endereco_origem_id, o.endereco_destino_id]), ...(faturarId ? [faturarId] : [])])]
+  const [ends, saldo, modelos] = await Promise.all([
+    ids.length
+      ? supabase.from('enderecos_clifor').select(COLUNAS_ENDERECO).in('id', ids)
+      : Promise.resolve({ data: [] as EnderecoDoc[], error: null }),
+    supabase
+      .from('v_pedido_item_saldo')
+      .select(
+        'pedido_id, orcamento_fornecedor_id, qtd_vendida::text, valor_bruto::text, valor_comissao::text, ' +
+          'valor_liquido::text, valor_tributos::text, qtd_entregas::text, bruto_entregas::text, ' +
+          'comissao_entregas::text, liquido_entregas::text, falta_qtd::text, falta_bruto::text, ' +
+          'falta_comissao::text, falta_liquido::text',
+      )
+      .eq('pedido_id', pedidoId),
+    lerModelosEmailVendas(supabase, ['vendas_pedido_cliente', 'vendas_pedido_fornecedor']),
+  ])
+  if (ends.error) console.error('vendas (fluxo): endereços do pedido', ends.error)
+  if (saldo.error) console.error('vendas (fluxo): saldo do pedido', saldo.error)
+  const porId = new Map(((ends.data ?? []) as EnderecoDoc[]).map((e) => [e.id, e]))
+  return {
+    itens: orcs.map((o) => ({
+      orcamento_fornecedor_id: o.id,
+      origem: porId.get(o.endereco_origem_id) ?? null,
+      destino: porId.get(o.endereco_destino_id) ?? null,
+    })),
+    faturar: faturarId ? (porId.get(faturarId) ?? null) : null,
+    saldo: (saldo.data ?? []) as unknown as SaldoItem[],
+    modelos,
+    eu: usuario.nome,
+  }
+}
+
+/** Prévia do rateio (fn_rateio_prazos, db/029): mesma ordem e valores da confirmação. */
+export async function rateioPrazos(pedidoId: string, prazos: number[]): Promise<{ parcelas: Parcela[] } | { erro: string }> {
+  await exigirAcesso('vendas')
+  if (!ehUuid(pedidoId)) return { erro: 'Pedido inválido.' }
+  if (!Array.isArray(prazos)) return { erro: 'Prazos inválidos.' }
+  const lista = [...new Set(prazos)].filter((p) => Number.isInteger(p) && p > 0 && p < 1000)
+  if (lista.length === 0) return { parcelas: [] }
+  if (lista.length > 12) return { erro: 'No máximo 12 prazos.' }
+  const supabase = await clienteServidor()
+  const { data, error } = await supabase.rpc('fn_rateio_prazos', { p_pedido: pedidoId, p_prazos: lista })
+  if (error) {
+    console.error('vendas (fluxo): rateio', error)
+    return { erro: 'Não foi possível mostrar o rateio agora.' }
+  }
+  type Linha = { parcela: number; prazo_id: number; prazo_nome: string; dias_prazo: number; valor: string | number | null }
+  return {
+    // numeric chega como número do PostgREST: vira texto sem conta nenhuma (só formatação depois).
+    parcelas: ((data ?? []) as Linha[]).map((r) => ({ ...r, valor: r.valor === null ? null : String(r.valor) })),
+  }
+}
+
+/**
+ * "Dividir entrega" (tela nova): a entrega que ainda não saiu fica com metade da quantidade e
+ * nasce outra, do mesmo item, com o resto e a MESMA data prevista. São os dois passos que o
+ * vendedor faria à mão (editar qtd, bTbPN; "+ entrega", bTbOt), com as mesmas regras: só entrega
+ * editável (podeEditarEntrega), unitários refeitos pelo trigger (009 D5).
+ */
+export async function dividirEntrega(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  const usuario = await exigirAcesso('vendas')
+  const entregaId = id(form, 'entrega_id')
+  if (!entregaId) return { erro: 'Entrega inválida. Recarregue a página.' }
+  const supabase = await clienteServidor()
+  const { data } = await supabase
+    .from('entregas')
+    .select('id, pedido_id, orcamento_fornecedor_id, qtd::text, dt_prev_entrega, status_id, saiu_entrega')
+    .eq('id', entregaId)
+    .maybeSingle()
+  const e = data as {
+    pedido_id: string
+    orcamento_fornecedor_id: string
+    qtd: string
+    dt_prev_entrega: string | null
+    status_id: number
+    saiu_entrega: boolean
+  } | null
+  if (!e) return { erro: 'Esta entrega não existe mais. Recarregue a página.' }
+  if (!podeEditarEntrega(e)) return { erro: 'Só se divide entrega que ainda não saiu.' }
+  const partes = dividirQuantidade(e.qtd)
+  if (!partes) return { erro: 'Quantidade pequena demais para dividir.' }
+
+  const recalcular = { valor_venda_bruto_unit: null, valor_venda_liquido_unit: null, valor_comissao_unit: null }
+  const { data: gravou, error } = await supabase
+    .from('entregas')
+    .update({ qtd: partes[0], ...recalcular })
+    .eq('id', entregaId)
+    .eq('saiu_entrega', false)
+    .select('id')
+  if (error) return { erro: traduzirErro('dividir entrega', error) }
+  if (!gravou || gravou.length === 0) return { erro: 'Não foi possível dividir esta entrega.' }
+  const { error: eNova } = await supabase.from('entregas').insert({
+    pedido_id: e.pedido_id,
+    orcamento_fornecedor_id: e.orcamento_fornecedor_id,
+    qtd: partes[1],
+    dt_prev_entrega: e.dt_prev_entrega,
+    criado_por: usuario.id,
+  })
+  if (eNova) {
+    // Desfaz a metade: a quantidade volta inteira para a entrega original.
+    await supabase.from('entregas').update({ qtd: e.qtd, ...recalcular }).eq('id', entregaId)
+    return { erro: traduzirErro('dividir entrega', eNova) }
+  }
+  revalidatePath(PAGINA)
+  return { ok: `Entrega dividida em ${formatarQuantidade(partes[0])} + ${formatarQuantidade(partes[1])}.` }
 }

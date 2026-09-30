@@ -45,7 +45,13 @@
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio);
-  color-scheme: light dark;
+  /* Sem color-scheme próprio: herda o da raiz, que segue data-tema (cookie mb-tema). Com
+     "light dark" o calendário nativo seguia o SISTEMA e abria escuro no tema claro. */
+}
+.vendas-periodo input:focus-visible {
+  outline: none;
+  border-color: var(--azul-vivo);
+  box-shadow: var(--anel);
 }
 .vendas-pilulas {
   display: flex;
@@ -55,6 +61,7 @@
 .pilula-filtro {
   display: inline-flex;
   align-items: center;
+  gap: var(--e2);
   min-height: 2.25rem;
   padding: var(--e1) var(--e4);
   font: inherit;
@@ -83,6 +90,45 @@
 }
 .vendas-nova {
   margin-left: auto;
+}
+/* Campo com × de limpar (Icon EZZ/Q/EZZZ do Bubble): o botão fica POR CIMA da ponta direita
+   do campo, fora do <label> (botão dentro de label é HTML inválido). */
+.vendas-limpavel {
+  position: relative;
+}
+.vendas-limpavel[data-cheio] .campo > input,
+.vendas-limpavel[data-cheio] .campo > select {
+  padding-right: 2.25rem;
+}
+.vendas-limpavel[data-cheio] .campo > select {
+  background-image: none;
+}
+.vendas-limpar {
+  position: absolute;
+  right: 0.25rem;
+  bottom: 0.25rem;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  color: var(--texto-2);
+  background: none;
+  border: none;
+  border-radius: var(--raio);
+  cursor: pointer;
+}
+.vendas-limpar:hover {
+  color: var(--azul);
+  background: var(--azul-claro);
+}
+.vendas-limpar:focus-visible {
+  outline: none;
+  box-shadow: var(--anel);
+}
+/* O × próprio do type=search duplicaria o nosso. */
+.vendas-limpavel input[type='search']::-webkit-search-cancel-button {
+  appearance: none;
 }
 
 /* ------------------------------------------------------------------- quadro */
@@ -277,7 +323,9 @@
   background: var(--azul-claro);
 }
 .cartao-propostas small {
-  font-size: var(--t-xs);
+  font-size: var(--t-sm);
+  font-weight: var(--peso-medio);
+  font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 .cartao-motivo {
@@ -285,17 +333,34 @@
   background: var(--lilas);
 }
 .cartao-detalhe-botao {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e1);
   align-self: flex-start;
-  padding: 0;
+  min-height: 2rem;
+  padding: 0 var(--e2);
+  margin-left: calc(-1 * var(--e2));
   font: inherit;
-  font-size: var(--t-xs);
-  color: var(--texto-2);
+  font-size: var(--t-sm);
+  font-weight: var(--peso-medio);
+  color: var(--azul);
   background: none;
   border: none;
   cursor: pointer;
 }
 .cartao-detalhe-botao:hover {
-  color: var(--azul);
+  background: var(--azul-claro);
+  border-radius: var(--raio);
+}
+/* Erro da coluna: mensagem e "Tentar de novo" juntos, no lugar da lista. */
+.coluna-erro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--e2);
+}
+.coluna-erro p {
+  margin: 0;
 }
 .cartao-resumo,
 .cartao-entregas {
@@ -418,7 +483,7 @@
 
 /* ------------------------------------------------------------- nova cotação */
 .vendas-nova-dialogo {
-  width: min(40rem, calc(100vw - 2 * var(--e4)));
+  width: min(40rem, calc(100 * var(--vw) - 2 * var(--e4)));
 }
 .vendas-form {
   display: grid;
@@ -483,7 +548,7 @@
 
 /* -------------------------------------------------------------------- ficha */
 .ficha-vendas {
-  width: min(84rem, calc(100vw - 2 * var(--e4)));
+  width: min(84rem, calc(100 * var(--vw) - 2 * var(--e4)));
 }
 .ficha-vendas-tipo {
   margin: 0 0 var(--e1);
@@ -736,10 +801,10 @@
 /* ------------------------------------------- proposta, pedido e entregas (fluxo.tsx)
  * Diálogos abertos POR CIMA da ficha (top layer do <dialog>). */
 .fluxo-dialogo {
-  width: min(60rem, calc(100vw - 2 * var(--e4)));
+  width: min(60rem, calc(100 * var(--vw) - 2 * var(--e4)));
 }
 .fluxo-dialogo-estreito {
-  width: min(36rem, calc(100vw - 2 * var(--e4)));
+  width: min(36rem, calc(100 * var(--vw) - 2 * var(--e4)));
 }
 .fluxo-corpo,
 .fluxo-aba {
@@ -866,7 +931,7 @@
   .vendas-nova-dialogo,
   .fluxo-dialogo,
   .fluxo-dialogo-estreito {
-    width: 100vw;
+    width: calc(100 * var(--vw));
   }
   .fluxo-colunas {
     grid-template-columns: minmax(0, 1fr);
@@ -911,7 +976,7 @@
  * crescem com a tela; só no celular empilham.
  * =================================================================== */
 .cot-tela {
-  width: calc(100vw - 2 * var(--e4));
+  width: calc(100 * var(--vw) - 2 * var(--e4));
   max-width: none;
   height: calc(calc(100dvh / var(--escala)) - 2 * var(--e4));
   max-height: none;
@@ -937,6 +1002,11 @@
   color: var(--azul);
   text-transform: uppercase;
   overflow-wrap: anywhere;
+}
+/* Cotação nova sem cliente: título neutro, não um "valor" em azul caixa-alta (V7). */
+.cot-barra h1[data-vazio] {
+  color: var(--texto);
+  text-transform: none;
 }
 .cot-abas {
   margin: 0 0 0 auto;
@@ -1336,9 +1406,12 @@ button.cot-icone[data-armado]:hover:not(:disabled) {
 }
 /* Colunas fixas somando 84rem (cabe na 1440 sem rolar); o que sobra da tela vai para o
    produto/fornecedor — na 1920 ele cresce. Abaixo disso a tabela rola dentro do cartão. */
+/* Colunas fixas somam 74,5rem (ações + qtd + 10 valores + fim); o que sobra é de
+   Produto / Fornecedor. O mínimo de 94rem garante ≥ 19,5rem a ela — com 84rem o nome do
+   fornecedor ficava em ~9,5rem e cortava (auditoria V8). */
 .cot-tabela {
   width: 100%;
-  min-width: 84rem;
+  min-width: 94rem;
   border-collapse: separate;
   border-spacing: 0;
   font-size: var(--t-sm);
@@ -1680,7 +1753,7 @@ button.cot-icone[data-armado]:hover:not(:disabled) {
 }
 @media (max-width: 40rem) {
   .cot-tela {
-    width: 100vw;
+    width: calc(100 * var(--vw));
     height: calc(100dvh / var(--escala));
   }
   .cot-corpo {
@@ -1716,4 +1789,227 @@ button.cot-icone[data-armado]:hover:not(:disabled) {
   .cot-subform-campos {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* ===================================================================
+ * Aba Propostas (fluxo.tsx + documento-proposta.tsx) — `pop add edita propostas`
+ * (captura vendas-05): o DOCUMENTO da proposta à esquerda, a lista à direita.
+ * =================================================================== */
+.prop-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: var(--e5);
+  align-items: start;
+}
+.prop-documento,
+.prop-lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  min-width: 0;
+}
+/* A lista acompanha a rolagem do corpo enquanto se lê o documento. */
+.prop-lista {
+  position: sticky;
+  top: 0;
+}
+.prop-lista .fluxo-produto {
+  white-space: normal;
+}
+.prop-lista .fluxo-produto + .fluxo-produto {
+  margin-top: var(--e1);
+}
+/* Na lista estreita: tudo à esquerda e no topo, e o Núm volta a ser CÉLULA (o `display: flex`
+   de .orc-tabela th[scope=row] a deixava mais baixa que a linha — um bloco de outra cor). */
+.prop-lista .vendas-propostas th,
+.prop-lista .vendas-propostas td {
+  text-align: left;
+  vertical-align: top;
+}
+.prop-lista .vendas-propostas th[scope='row'] {
+  display: table-cell;
+  min-width: 0;
+  white-space: nowrap;
+}
+.prop-lista .vendas-propostas th[scope='row'] small {
+  display: block;
+}
+.prop-lista .vendas-propostas td:first-child {
+  width: 2.5rem;
+  vertical-align: middle;
+}
+.prop-lista .vendas-propostas td:nth-child(4) {
+  min-width: 14rem;
+  font-size: var(--t-xs);
+}
+.prop-lista .vendas-propostas td small {
+  display: block;
+  margin-top: var(--e1);
+  color: var(--texto-2);
+}
+.vendas-propostas tr[data-exibida] > * {
+  background: var(--azul-claro);
+}
+.prop-radio {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  accent-color: var(--azul);
+  cursor: pointer;
+}
+.prop-documento-vazio {
+  display: grid;
+  place-content: center;
+  gap: var(--e2);
+  min-height: 24rem;
+  padding: var(--e5);
+  text-align: center;
+  color: var(--texto-2);
+  border: 1px dashed var(--borda-forte);
+  border-radius: var(--raio-g);
+}
+.prop-documento-vazio p {
+  margin: 0;
+}
+
+/* O documento é "papel": claro nos dois temas, como o PDF que o cliente recebe.
+   Paleta própria e fixa (não segue data-tema de propósito). */
+.doc {
+  --doc-texto: #1c2230;
+  --doc-texto-2: #4b5160;
+  --doc-borda: #d5d8e0;
+  --doc-faixa: #5f6472;
+  --doc-marca: #720187;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  padding: var(--e5);
+  font-size: var(--t-sm);
+  line-height: 1.45;
+  color: var(--doc-texto);
+  color-scheme: light;
+  background: #fff;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra-2);
+}
+.doc p {
+  margin: 0;
+}
+.doc-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e4);
+  padding: var(--e3) var(--e4);
+  border: 1px solid var(--doc-marca);
+  border-radius: var(--raio);
+}
+.doc-logo {
+  width: auto;
+  height: 3.75rem;
+}
+.doc-logo-texto {
+  font-size: var(--t-xl);
+  color: var(--doc-marca);
+}
+.doc-consultor {
+  font-size: var(--t-xs);
+  color: var(--doc-texto-2);
+}
+.doc-consultor b {
+  color: var(--doc-texto);
+}
+.doc-faixa {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--e2);
+  margin: var(--e2) 0 0;
+  padding: var(--e1) var(--e3);
+  font-size: var(--t-sm);
+  font-weight: var(--peso-forte);
+  color: #fff;
+  background: var(--doc-faixa);
+}
+.doc-cliente {
+  display: flex;
+  align-items: center;
+  gap: var(--e4);
+}
+.doc-avatar {
+  flex-shrink: 0;
+  width: 4rem;
+  height: 4rem;
+  border: 1px solid var(--doc-borda);
+  border-radius: 50%;
+}
+.doc-linha b {
+  font-weight: var(--peso-forte);
+}
+.doc-aviso {
+  font-size: var(--t-xs);
+  color: var(--doc-texto-2);
+}
+.doc-aviso ul {
+  margin: var(--e1) 0;
+  padding-left: var(--e6);
+}
+.doc-rolagem {
+  overflow-x: auto;
+}
+.doc-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.doc-tabela th,
+.doc-tabela td {
+  padding: var(--e2);
+  text-align: center;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--doc-borda);
+}
+.doc-tabela thead th {
+  font-size: var(--t-xs);
+  font-weight: var(--peso-forte);
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+.doc-tabela small {
+  display: block;
+  font-size: var(--t-xs);
+  font-weight: normal;
+  text-transform: none;
+  color: var(--doc-texto-2);
+}
+.doc-tabela .doc-total {
+  margin-top: var(--e1);
+  font-size: var(--t-sm);
+  font-weight: var(--peso-forte);
+  color: var(--doc-texto);
+}
+.doc-tabela tbody th {
+  font-weight: var(--peso-medio);
+  text-align: left;
+}
+.doc-tabela thead th:nth-child(2) {
+  text-align: left;
+}
+.doc-vazio {
+  color: var(--doc-texto-2);
+}
+.doc-condicoes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e1);
+}
+.doc-geral {
+  margin-top: var(--e3);
+  font-size: var(--t-xs);
+}
+.doc-geral ul {
+  margin: var(--e1) 0 0;
+  padding-left: var(--e5);
 }

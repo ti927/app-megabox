@@ -2168,7 +2168,14 @@ async function main() {
   async function sql(texto, params = [], { replica = false } = {}) {
     if (!conexao) {
       if (!env.DATABASE_URL) throw new Error('DATABASE_URL não está no .env (precisa para setval/replica)')
-      conexao = new pg.Client({ connectionString: env.DATABASE_URL.trim(), ssl: { rejectUnauthorized: false } })
+      // query_timeout + keepAlive: conexão derrubada em silêncio pelo pooler vira erro "timeout"
+      // (espera única de comEspera) em vez de pendurar a carga para sempre (visto em 30/09).
+      conexao = new pg.Client({
+        connectionString: env.DATABASE_URL.trim(),
+        ssl: { rejectUnauthorized: false },
+        keepAlive: true,
+        query_timeout: 180_000,
+      })
       await conexao.connect()
     }
     try {
@@ -2186,7 +2193,7 @@ async function main() {
     } catch (erro) {
       // Conexão caída não se reaproveita: a próxima chamada (a UMA nova tentativa de comEspera)
       // abre outra. Erro de SQL comum mantém a conexão.
-      if (/Connection terminated|ECONNRESET|not queryable|terminat/i.test(String(erro?.message))) {
+      if (/Connection terminated|ECONNRESET|not queryable|terminat|timeout/i.test(String(erro?.message))) {
         await conexao?.end().catch(() => {})
         conexao = null
       }

@@ -148,7 +148,15 @@ function criarBanco(env) {
   async function abrir() {
     if (cli) return cli
     if (!env.DATABASE_URL) throw new Error('DATABASE_URL não está no .env')
-    cli = new pg.Client({ connectionString: env.DATABASE_URL.trim(), ssl: { rejectUnauthorized: false } })
+    // query_timeout: o pooler já derrubou a conexão EM SILÊNCIO no meio da carga (30/09, lote 20 do
+    // histórico) e o cliente esperou para sempre. Com o limite, o socket morto vira erro "timeout",
+    // que cai na regra da espera única. keepAlive ajuda a notar a queda antes.
+    cli = new pg.Client({
+      connectionString: env.DATABASE_URL.trim(),
+      ssl: { rejectUnauthorized: false },
+      keepAlive: true,
+      query_timeout: 180_000,
+    })
     cli.on('error', () => {}) // a queda aparece na próxima query; não derruba o processo
     await cli.connect()
     return cli

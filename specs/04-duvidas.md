@@ -712,3 +712,37 @@ conteúdo aplicado, não o número). Teste: `node scripts/testar-rls-metas-relat
 | `relatorios` | 12 |
 
 `vendas-reusables` ainda não entrou na contagem (spec em produção).
+
+## SAC — Apoio Comercial (01/10/2026)
+
+Funcionalidade nova (`db/030`, `specs/paginas/sac.md` §12). O mapa não tem nada disso; cada item
+segue com a recomendação padrão abaixo até o dono responder.
+
+- **[DÚVIDA] Abaixo da meta, nota zero ou proporcional?** *Padrão:* tudo ou nada (atingiu = peso
+  cheio, senão 0). O proporcional (`peso × realizado ÷ meta`) existe e é ligado por trimestre nas
+  metas (perfil 1).
+- **[DÚVIDA] Avaliação: média simples ou média das médias mensais?** *Padrão:* média das médias
+  mensais, como o exemplo do dono ("jul 9,2, ago 9,1, set 9,4 → 9,23"); mês sem avaliação fica fora;
+  mínimo de 10 avaliações válidas no trimestre, senão 0.
+- **[DÚVIDA] Pesquisa de satisfação de quem?** *Padrão:* convites NPS (tipo 2) com link emitido no
+  trimestre e incluídos pela colaboradora (`criado_por`); resposta que chega depois do fim do
+  trimestre conta (o convite expira em 30 dias e o número estabiliza).
+- **[DÚVIDA] Oportunidade: que tipos contam para os 30?** *Padrão:* todos (novo cliente, inativo
+  recuperado, interesse, qualificada), pela data em que foi identificada. A venda fechada é do
+  vendedor; o resultado é só informativo.
+- **[DÚVIDA] "Parado" é quantos dias e conta o quê?** *Padrão:* X = 3 dias sem nenhuma AÇÃO
+  registrada (interação); mudar status ou descrição não conta. Configurável por trimestre.
+- **[DÚVIDA] Prazo de solução quando ninguém define.** *Padrão:* abertura + 5 dias, até o fim do dia.
+  Definir pela primeira vez é livre; empurrar um prazo já definido é só perfil ≤ 2 (anti-maquiagem):
+  atraso se justifica com o motivo da pendência.
+- **[DÚVIDA] Indicador sem base.** *Padrão:* sem ocorrência vencida (ou sem resolvida, no retorno)
+  o sub-indicador conta como atingido — não se pune quem não teve chamado.
+- **[DÚVIDA] Gestor vê todos os chamados?** *Padrão:* sim — a policy de leitura de `sac_protocolos`
+  passou de "perfil 1" para "perfil ≤ 2" (com a página sac), para a gerência avaliar o que pontua.
+  Alterar continua perfil 1 ou responsável.
+- **[DÚVIDA] Avaliação do atendimento: como chega ao cliente?** *Padrão:* botão "Pedir avaliação"
+  na ficha do chamado RESOLVIDO de cliente; o link de uso único aparece uma vez para copiar (o
+  e-mail ainda não sai pelo app, como na Gestão NPS). A campanha "Avaliação do atendimento SAC"
+  (tipo 1) nasce na primeira avaliação pedida.
+- **[DÚVIDA] Oportunidade registrada por engano.** *Padrão:* a responsável (ou perfil ≤ 2) apaga; a
+  auditoria guarda a linha.

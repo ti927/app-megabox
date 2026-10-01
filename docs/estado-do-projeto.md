@@ -20,7 +20,7 @@ financeiro denso (17 linhas visíveis em 1920×1080), correção de open-redirec
 |---|---|---|
 | `w/perf` | aae93e5 | aviso global de carregamento (`componentes/aviso-acao*`), `lib/vendas-ficha.ts`, lentidão de carrinho/vencedor/envio de proposta, erro "Parte desta cotação não carregou", lista de cotações sumindo após enviar proposta. Migration 028 reservada. |
 | `w/proposta` | c09bb63 | tela única proposta → pedido → entregas (caminhões), prazos de pagamento claros; `db/029_pedido_saldo_rateio.sql` |
-| `w/sac2` | 1ef6728 | metas trimestrais do Apoio Comercial (4 indicadores 25/25/30/20; item 4 = 10/5/5), ocorrências, alertas de chamado parado; `db/030_sac_apoio_comercial.sql`, `lib/sac-apoio.ts`, `scripts/testar-rls-sac-apoio.mjs`. Falta tela e relatório trimestral. |
+| `w/sac2` | 1ef6728 | metas trimestrais do Apoio Comercial (4 indicadores 25/25/30/20; item 4 = 10/5/5), ocorrências, alertas de chamado parado; `db/030_sac_apoio_comercial.sql`, `lib/sac-apoio.ts`, `scripts/testar-rls-sac-apoio.mjs`. Tela (abas Apoio Comercial e Oportunidades, parados na lista, acompanhamento na ficha) e relatório trimestral (imprimir/Excel/CSV) prontos em 01/10; falta revisão e merge. |
 | `w/fin2` | 66fbb61 | cores do financeiro (sem mover elementos) |
 | `w/e2e` | 37304e2 | `scripts/e2e-fluxo-completo.mjs` com LURE CLIENTE / LURE FORNECEDOR, tempos por etapa, duplicar pedido sem duplicar financeiro |
 | `cargas-final` | 6f97bd0 | carregadores finais (worktree `../wt-cargas`, 5 commits à frente do `main`) |

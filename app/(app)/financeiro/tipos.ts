@@ -43,6 +43,8 @@ export type ContaReceber = {
   produto_nome: string
   filial_origem: string
   filial_destino: string
+  /** logo do cliente: URL assinada curta; ausente → iniciais */
+  cliente_foto?: string | null
 }
 
 /** Linha de `v_contas_pagar` + os nomes resolvidos no servidor. */
@@ -70,9 +72,14 @@ export type ContaPagar = {
   cliente_nome: string
   fornecedor_nome: string
   vendedor_nome: string
+  /** logo do cliente: URL assinada curta; ausente → iniciais */
+  cliente_foto?: string | null
 }
 
 export type Totais = { qtd: number; comissao: string; saldo: string; falhou: boolean }
+
+/** Barra fixa do rodapé (Bubble `Group XZZZ`): vencidos + listado das duas listas. */
+export type Rodape = { vencidos: Totais; receber: Totais; pagar: Totais }
 
 export type ListaContas<T> = {
   linhas: T[]
@@ -116,10 +123,13 @@ export type EntregaPendente = {
   valor_comissao: string
   nf_fornecedor_numero: string | null
   pedido: { numero: string; prazos: { prazo_id: number }[] } | null
+  cliente_id: string
   cliente: { nome: string } | null
   fornecedor: { nome: string } | null
   vendedor: { nome: string } | null
   orcamento: { produto: { nome: string } | null } | null
+  /** logo do cliente: URL assinada curta; ausente → iniciais */
+  cliente_foto?: string | null
 }
 
 export type Prazo = { id: number; nome: string; dias_prazo: number }
@@ -128,6 +138,8 @@ export type Opcoes = {
   vendedores: { id: string; nome: string }[]
   /** só na aba de entregas */
   prazos: Prazo[]
+  /** filtro "Filial Fornecedor" (§2.1), "Nome (CNPJ)"; vazio na aba de entregas */
+  filiais: { id: string; nome_endereco: string; documento: string | null }[]
 }
 
 /** Item da seleção de contas (estado do navegador; no Bubble ia para o registro do usuário). */

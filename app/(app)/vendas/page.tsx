@@ -11,8 +11,10 @@ import {
   POR_COLUNA,
   regrasColunas,
 } from '@/lib/vendas'
+import { lerCrescente } from '@/lib/vendas-ordem'
 
 import { buscarOpcoesFicha } from './consultas'
+import { comFotoFicha, comFotosKanban } from './fotos'
 import { TelaVendas } from './tela'
 import type {
   CartaoCotacao,
@@ -20,6 +22,8 @@ import type {
   CartaoPedido,
   ColunaDados,
   Cotacao,
+  DocumentoItem,
+  EmpresaEmissora,
   EntregaFicha,
   Ficha,
   Item,
@@ -40,7 +44,7 @@ type Supabase = Awaited<ReturnType<typeof clienteServidor>>
 const COLUNAS_ENTREGA =
   'id, pedido_id, cotacao_id, numero_entrega, status_id, qtd::text, dt_pedido, dt_prev_entrega, ' +
   'dt_entrega, saiu_entrega, nf_fornecedor_numero, valor_venda_bruto::text, cliente_nome, ' +
-  'produto_nome, vendedor_id, vendedor_substituto_id, papel, vendedor_nome'
+  'produto_nome, vendedor_id, vendedor_substituto_id, papel, vendedor_nome, cliente_id'
 
 /** Ver `buscarKanban`: exato em recorte pequeno, estimativa do planejador acima do max-rows. */
 const CONTAGEM = 'estimated' as const
@@ -72,7 +76,12 @@ function coluna<T>(
  * Quem enxerga o quê é a RLS (db/007–009): Analista/Operador só leem o que é seu. O filtro de
  * vendedor daqui só repete a regra do Bubble para as colunas mostrarem o mesmo recorte.
  */
-async function buscarKanban(supabase: Supabase, f: FiltrosVendas, u: UsuarioAtual): Promise<Kanban> {
+async function buscarKanban(
+  supabase: Supabase,
+  f: FiltrosVendas,
+  u: UsuarioAtual,
+  crescente: boolean,
+): Promise<Kanban> {
   const r = regrasColunas(f, u)
   const { desde, antes } = intervaloCriacao(f.de, f.ate)
   const cliente = f.cliente ? `%${escaparLike(f.cliente)}%` : null
@@ -83,7 +92,7 @@ async function buscarKanban(supabase: Supabase, f: FiltrosVendas, u: UsuarioAtua
     .from('v_kanban_cotacoes')
     .select(
       'id, numero, criado_em, arquivado, etapa_id, cliente_nome, vendedor_nome, motivo_nome, ' +
-        'qtd_itens, qtd_vencedores, qtd_propostas, total_bruto_vencedores::text, pode_propor',
+        'qtd_itens, qtd_vencedores, qtd_propostas, total_bruto_vencedores::text, pode_propor, cliente_id',
       { count: CONTAGEM },
     )
     .eq('rascunho', false)
@@ -103,7 +112,7 @@ async function buscarKanban(supabase: Supabase, f: FiltrosVendas, u: UsuarioAtua
     .from('v_kanban_pedidos')
     .select(
       'id, numero, cotacao_id, criado_em, etapa_id, finalizado, motivo_cancelamento, cliente_nome, ' +
-        'vendedor_nome, valor_total::text, todas_concluidas, ' +
+        'vendedor_nome, valor_total::text, todas_concluidas, cliente_id, ' +
         'entregas(id, qtd::text, dt_prev_entrega, status_id, nf_fornecedor_numero, saiu_entrega, ' +
           'orcamento:orcamentos_fornecedor(produto:produtos(nome)))',
       { count: CONTAGEM },
@@ -144,10 +153,10 @@ async function buscarKanban(supabase: Supabase, f: FiltrosVendas, u: UsuarioAtua
 
   const ate = (n: number) => n * POR_COLUNA - 1
   const [c, p, e, s] = await Promise.all([
-    cot.order('criado_em', { ascending: false }).order('id').range(0, ate(f.lim.cot)),
-    ped.order('criado_em', { ascending: false }).order('id').range(0, ate(f.lim.ped)),
-    ent.order('criado_em', { ascending: false }).order('id').range(0, ate(f.lim.ent)),
-    sub.order('criado_em', { ascending: false }).order('id').range(0, ate(f.lim.sub)),
+    cot.order('criado_em', { ascending: crescente }).order('id').range(0, ate(f.lim.cot)),
+    ped.order('criado_em', { ascending: crescente }).order('id').range(0, ate(f.lim.ped)),
+    ent.order('criado_em', { ascending: crescente }).order('id').range(0, ate(f.lim.ent)),
+    sub.order('criado_em', { ascending: crescente }).order('id').range(0, ate(f.lim.sub)),
   ])
 
   return {
@@ -201,7 +210,7 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
   if (!cotacao) return null
   const c = cotacao as unknown as Cotacao
 
-  const [itens, valores, nomes, propostas, pedidos, entregas, destinos] = await Promise.all([
+  const [itens, valores, nomes, propostas, pedidos, entregas, destinos, documento, empresa] = await Promise.all([
     supabase
       .from('cotacao_itens')
       .select(
@@ -227,7 +236,11 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
           'info_adicional, emails_copia, corpo_email, enviar_para_contato_id, faturar_para_endereco_id, ' +
           'vendedor:usuarios!vendedor_id(nome), ' +
           'itens:proposta_itens(id, qtd::text, valor_venda_unit::text, valor_frete::text, ' +
-          'orcamento:orcamentos_fornecedor(id, fornecedor_id, produto:produtos(nome), fornecedor:grupos_clifor(nome)))',
+          'orcamento:orcamentos_fornecedor(id, fornecedor_id, produto:produtos(nome), fornecedor:grupos_clifor(nome))), ' +
+          // cabeçalho do documento (bTace…bTacl, bTziU)
+          'faturar:enderecos_clifor!faturar_para_endereco_id(documento, municipio, uf, grupo:grupos_clifor(nome)), ' +
+          'contato:contatos_clifor!enviar_para_contato_id(nome, telefone), ' +
+          'fornecedor_cnpj:enderecos_clifor!cnpj_fornecedor_endereco_id(documento, razao)',
       )
       .eq('cotacao_id', id)
       .order('criado_em', { ascending: false }),
@@ -262,6 +275,19 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
       .eq('ativo', true)
       .order('principal', { ascending: false })
       .order('nome_endereco'),
+    // Documento da proposta (db/024): bruto do item e total somados no banco.
+    supabase
+      .from('v_proposta_documento_itens')
+      .select(
+        'id, proposta_id, qtd::text, valor_venda_unit::text, valor_frete::text, aliquota_icms::text, ' +
+          'aliquota_pis_cofins::text, medida, produto_nome, condicao_nome, linha_nome, frete_nome, ' +
+          'fornecedor_nome, destino_municipio, destino_uf, valor_total_bruto::text, ' +
+          'valor_unit_liquido::text, total_proposta::text',
+      )
+      .eq('cotacao_id', id)
+      .order('criado_em')
+      .order('id'),
+    supabase.from('empresas_emissoras').select('id, nome, email, telefone').eq('id', c.empresa_emissora_id).maybeSingle(),
   ])
 
   type Nomes = {
@@ -302,7 +328,7 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
 
   // Parte da ficha que falhou (timeout, rede) NÃO vira lista vazia calada: o carrinho sem itens
   // seria lido como "os produtos sumiram". A tela avisa e pede para recarregar.
-  const partes = { itens, valores, nomes, propostas, pedidos, entregas, destinos }
+  const partes = { itens, valores, nomes, propostas, pedidos, entregas, destinos, documento, empresa }
   const falhas = Object.entries(partes).filter(([, r]) => r.error)
   for (const [nome, r] of falhas) console.error(`vendas: ficha (${nome})`, r.error)
 
@@ -316,7 +342,15 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
     pedidos: (pedidos.data ?? []) as unknown as Pedido[],
     entregas: (entregas.data ?? []) as unknown as EntregaFicha[],
     destinos: (destinos.data ?? []) as Ficha['destinos'],
+    documentoItens: (documento.data ?? []) as unknown as DocumentoItem[],
+    empresaEmissora: (empresa.data ?? null) as EmpresaEmissora | null,
   }
+}
+
+/** WF bTcal (db/022). Erro só vai para o log: a limpeza é faxina, não pode derrubar o quadro. */
+async function limparRascunhos(supabase: Supabase): Promise<void> {
+  const { error } = await supabase.rpc('fn_limpar_rascunhos')
+  if (error) console.error('vendas: limpar rascunhos', error)
 }
 
 export default async function PaginaVendas({
@@ -327,7 +361,10 @@ export default async function PaginaVendas({
   // Trava no servidor, antes de qualquer consulta. No Bubble a página não tinha checagem
   // própria: quem digitava a URL entrava (spec §1).
   const usuario = await exigirAcesso('vendas')
-  const filtros = lerFiltros(await searchParams)
+  const params = await searchParams
+  const filtros = lerFiltros(params)
+  // Pílula "data crescente" (lib/vendas-ordem): só ordem, fora dos filtros.
+  const crescente = lerCrescente(params)
   const filtrarVendedor = podeFiltrarVendedor(usuario)
   // Analista/Operador: o vendedor da URL é ignorado (spec §2.2, bTiYV).
   if (!filtrarVendedor) filtros.vendedor = null
@@ -337,16 +374,21 @@ export default async function PaginaVendas({
   // Com a cotação aberta em TELA CHEIA o quadro fica coberto: não se consulta. Cada gravação na
   // ficha (revalidatePath) refazia as 4 colunas — no banco Micro isso gerava rajadas de 57014.
   // A tela mantém o último quadro recebido e o refaz ao fechar a ficha.
-  const [kanban, opcoes, ficha, opcoesFicha] = await Promise.all([
-    filtros.sel ? Promise.resolve(null) : buscarKanban(supabase, filtros, usuario),
+  const [kanban, , opcoes, ficha, opcoesFicha] = await Promise.all([
+    filtros.sel ? Promise.resolve(null) : buscarKanban(supabase, filtros, usuario, crescente).then(comFotosKanban),
+    // WF bTcal: ao abrir, apaga os carrinhos (rascunhos) do PRÓPRIO usuário parados há 24 h
+    // (db/022 fn_limpar_rascunhos). Só com o quadro à vista — não a cada gravação na ficha — e
+    // em paralelo; falha aqui não impede a tela.
+    filtros.sel ? null : limparRascunhos(supabase),
     buscarOpcoes(supabase, filtrarVendedor, usuario.nome),
-    filtros.sel ? buscarFicha(supabase, filtros.sel) : Promise.resolve(null),
+    filtros.sel ? buscarFicha(supabase, filtros.sel).then(comFotoFicha) : Promise.resolve(null),
     filtros.sel ? buscarOpcoesFicha(supabase) : Promise.resolve(null),
   ])
 
   return (
     <TelaVendas
       filtros={filtros}
+      crescente={crescente}
       kanban={kanban}
       opcoes={opcoes}
       ficha={ficha}

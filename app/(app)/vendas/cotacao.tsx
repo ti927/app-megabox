@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
 
+import { Foto } from '@/componentes/foto'
 import {
   destinoPadrao,
   iniciais,
@@ -230,6 +231,7 @@ function CartaoCabecalho({
   titulo,
   numero,
   cliente,
+  clienteFoto,
   clienteTravado,
   aoEscolherCliente,
   destinos,
@@ -247,6 +249,8 @@ function CartaoCabecalho({
   titulo: string
   numero: number | null
   cliente: Cliente | null
+  /** logo do cliente (URL assinada curta); null → iniciais */
+  clienteFoto: string | null
   clienteTravado: boolean
   aoEscolherCliente: (c: Cliente | null) => void
   destinos: Destino[]
@@ -286,9 +290,11 @@ function CartaoCabecalho({
       </div>
 
       <div className="cot-linha-cliente">
-        <span className="cot-avatar" aria-hidden="true" data-vazio={!cliente || undefined}>
-          {cliente ? iniciais(cliente.nome) : null}
-        </span>
+        {cliente ? (
+          <Foto url={clienteFoto} nome={cliente.nome} className="cot-avatar" iniciais={iniciais(cliente.nome)} />
+        ) : (
+          <span className="cot-avatar" aria-hidden="true" data-vazio />
+        )}
         <div className="campo cot-campo-cliente">
           <label htmlFor="cot-cliente">Cliente</label>
           {cliente ? (
@@ -455,7 +461,7 @@ function CartaoCarrinho({
     <section className="cot-cartao cot-carrinho" aria-labelledby="cot-carrinho-titulo" data-editando={item ? true : undefined}>
       <header className="cot-carrinho-topo">
         <span className="cot-carrinho-marca" aria-hidden="true">
-          <ShoppingCart size={22} />
+          <ShoppingCart size={24} />
         </span>
         <h3 id="cot-carrinho-titulo">{item ? 'Editar produto do carrinho' : 'Adicionar produto ao carrinho'}</h3>
       </header>
@@ -559,7 +565,7 @@ function CartaoCarrinho({
               data-teste="gravar-item"
             >
               {item ? <Save size={20} aria-hidden="true" /> : <ShoppingCart size={20} aria-hidden="true" />}
-              {item ? null : <Plus size={14} strokeWidth={3} className="cot-mais" aria-hidden="true" />}
+              {item ? null : <Plus size={16} strokeWidth={3} className="cot-mais" aria-hidden="true" />}
               <span>{enviando ? 'Gravando…' : item ? 'Salvar' : 'Adicionar'}</span>
             </button>
           </div>
@@ -935,7 +941,7 @@ function LinhasItem({
             </span>
             {vencedor ? (
               <span className="cot-vencedor" title={`Vencedor: ${vencedor.fornecedor_nome}`}>
-                <Trophy size={14} aria-hidden="true" />
+                <Trophy size={16} aria-hidden="true" />
                 <span>{vencedor.fornecedor_nome}</span>
               </span>
             ) : null}
@@ -1315,10 +1321,12 @@ export function TelaCotacao({
       data-teste={nova ? 'nova-cotacao-dialogo' : 'ficha-cotacao'}
     >
       <header className="cot-barra">
+        {/* A barra é o CONTEXTO que acompanha as abas (cliente, nº, etapa); o tipo
+            (Nova/Edita Cotação) e a amostra já estão no cartão do cabeçalho. Sem cliente o título
+            é neutro — um placeholder em azul caixa-alta parecia valor. */}
         <div className="cot-barra-titulo">
-          <p className="ficha-vendas-tipo">{nova ? 'Nova Cotação' : editavel ? 'Edita Cotação' : 'Cotação'}</p>
-          <h1 id="cot-titulo-tela">
-            {cliente?.nome ?? 'Cliente ainda não escolhido'}
+          <h1 id="cot-titulo-tela" data-vazio={cliente ? undefined : true}>
+            {cliente?.nome ?? (nova ? 'Nova cotação' : 'Cotação')}
             {c ? <span className="ficha-vendas-num">Cotação núm. {c.numero}</span> : null}
           </h1>
           {c && !c.rascunho ? (
@@ -1327,7 +1335,7 @@ export function TelaCotacao({
               <span className="selo" data-tom={c.status?.nome === 'Cancelado' ? 'erro' : undefined}>
                 {c.status?.nome ?? '—'}
               </span>
-              {c.amostra ? (
+              {c.amostra && aba !== 'cotacao' ? (
                 <span className="selo" data-tom="alerta">
                   Pedido de Amostra
                 </span>
@@ -1358,7 +1366,7 @@ export function TelaCotacao({
           </div>
         ) : null}
         <button type="button" className="dialogo-fechar" aria-label="Fechar" title={c?.rascunho ? 'Use Cancela para descartar o rascunho' : 'Fechar'} onClick={() => (c?.rascunho ? cancelar() : ref.current?.close())}>
-          <X size={22} aria-hidden="true" />
+          <X size={24} aria-hidden="true" />
         </button>
       </header>
 
@@ -1379,6 +1387,7 @@ export function TelaCotacao({
                 titulo={nova ? 'Nova Cotação' : 'Edita Cotação'}
                 numero={c?.numero ?? null}
                 cliente={cliente}
+                clienteFoto={c ? (ficha?.clienteFoto ?? null) : null}
                 clienteTravado={!!c}
                 aoEscolherCliente={escolherCliente}
                 destinos={destinos}

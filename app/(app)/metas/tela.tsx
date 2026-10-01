@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleCheck,
+  ListChecks,
   Lock,
   Minus,
   Pencil,
@@ -11,14 +12,14 @@ import {
   RotateCcw,
   SlidersHorizontal,
   TrendingUp,
-  Trophy,
   Users,
 } from 'lucide-react'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
-import { useId, useState, useTransition } from 'react'
+import { useCallback, useState, useTransition } from 'react'
 
 import { Foto } from '@/componentes/foto'
+import { SeletorPeriodo } from '@/componentes/seletor-periodo'
 import { formatarData } from '@/lib/datas'
 import { formatarReais } from '@/lib/dinheiro'
 import {
@@ -32,9 +33,15 @@ import {
   paraQueryMetas,
   somarMeses,
 } from '@/lib/metas'
-import { iniciais, montarPodio, nomeCurto, ordenarRanking, razaoExata } from '@/lib/metas-painel'
+import { type EstiloPodio, nomeTitulo } from '@/lib/metas-podio'
+import type { LinhaAnalise } from '@/lib/metas-relatorios'
+import { iniciais, nomeCurto, ordenarRanking, razaoExata } from '@/lib/metas-painel'
 
+import { AnaliseEntregas } from './analise-entregas'
+import { DetalheEntregas } from './detalhe-entregas'
 import { DialogoCancelar, DialogoFechar, DialogoMeta, DialogoNiveis } from './dialogo'
+import { Podio } from './podio'
+import { RelatorioAnual } from './relatorio-anual'
 import type {
   Coletivo,
   HistoricoNivel,
@@ -46,13 +53,13 @@ import type {
 } from './tipos'
 
 const TIPOS: Record<number, string> = { 1: 'Regular', 2: 'Substituição' }
-const METAIS = { 1: 'ouro', 2: 'prata', 3: 'bronze' } as const
 
 type Aberto =
   | { tipo: 'meta'; linha: LinhaMeta | null }
   | { tipo: 'fechar'; linha: LinhaMeta }
   | { tipo: 'cancelar'; linha: LinhaMeta }
   | { tipo: 'niveis' }
+  | { tipo: 'entregas'; linha: LinhaMeta }
   | null
 
 // ------------------------------------------------------------------ peças
@@ -101,103 +108,6 @@ function Anel({
 
 function Avatar({ v, nome, tamanho }: { v: Vendedor | undefined; nome: string; tamanho: 'p' | 'm' | 'g' }) {
   return <Foto url={v?.foto} nome={nome} iniciais={iniciais(nome)} className={`mt-avatar mt-avatar-${tamanho}`} />
-}
-
-// ------------------------------------------------------------------ pódio
-
-function Brasao({
-  lugar,
-  r,
-  v,
-  nivel,
-}: {
-  lugar: 1 | 2 | 3
-  r: LinhaRanking
-  v: Vendedor | undefined
-  nivel: string
-}) {
-  const id = useId()
-  const nome = v?.nome ?? 'Vendedor'
-  return (
-    <li className="mt-brasao" data-metal={METAIS[lugar]} data-lugar={lugar}>
-      <svg className="mt-brasao-forma" viewBox="0 0 200 250" aria-hidden="true" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id={`${id}-g`} x1="0" y1="0" x2="0.35" y2="1">
-            <stop offset="0" className="mt-brasao-luz" />
-            <stop offset="1" className="mt-brasao-sombra" />
-          </linearGradient>
-        </defs>
-        <path
-          className="mt-brasao-aro"
-          d="M100 14 L190 36 L190 132 C190 190 150 226 100 246 C50 226 10 190 10 132 L10 36 Z"
-        />
-        <path
-          fill={`url(#${id}-g)`}
-          d="M100 24 L180 44 L180 132 C180 184 144 216 100 234 C56 216 20 184 20 132 L20 44 Z"
-        />
-        <rect className="mt-brasao-aro" x="90" y="2" width="20" height="20" transform="rotate(45 100 12)" />
-      </svg>
-      <div className="mt-brasao-conteudo">
-        <span className="mt-brasao-lugar">
-          {lugar === 1 ? <Trophy aria-hidden="true" /> : null}
-          {r.posicao}º
-        </span>
-        <Avatar v={v} nome={nome} tamanho="g" />
-        <strong className="mt-brasao-nome">{nomeCurto(nome)}</strong>
-        <span className="mt-brasao-nivel">{nivel || TIPOS[r.tipo_meta_id]}</span>
-        <span className="mt-brasao-pct">{formatarPercentual(r.percentual)}</span>
-      </div>
-    </li>
-  )
-}
-
-function Podio({
-  ranking,
-  vendedores,
-  nivelDaMeta,
-}: {
-  ranking: LinhaRanking[]
-  vendedores: Map<string, Vendedor>
-  nivelDaMeta: (id: string) => string
-}) {
-  const tres = montarPodio(ranking)
-  if (tres.length === 0) {
-    return (
-      <section className="mt-podio mt-podio-vazio" aria-label="Pódio" data-teste="podio">
-        <Trophy aria-hidden="true" />
-        <p>Nenhuma meta no período para formar o pódio.</p>
-      </section>
-    )
-  }
-  // Ordem de leitura do pódio: 2º à esquerda, 1º no centro, 3º à direita. Lugar vago
-  // continua ocupando a coluna, para o 1º ficar sempre ao centro.
-  const ordem = [1, 0, 2]
-  const primeiro = tres[0]!
-  return (
-    <section className="mt-podio" aria-labelledby="mt-podio-titulo" data-teste="podio">
-      <header className="mt-podio-cabeca">
-        <h2 id="mt-podio-titulo">Pódio</h2>
-        <p>
-          Ranking {TIPOS[primeiro.tipo_meta_id]!.toLowerCase()} de {nomeDoMes(primeiro.competencia)}
-        </p>
-      </header>
-      <ol className="mt-podio-lista">
-        {ordem.map((i) => {
-          const r = tres[i]
-          if (!r) return <li key={`vago-${i}`} className="mt-brasao-vago" aria-hidden="true" />
-          return (
-            <Brasao
-              key={r.meta_mensal_id}
-              lugar={(i + 1) as 1 | 2 | 3}
-              r={r}
-              v={vendedores.get(r.vendedor_id)}
-              nivel={nivelDaMeta(r.meta_mensal_id)}
-            />
-          )
-        })}
-      </ol>
-    </section>
-  )
 }
 
 // ------------------------------------------------------------------ equipe
@@ -296,7 +206,7 @@ function Ranking({
                 </span>
                 <Avatar v={v} nome={nome} tamanho="m" />
                 <span className="mt-ranking-quem">
-                  <strong>{nomeCurto(nome)}</strong>
+                  <strong title={nome}>{nomeTitulo(nomeCurto(nome))}</strong>
                   <small>
                     {TIPOS[r.tipo_meta_id]}
                     {variasCompetencias ? ` · ${nomeDoMes(r.competencia)}` : ''}
@@ -353,9 +263,21 @@ function LinhaTabela({
         <small className="mt-tipo">{TIPOS[l.tipo_meta_id]}</small>
       </td>
       <td>
-        <strong className="mt-num" data-teste="realizado">
-          {formatarReais(l.realizado)}
-        </strong>
+        <span className="mt-cel-faturado">
+          <strong className="mt-num" data-teste="realizado">
+            {formatarReais(l.realizado)}
+          </strong>
+          <button
+            type="button"
+            className="mt-icone-botao mt-icone-botao-p"
+            onClick={() => aoAbrir({ tipo: 'entregas', linha: l })}
+            aria-label={`Ver as entregas que somam o valor faturado de ${nome}`}
+            title="Ver entregas"
+            data-teste="ver-entregas"
+          >
+            <ListChecks aria-hidden="true" />
+          </button>
+        </span>
       </td>
       <td className="mt-cel-anel">
         <Anel razao={l.percentual} tamanho="p" rotulo={`Atingimento de ${nome}`} />
@@ -453,6 +375,8 @@ export function TelaMetas({
   vendedores,
   coletivo,
   historico,
+  analise,
+  estiloPodio,
 }: {
   usuarioId: string
   filtros: FiltrosMetas
@@ -464,6 +388,8 @@ export function TelaMetas({
   vendedores: Vendedor[]
   coletivo: Coletivo | null
   historico: HistoricoNivel[]
+  analise: LinhaAnalise[]
+  estiloPodio: EstiloPodio
 }) {
   const router = useRouter()
   const [pendente, iniciar] = useTransition()
@@ -471,6 +397,12 @@ export function TelaMetas({
 
   const porId = new Map(vendedores.map((v) => [v.id, v]))
   const nomeDe = (id: string) => porId.get(id)?.nome ?? (id === usuarioId ? 'Você' : 'Vendedor')
+  const nomeOuVazio = useCallback(
+    (id: string | null) => (id ? nomeTitulo(porId.get(id)?.nome ?? (id === usuarioId ? 'Você' : 'Vendedor')) : 'Sem vendedor'),
+    // porId é refeito a cada render a partir de `vendedores`; a identidade estável vem deles
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [vendedores, usuarioId],
+  )
   const niveisPorId = new Map(niveis.map((n) => [n.id, n]))
   const nivelDaMeta = new Map(linhas.map((l) => [l.meta_mensal_id, l.nivel_id]))
   const nomeNivelDaMeta = (metaId: string) => {
@@ -529,24 +461,15 @@ export function TelaMetas({
               <ChevronRight aria-hidden="true" />
             </button>
           </div>
-          <label className="campo metas-data">
-            <span>De</span>
-            <input
-              type="date"
-              value={filtros.inicio}
-              max={filtros.fim}
-              onChange={(e) => e.target.value && navegar({ inicio: e.target.value })}
+          <div className="campo metas-data">
+            <span>Período</span>
+            <SeletorPeriodo
+              de={filtros.inicio}
+              ate={filtros.fim}
+              onChange={(inicio, fim) => navegar({ inicio, fim })}
+              data-teste="filtro-periodo"
             />
-          </label>
-          <label className="campo metas-data">
-            <span>Até</span>
-            <input
-              type="date"
-              value={filtros.fim}
-              min={filtros.inicio}
-              onChange={(e) => e.target.value && navegar({ fim: e.target.value })}
-            />
-          </label>
+          </div>
           {permissoes.gerir ? (
             <label className="campo metas-data">
               <span>Vendedor</span>
@@ -595,7 +518,7 @@ export function TelaMetas({
       </header>
 
       <div className="metas-painel" data-pendente={pendente || undefined}>
-        <Podio ranking={ranking} vendedores={porId} nivelDaMeta={nomeNivelDaMeta} />
+        <Podio ranking={ranking} vendedores={porId} nivelDaMeta={nomeNivelDaMeta} estiloInicial={estiloPodio} />
         <div className="metas-lateral">
           {coletivo ? <CartaoEquipe c={coletivo} /> : null}
           <Ranking ranking={ranking} vendedores={porId} />
@@ -658,6 +581,16 @@ export function TelaMetas({
         </p>
       </section>
 
+      <AnaliseEntregas linhas={analise} diretor={permissoes.diretor} inicio={filtros.inicio} fim={filtros.fim} nomeDe={nomeOuVazio} />
+
+      {permissoes.diretor ? (
+        <RelatorioAnual
+          anoInicial={Number(filtros.inicio.slice(0, 4))}
+          vendedores={vendedores.map((v) => ({ id: v.id, nome: v.nome }))}
+          nomeDe={nomeOuVazio}
+        />
+      ) : null}
+
       {aberto?.tipo === 'meta' ? (
         <DialogoMeta
           key={aberto.linha?.meta_mensal_id ?? 'nova'}
@@ -675,6 +608,14 @@ export function TelaMetas({
         <DialogoCancelar
           linha={aberto.linha}
           nome={nomeDe(aberto.linha.vendedor_id)}
+          aoFechar={() => setAberto(null)}
+        />
+      ) : null}
+      {aberto?.tipo === 'entregas' ? (
+        <DetalheEntregas
+          linha={aberto.linha}
+          nome={nomeOuVazio(aberto.linha.vendedor_id)}
+          nomeDe={nomeOuVazio}
           aoFechar={() => setAberto(null)}
         />
       ) : null}

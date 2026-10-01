@@ -6,6 +6,7 @@ import { exigirAcesso } from '@/lib/autorizacao'
 import { ehUuid } from '@/lib/clifor'
 import { lerValorDigitado } from '@/lib/dinheiro'
 import { compararReais, ehDataIso, lerPercentualDigitado, validarMeta } from '@/lib/metas'
+import type { LinhaAnual } from '@/lib/metas-relatorios'
 import { clienteServidor } from '@/lib/supabase/servidor'
 
 import type { Calculo, EstadoAcao } from './tipos'
@@ -326,4 +327,173 @@ export async function registrarNivel(_anterior: EstadoAcao, form: FormData): Pro
   }
   revalidatePath('/metas')
   return { ok: 'Nível registrado.' }
+}
+
+// ============================================================================ leitura dos relatórios
+/*
+ * Leitura sob demanda dos relatórios da página (db/027). Cada action repete `exigirAcesso` e
+ * valida a entrada; quem decide o que cada um vê é a RLS + as funções security invoker (o
+ * vendedor só recebe o dele; o relatório anual recusa quem não é perfil 1). Dinheiro volta como
+ * TEXTO: o select sobre a função pede `coluna::text`, então o `numeric` nunca vira float.
+ */
+
+export type EntregaDaMeta = {
+  entrega_id: string
+  numero_entrega: string | null
+  dt_entrega: string | null
+  fornecedor_id: string | null
+  fornecedor: string | null
+  fornecedor_filial: string | null
+  cliente_id: string | null
+  cliente: string | null
+  cliente_filial: string | null
+  vendedor_id: string | null
+  vendedor_substituto_id: string | null
+  produto: string | null
+  valor_comissao_unit: string | null
+  valor_comissao: string | null
+  nf_fornecedor: string | null
+  numero_pedido: string | null
+}
+
+type Resposta<T> = { dados: T; erro?: undefined } | { dados?: undefined; erro: string }
+
+const COLS_ENTREGA_META =
+  'entrega_id, numero_entrega, dt_entrega, fornecedor_id, fornecedor, fornecedor_filial, cliente_id, cliente, ' +
+  'cliente_filial, vendedor_id, vendedor_substituto_id, produto, valor_comissao_unit::text, valor_comissao::text, ' +
+  'nf_fornecedor, numero_pedido'
+
+/** Popup "Valor faturado" (pop entregas, bTvtb): as entregas de UMA meta. */
+export async function listarEntregasDaMeta(metaId: string): Promise<Resposta<EntregaDaMeta[]>> {
+  await exigirAcesso('metas')
+  if (!ehUuid(metaId)) return { erro: 'Meta inválida.' }
+  const supabase = await clienteServidor()
+  const { data, error } = await supabase
+    .rpc('fn_metas_entregas_meta', { p_meta: metaId.toLowerCase() })
+    .select(COLS_ENTREGA_META)
+    .limit(5000)
+  if (error) return { erro: traduzirErro('entregas da meta', error) }
+  return { dados: (data ?? []) as unknown as EntregaDaMeta[] }
+}
+
+export type EntregaDaBarra = {
+  entrega_id: string
+  numero_entrega: string | null
+  fornecedor: string | null
+  cliente: string | null
+  data: string | null
+  valor_venda: string | null
+  valor_comissao: string | null
+  status: string
+}
+
+const CATEGORIAS = new Set(['realizada', 'andamento', 'cancelada'])
+
+/** Clique numa barra da Análise de Entregas (openModal do HTML A). */
+export async function listarEntregasDaBarra(
+  inicio: string,
+  fim: string,
+  categoria: string,
+  vendedorId: string | null,
+): Promise<Resposta<EntregaDaBarra[]>> {
+  await exigirAcesso('metas')
+  if (!ehDataIso(inicio) || !ehDataIso(fim) || !CATEGORIAS.has(categoria)) return { erro: 'Filtro inválido.' }
+  if (vendedorId !== null && !ehUuid(vendedorId)) return { erro: 'Vendedor inválido.' }
+  const supabase = await clienteServidor()
+  const { data, error } = await supabase
+    .rpc('fn_metas_analise_lista', { p_inicio: inicio, p_fim: fim, p_categoria: categoria, p_vendedor: vendedorId })
+    .select('entrega_id, numero_entrega, fornecedor, cliente, data, valor_venda::text, valor_comissao::text, status')
+    .limit(5000)
+  if (error) return { erro: traduzirErro('entregas da barra', error) }
+  return { dados: (data ?? []) as unknown as EntregaDaBarra[] }
+}
+
+const VALORES = new Set(['comissao', 'venda_bruta', 'venda_liquida'])
+const BASES = new Set(['faturado', 'fechado', 'entregue'])
+
+const COLS_ANUAL =
+  'mes, vendedor_id, fechado::text, entregue::text, cancelado::text, faturado::text, qtd_fechado, qtd_entregue, ' +
+  'qtd_faturado, meta::text, com_megabox::text, com_vendedor::text, mes_encerrado'
+
+/** Relatório Anual (HTML C): o ano pedido e o anterior (comparativo e meta de janeiro). */
+export async function carregarRelatorioAnual(
+  ano: number,
+  valor: string,
+): Promise<Resposta<{ atual: LinhaAnual[]; anterior: LinhaAnual[] }>> {
+  const usuario = await exigirDiretor()
+  if (!usuario) return { erro: 'O relatório anual é só para a diretoria.' }
+  if (!Number.isInteger(ano) || ano < 2000 || ano > 2100 || !VALORES.has(valor)) return { erro: 'Filtro inválido.' }
+  const supabase = await clienteServidor()
+  const [a, b] = await Promise.all(
+    [ano, ano - 1].map((y) =>
+      supabase.rpc('fn_metas_relatorio_anual', { p_ano: y, p_valor: valor }).select(COLS_ANUAL).limit(5000),
+    ),
+  )
+  if (a!.error) return { erro: traduzirErro('relatório anual', a!.error) }
+  if (b!.error) return { erro: traduzirErro('relatório anual (ano anterior)', b!.error) }
+  return {
+    dados: {
+      atual: (a!.data ?? []) as unknown as LinhaAnual[],
+      anterior: (b!.data ?? []) as unknown as LinhaAnual[],
+    },
+  }
+}
+
+export type LinhaDetalheAnual = {
+  entrega_id: string
+  numero_entrega: string | null
+  vendedor_id: string | null
+  mes: number
+  data: string | null
+  status: string
+  venda_bruta: string | null
+  venda_liquida: string | null
+  comissao: string | null
+  valor: string | null
+  fechado: boolean
+  cancelado: boolean
+  total: number
+}
+
+/** Aba "Detalhamento" do Relatório Anual, paginada no banco. */
+export async function carregarDetalheAnual(filtro: {
+  ano: number
+  valor: string
+  base: string
+  vendedor: string | null
+  pagina: number
+  porPagina: number
+}): Promise<Resposta<LinhaDetalheAnual[]>> {
+  const usuario = await exigirDiretor()
+  if (!usuario) return { erro: 'O relatório anual é só para a diretoria.' }
+  const { ano, valor, base, vendedor, pagina, porPagina } = filtro
+  if (
+    !Number.isInteger(ano) ||
+    !VALORES.has(valor) ||
+    !BASES.has(base) ||
+    (vendedor !== null && !ehUuid(vendedor)) ||
+    !Number.isInteger(pagina) ||
+    pagina < 1 ||
+    !Number.isInteger(porPagina) ||
+    porPagina < 1 ||
+    porPagina > 500
+  ) {
+    return { erro: 'Filtro inválido.' }
+  }
+  const supabase = await clienteServidor()
+  const { data, error } = await supabase
+    .rpc('fn_metas_relatorio_detalhe', {
+      p_ano: ano,
+      p_valor: valor,
+      p_base: base,
+      p_vendedor: vendedor,
+      p_limite: porPagina,
+      p_deslocar: (pagina - 1) * porPagina,
+    })
+    .select(
+      'entrega_id, numero_entrega, vendedor_id, mes, data, status, venda_bruta::text, venda_liquida::text, ' +
+        'comissao::text, valor::text, fechado, cancelado, total',
+    )
+  if (error) return { erro: traduzirErro('detalhe anual', error) }
+  return { dados: (data ?? []) as unknown as LinhaDetalheAnual[] }
 }

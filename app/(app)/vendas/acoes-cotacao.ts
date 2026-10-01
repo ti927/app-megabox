@@ -144,13 +144,17 @@ export async function alterarQtdItem(_anterior: EstadoAcao, form: FormData): Pro
   const r = await cotacaoEditavel(supabase, usuario, item.cotacao_id)
   if ('erro' in r) return { erro: r.erro }
 
-  const orc = await supabase
-    .from('orcamentos_fornecedor')
-    .update({ qtd_venda: v.dados.qtd })
-    .eq('cotacao_item_id', item.id)
-  if (orc.error) return { erro: traduzirErro('qtd dos orçamentos', orc.error) }
-  const { error } = await supabase.from('cotacao_itens').update({ qtd: v.dados.qtd }).eq('id', item.id)
-  if (error) return { erro: traduzirErro('qtd do item', error) }
+  // Item + orçamentos numa transação só (db/022 fn_alterar_qtd_item): antes eram dois UPDATEs,
+  // e uma falha no segundo deixava item e orçamentos com quantidades diferentes.
+  const { error } = await supabase.rpc('fn_alterar_qtd_item', { p_item: item.id, p_qtd: v.dados.qtd })
+  if (error) {
+    if (error.code === 'P0002') return { erro: 'Este item não existe mais. Recarregue a página.' }
+    if (error.code === '22003') {
+      console.error('vendas: qtd do item', error)
+      return { erro: 'Quantidade grande demais: o valor do orçamento passaria do limite.' }
+    }
+    return { erro: traduzirErro('qtd do item', error) }
+  }
   revalidatePath('/vendas')
   return { ok: 'Quantidade alterada.', id: item.cotacao_id }
 }

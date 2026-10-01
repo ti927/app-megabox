@@ -7,6 +7,9 @@
 
 type Nome = { nome: string } | null
 
+/** Foto (logo) do cliente no avatar do cartão: URL assinada curta, ou ausente → iniciais. */
+type FotoCliente = { cliente_id?: string | null; cliente_foto?: string | null }
+
 /** Uma linha de `v_kanban_cotacoes` (db/015): contadores e total já calculados no banco. */
 export type CartaoCotacao = {
   id: string
@@ -24,7 +27,7 @@ export type CartaoCotacao = {
   /** soma do bruto dos vencedores; null sem vencedor (015 D3) */
   total_bruto_vencedores: string | null
   pode_propor: boolean
-}
+} & FotoCliente
 
 export type EntregaResumo = {
   id: string
@@ -52,7 +55,7 @@ export type CartaoPedido = {
   /** há entrega e todas em etapa concluída (015 D5) — o cartão verde */
   todas_concluidas: boolean
   entregas: EntregaResumo[]
-}
+} & FotoCliente
 
 /** Uma linha de `v_kanban_entregas` (db/009). */
 export type CartaoEntrega = {
@@ -74,7 +77,7 @@ export type CartaoEntrega = {
   vendedor_substituto_id: string | null
   papel: 'proprio' | 'substituto' | 'equipe'
   vendedor_nome: string | null
-}
+} & FotoCliente
 
 export type ColunaDados<T> = { cartoes: T[]; total: number; falhou: boolean }
 
@@ -174,7 +177,41 @@ export type Proposta = {
   faturar_para_endereco_id: string | null
   vendedor: Nome
   itens: PropostaItem[]
+  /** "Faturar para" (CNPJ do cliente) — cabeçalho do documento (bTace/bTacj/bTacl) */
+  faturar: { documento: string | null; municipio: string | null; uf: string; grupo: Nome } | null
+  /** "A/C" e telefone do contato do e-mail (bTacf/bTack) */
+  contato: { nome: string; telefone: string | null } | null
+  /** "CNPJ faturamento" do fornecedor (bTziU) */
+  fornecedor_cnpj: { documento: string | null; razao: string | null } | null
 }
+
+/**
+ * Linha de `v_proposta_documento_itens` (db/024): snapshot + descrição do orçamento, com o
+ * bruto do item e o total da proposta já somados NO BANCO. Dinheiro como texto.
+ */
+export type DocumentoItem = {
+  id: string
+  proposta_id: string
+  qtd: string
+  valor_venda_unit: string
+  valor_frete: string
+  aliquota_icms: string
+  aliquota_pis_cofins: string
+  medida: string | null
+  produto_nome: string | null
+  condicao_nome: string | null
+  linha_nome: string | null
+  frete_nome: string | null
+  fornecedor_nome: string | null
+  destino_municipio: string | null
+  destino_uf: string | null
+  valor_total_bruto: string
+  valor_unit_liquido: string
+  total_proposta: string
+}
+
+/** Empresa emissora da cotação: cabeçalho do documento (logo, e-mail, telefone). */
+export type EmpresaEmissora = { id: number; nome: string; email: string | null; telefone: string | null }
 
 export type Pedido = {
   id: string
@@ -247,6 +284,11 @@ export type Ficha = {
   destinos: { id: string; nome_endereco: string; uf: string; municipio: string | null }[]
   /** alguma parte não carregou (timeout/rede): a tela avisa em vez de mostrar lista vazia */
   incompleta: boolean
+  /** foto (logo) do cliente: URL assinada curta; ausente → iniciais */
+  clienteFoto?: string | null
+  /** itens do documento de TODAS as propostas da cotação (db/024), por proposta_id */
+  documentoItens: DocumentoItem[]
+  empresaEmissora: EmpresaEmissora | null
 }
 
 // ------------------------------------------------------------------------ opções

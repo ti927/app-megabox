@@ -1,10 +1,26 @@
 'use client'
 
 import type { Route } from 'next'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import {
+  Archive,
+  ArrowUpNarrowWide,
+  CalendarX,
+  ChevronDown,
+  ChevronsDown,
+  ChevronUp,
+  FileText,
+  Flag,
+  type LucideIcon,
+  Pencil,
+  Plus,
+  X,
+} from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
 
+import { Foto } from '@/componentes/foto'
+import { Icone } from '@/componentes/icone'
+import { SeletorPeriodo } from '@/componentes/seletor-periodo'
 import { formatarData } from '@/lib/datas'
 import { formatarReais } from '@/lib/dinheiro'
 import {
@@ -19,6 +35,7 @@ import {
   POR_COLUNA,
   primeiroNome,
 } from '@/lib/vendas'
+import { comOrdem } from '@/lib/vendas-ordem'
 
 import { TelaCotacao } from './cotacao'
 import type {
@@ -42,12 +59,7 @@ function iniciais(nome: string | null | undefined) {
 function BotaoAbrir({ rotulo, aoAbrir }: { rotulo: string; aoAbrir: () => void }) {
   return (
     <button type="button" className="cartao-abrir" aria-label={rotulo} title={rotulo} onClick={aoAbrir}>
-      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-        <path
-          fill="currentColor"
-          d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z"
-        />
-      </svg>
+      <Icone icone={Pencil} tamanho={18} />
     </button>
   )
 }
@@ -62,7 +74,7 @@ function BotaoDetalhe({ aberto, aoAlternar }: { aberto: boolean; aoAlternar: () 
       onClick={aoAlternar}
     >
       {aberto ? 'Menos' : 'Detalhes'}
-      {aberto ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
+      <Icone icone={aberto ? ChevronUp : ChevronDown} tamanho={16} />
     </button>
   )
 }
@@ -89,9 +101,7 @@ function CartaoDeCotacao({
   return (
     <li className="cartao" data-tipo="cotacao" data-arquivado={c.arquivado || undefined}>
       <div className="cartao-topo">
-        <span className="cartao-avatar" aria-hidden="true">
-          {iniciais(c.cliente_nome)}
-        </span>
+        <Foto url={c.cliente_foto} nome={c.cliente_nome ?? ''} className="cartao-avatar" iniciais={iniciais(c.cliente_nome)} />
         <div className="cartao-principal">
           <strong className="cartao-titulo">
             {c.cliente_nome ?? '—'} - Nº {c.numero}
@@ -119,9 +129,7 @@ function CartaoDeCotacao({
               title="Propostas"
               onClick={() => aoAbrir('propostas')}
             >
-              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                <path fill="currentColor" d="M6 2h9l5 5v15H6V2Zm8 1.5V8h4.5L14 3.5ZM8 12h8v1.5H8V12Zm0 3h8v1.5H8V15Z" />
-              </svg>
+              <Icone icone={FileText} tamanho={18} />
               <small>{propostas}</small>
             </button>
           ) : null}
@@ -168,9 +176,7 @@ function CartaoDePedido({
   return (
     <li className="cartao" data-tipo="pedido" data-concluido={concluido || undefined} data-cancelado={cancelado || undefined}>
       <div className="cartao-topo">
-        <span className="cartao-avatar" aria-hidden="true">
-          {iniciais(p.cliente_nome)}
-        </span>
+        <Foto url={p.cliente_foto} nome={p.cliente_nome ?? ''} className="cartao-avatar" iniciais={iniciais(p.cliente_nome)} />
         <div className="cartao-principal">
           <strong className="cartao-titulo">
             {p.cliente_nome ?? '—'} - Nº {p.numero}
@@ -238,9 +244,7 @@ function CartaoDeEntrega({
       data-financeiro={e.status_id === ETAPA.FINANCEIRO || undefined}
     >
       <div className="cartao-topo">
-        <span className="cartao-avatar" aria-hidden="true">
-          {iniciais(e.cliente_nome)}
-        </span>
+        <Foto url={e.cliente_foto} nome={e.cliente_nome ?? ''} className="cartao-avatar" iniciais={iniciais(e.cliente_nome)} />
         <div className="cartao-principal">
           <strong className="cartao-titulo">
             {e.cliente_nome} - Nº {e.numero_entrega ?? '—'} - NF: {e.nf_fornecedor_numero ?? ''}
@@ -288,6 +292,7 @@ function ColunaKanban<T>({
   dados,
   vazio,
   mostrarMais,
+  tentarDeNovo,
   pendente,
   children,
 }: {
@@ -297,6 +302,7 @@ function ColunaKanban<T>({
   dados: ColunaDados<T>
   vazio: string
   mostrarMais: () => void
+  tentarDeNovo: () => void
   pendente: boolean
   children: React.ReactNode
 }) {
@@ -305,13 +311,17 @@ function ColunaKanban<T>({
     <section className="coluna" aria-labelledby={`coluna-${id}`} data-teste={`coluna-${id}`}>
       <header className="coluna-cabecalho">
         <h2 id={`coluna-${id}`}>{titulo}</h2>
-        {subtitulo ? <p>{subtitulo}</p> : null}
+        {/* Na falha o contador seria "0 cotações" — um número falso ao lado do erro. */}
+        {subtitulo && !dados.falhou ? <p>{subtitulo}</p> : null}
       </header>
       <div className="coluna-corpo">
         {dados.falhou ? (
-          <p className="aviso" data-tom="erro" role="alert">
-            Não foi possível carregar esta coluna. Recarregue a página.
-          </p>
+          <div className="aviso coluna-erro" data-tom="erro" role="alert">
+            <p>Não foi possível carregar esta coluna.</p>
+            <button type="button" className="botao-secundario" disabled={pendente} aria-busy={pendente} onClick={tentarDeNovo}>
+              {pendente ? 'Carregando…' : 'Tentar de novo'}
+            </button>
+          </div>
         ) : dados.cartoes.length === 0 ? (
           <p className="coluna-vazia">{vazio}</p>
         ) : (
@@ -332,15 +342,29 @@ function ColunaKanban<T>({
 const COLUNA_VAZIA = { cartoes: [], total: 0, falhou: false }
 const KANBAN_VAZIO: Kanban = { cotacoes: COLUNA_VAZIA, pedidos: COLUNA_VAZIA, entregas: COLUNA_VAZIA, substituto: COLUNA_VAZIA }
 
-const PILULAS:{ chave: 'arquivadas' | 'expandir' | 'concluidos' | 'cancelados'; rotulo: string }[] = [
-  { chave: 'arquivadas', rotulo: 'cotações arquivadas' },
-  { chave: 'expandir', rotulo: 'expandir cartões' },
-  { chave: 'concluidos', rotulo: 'exibe concluídos' },
-  { chave: 'cancelados', rotulo: 'exibe cancelados' },
+type ChavePilula = 'arquivadas' | 'crescente' | 'expandir' | 'concluidos' | 'cancelados'
+
+/** Na ordem e com os ícones do Bubble (bTaTT, bTaTx, bTaGh, bTfTJ0, bTiVJ). */
+const PILULAS: { chave: ChavePilula; rotulo: string; icone: LucideIcon; dica: string }[] = [
+  { chave: 'arquivadas', rotulo: 'cotações arquivadas', icone: Archive, dica: 'Exibe só as cotações arquivadas' },
+  { chave: 'crescente', rotulo: 'data crescente', icone: ArrowUpNarrowWide, dica: 'Ordena da mais antiga para a mais nova' },
+  { chave: 'expandir', rotulo: 'expandir cartões', icone: ChevronsDown, dica: 'Expande todos os cartões' },
+  { chave: 'concluidos', rotulo: 'exibe concluídos', icone: Flag, dica: 'Exibe pedidos concluídos' },
+  { chave: 'cancelados', rotulo: 'exibe cancelados', icone: CalendarX, dica: 'Exibe pedidos e entregas cancelados' },
 ]
+
+/** Botão × de limpar um filtro (Icon EZZ, Icon Q, Icon EZZZ do Bubble): só com valor. */
+function BotaoLimpar({ rotulo, aoLimpar }: { rotulo: string; aoLimpar: () => void }) {
+  return (
+    <button type="button" className="vendas-limpar" aria-label={rotulo} title={rotulo} onClick={aoLimpar}>
+      <Icone icone={X} tamanho={16} />
+    </button>
+  )
+}
 
 export function TelaVendas({
   filtros,
+  crescente,
   kanban: kanbanDoServidor,
   opcoes,
   ficha,
@@ -349,6 +373,8 @@ export function TelaVendas({
   permissoes,
 }: {
   filtros: FiltrosVendas
+  /** pílula "data crescente" (lib/vendas-ordem) */
+  crescente: boolean
   /** null com a cotação aberta em tela cheia: o servidor não refaz o quadro coberto */
   kanban: Kanban | null
   opcoes: Opcoes
@@ -375,14 +401,32 @@ export function TelaVendas({
 
   // Todo o estado do quadro mora na URL (spec §2.2): recarregar, voltar e mandar o link
   // funcionam. A transição mantém o quadro atual na tela enquanto o novo chega.
-  function navegar(mudancas: Partial<FiltrosVendas>) {
+  function navegar(mudancas: Partial<FiltrosVendas>, ordem = crescente) {
     iniciar(() => {
-      router.replace(`/vendas${paraQuery(filtros, mudancas)}` as Route, { scroll: false })
+      router.replace(`/vendas${comOrdem(paraQuery(filtros, mudancas), ordem)}` as Route, { scroll: false })
     })
   }
-  /** Mudou filtro: colunas voltam ao primeiro bloco. */
-  function filtrar(mudancas: Partial<FiltrosVendas>) {
-    navegar({ lim: { cot: 1, ped: 1, ent: 1, sub: 1 }, ...mudancas })
+  /** Mudou filtro (ou a ordem): colunas voltam ao primeiro bloco. */
+  function filtrar(mudancas: Partial<FiltrosVendas>, ordem = crescente) {
+    navegar({ lim: { cot: 1, ped: 1, ent: 1, sub: 1 }, ...mudancas }, ordem)
+  }
+  function alternar(chave: ChavePilula) {
+    // "concluídos" e "cancelados" mudam a etapa das colunas juntas (bTiWJ/bTiWQ):
+    // os dois ligados ao mesmo tempo misturariam critérios, então um desliga o outro.
+    if (chave === 'crescente') filtrar({}, !crescente)
+    else if (chave === 'concluidos') filtrar({ concluidos: !filtros.concluidos, cancelados: false })
+    else if (chave === 'cancelados') filtrar({ cancelados: !filtros.cancelados, concluidos: false })
+    else filtrar({ [chave]: !filtros[chave] })
+  }
+  function limpar(chave: 'numero' | 'cliente') {
+    clearTimeout(espera.current)
+    if (chave === 'numero') setNumero('')
+    else setCliente('')
+    filtrar({ [chave]: '' })
+  }
+  /** Coluna que falhou (timeout no banco): refaz a página no servidor, sem perder a URL. */
+  function tentarDeNovo() {
+    iniciar(() => router.refresh())
   }
   function digitar(chave: 'numero' | 'cliente', valor: string) {
     if (chave === 'numero') setNumero(valor)
@@ -408,20 +452,12 @@ export function TelaVendas({
       <section className="vendas-filtros" aria-label="Filtros">
         <fieldset className="vendas-periodo">
           <legend>Data criação (Cotação e Pedido)</legend>
-          <input
-            type="date"
-            aria-label="De"
-            value={filtros.de}
-            max={filtros.ate}
-            onChange={(e) => e.target.value && filtrar({ de: e.target.value })}
-          />
-          <span aria-hidden="true">–</span>
-          <input
-            type="date"
-            aria-label="Até"
-            value={filtros.ate}
-            min={filtros.de}
-            onChange={(e) => e.target.value && filtrar({ ate: e.target.value })}
+          <SeletorPeriodo
+            rotulo="Data de criação"
+            de={filtros.de}
+            ate={filtros.ate}
+            onChange={(de, ate) => filtrar({ de, ate })}
+            data-teste="filtro-periodo"
           />
           {noMes ? null : (
             <button type="button" className="botao-texto" onClick={() => filtrar({ de: mes.de, ate: mes.ate })}>
@@ -433,45 +469,54 @@ export function TelaVendas({
         {/* Só Diretor e Gerente escolhem o vendedor; para os outros ele é travado no próprio
             usuário no SERVIDOR (bTiYV) e a RLS garante — aqui o campo nem aparece. */}
         {permissoes.filtrarVendedor ? (
-          <label className="campo">
-            <span>Vendedor</span>
-            <select
-              value={filtros.vendedor ?? ''}
-              onChange={(e) => filtrar({ vendedor: e.target.value || null })}
-              data-teste="filtro-vendedor"
-            >
-              <option value="">Todos</option>
-              {opcoes.vendedores.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.nome}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="vendas-limpavel" data-cheio={filtros.vendedor ? true : undefined}>
+            <label className="campo">
+              <span>Vendedor</span>
+              <select
+                value={filtros.vendedor ?? ''}
+                onChange={(e) => filtrar({ vendedor: e.target.value || null })}
+                data-teste="filtro-vendedor"
+              >
+                <option value="">Todos</option>
+                {opcoes.vendedores.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {filtros.vendedor ? <BotaoLimpar rotulo="Limpar vendedor" aoLimpar={() => filtrar({ vendedor: null })} /> : null}
+          </div>
         ) : null}
 
-        <label className="campo">
-          <span>Número pedido</span>
-          <input
-            inputMode="numeric"
-            value={numero}
-            onChange={(e) => digitar('numero', e.target.value.replace(/\D/g, ''))}
-            placeholder="Nº"
-            maxLength={12}
-          />
-        </label>
+        <div className="vendas-limpavel" data-cheio={numero ? true : undefined}>
+          <label className="campo">
+            <span>Número pedido</span>
+            <input
+              inputMode="numeric"
+              value={numero}
+              onChange={(e) => digitar('numero', e.target.value.replace(/\D/g, ''))}
+              placeholder="Nº"
+              maxLength={12}
+            />
+          </label>
+          {numero ? <BotaoLimpar rotulo="Limpar número" aoLimpar={() => limpar('numero')} /> : null}
+        </div>
 
-        <label className="campo">
-          <span>Cliente</span>
-          <input
-            type="search"
-            value={cliente}
-            onChange={(e) => digitar('cliente', e.target.value)}
-            placeholder="Nome do cliente"
-            spellCheck={false}
-            data-teste="filtro-cliente"
-          />
-        </label>
+        <div className="vendas-limpavel" data-cheio={cliente ? true : undefined}>
+          <label className="campo">
+            <span>Cliente</span>
+            <input
+              type="search"
+              value={cliente}
+              onChange={(e) => digitar('cliente', e.target.value)}
+              placeholder="Nome do cliente"
+              spellCheck={false}
+              data-teste="filtro-cliente"
+            />
+          </label>
+          {cliente ? <BotaoLimpar rotulo="Limpar cliente" aoLimpar={() => limpar('cliente')} /> : null}
+        </div>
 
         <div className="vendas-pilulas" role="group" aria-label="Exibição">
           {PILULAS.map((p) => (
@@ -479,26 +524,19 @@ export function TelaVendas({
               key={p.chave}
               type="button"
               className="pilula-filtro"
-              aria-pressed={filtros[p.chave]}
-              onClick={() =>
-                // "concluídos" e "cancelados" mudam a etapa das colunas juntas (bTiWJ/bTiWQ):
-                // os dois ligados ao mesmo tempo misturariam critérios, então um desliga o outro.
-                filtrar(
-                  p.chave === 'concluidos'
-                    ? { concluidos: !filtros.concluidos, cancelados: false }
-                    : p.chave === 'cancelados'
-                      ? { cancelados: !filtros.cancelados, concluidos: false }
-                      : { [p.chave]: !filtros[p.chave] },
-                )
-              }
+              aria-pressed={p.chave === 'crescente' ? crescente : filtros[p.chave]}
+              title={p.dica}
+              onClick={() => alternar(p.chave)}
             >
+              <Icone icone={p.icone} tamanho={16} />
               {p.rotulo}
             </button>
           ))}
         </div>
 
         <button type="button" className="botao-primario vendas-nova" onClick={() => setNova('nova')} data-teste="nova-cotacao">
-          + Cotação
+          <Icone icone={Plus} tamanho={18} />
+          Cotação
         </button>
       </section>
 
@@ -510,6 +548,7 @@ export function TelaVendas({
           dados={kanban.cotacoes}
           vazio={filtros.arquivadas ? 'Nenhuma cotação arquivada no período.' : 'Nenhuma cotação no período.'}
           mostrarMais={() => mais('cot')}
+          tentarDeNovo={tentarDeNovo}
           pendente={pendente}
         >
           {kanban.cotacoes.cartoes.map((c) => (
@@ -526,6 +565,7 @@ export function TelaVendas({
           dados={kanban.pedidos}
           vazio="Nenhum pedido no período."
           mostrarMais={() => mais('ped')}
+          tentarDeNovo={tentarDeNovo}
           pendente={pendente}
         >
           {kanban.pedidos.cartoes.map((p) => (
@@ -540,6 +580,7 @@ export function TelaVendas({
           dados={kanban.entregas}
           vazio="Nenhuma entrega que saiu no período."
           mostrarMais={() => mais('ent')}
+          tentarDeNovo={tentarDeNovo}
           pendente={pendente}
         >
           {kanban.entregas.cartoes.map((e) => (
@@ -564,6 +605,7 @@ export function TelaVendas({
               : 'Nenhuma entrega com vendedor substituto.'
           }
           mostrarMais={() => mais('sub')}
+          tentarDeNovo={tentarDeNovo}
           pendente={pendente}
         >
           {kanban.substituto.cartoes.map((e) => (

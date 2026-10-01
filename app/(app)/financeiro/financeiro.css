@@ -78,85 +78,170 @@
   min-height: 2.4rem;
 }
 
-/* -------------------------------------------------------------------- cards */
-.fin-cards {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--e3);
-}
-.fin-card {
+/* ------------------------------------------- tipo de data e botões (topo) */
+/* Como no Bubble (`Group B`): o tipo de data em opções de marcar à esquerda e os botões de ação
+ * em blocos contornados à direita — receber, pagar e "Limpar Filtros". */
+.fin-controles {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--e3) var(--e4);
-  font: inherit;
-  text-align: left;
-  color: var(--texto);
-  background: var(--superficie);
-  border: 1px solid var(--borda);
-  border-left: 4px solid var(--borda-forte);
-  border-radius: var(--raio-g);
-  box-shadow: var(--sombra-1);
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--e3) var(--e5);
 }
-button.fin-card {
-  cursor: pointer;
-}
-button.fin-card {
-  transition:
-    background-color var(--dur-1) var(--curva),
-    box-shadow var(--dur-1) var(--curva);
-}
-button.fin-card:hover {
-  box-shadow: var(--sombra-2);
-}
-.fin-card[data-tom='roxo'] {
-  border-left-color: var(--roxo);
-}
-.fin-card[data-tom='roxo'] .fin-card-titulo {
-  color: var(--roxo);
-}
-.fin-card[data-tom='verde'] {
-  border-left-color: var(--verde);
-}
-.fin-card[data-tom='verde'] .fin-card-titulo {
-  color: var(--verde);
-}
-.fin-card[data-tom='vermelho'] {
-  border-left-color: var(--vermelho);
-}
-.fin-card[data-tom='vermelho'] .fin-card-titulo {
-  color: var(--vermelho);
-}
-.fin-card[data-tom='azul'] {
-  border-left-color: var(--azul);
-}
-.fin-card[data-tom='azul'] .fin-card-titulo {
-  color: var(--azul);
-}
-.fin-card[data-ativo] {
-  background: var(--azul-claro);
-}
-.fin-card-titulo {
+.fin-tipo-data {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: var(--e1) var(--e4);
+  margin: 0;
+  padding: 0;
+  border: none;
   font-size: var(--t-sm);
-  font-weight: var(--peso-medio);
 }
-.fin-card-valor {
-  font-size: var(--t-lg);
-  font-weight: var(--peso-forte);
-  line-height: 1.2;
-  font-variant-numeric: tabular-nums;
-}
-.fin-card-detalhe {
+.fin-tipo-data legend {
+  padding: 0;
+  margin-bottom: var(--e1);
   font-size: var(--t-xs);
   color: var(--texto-2);
 }
+.fin-tipo-data:disabled {
+  opacity: 0.55;
+}
+.fin-opcao {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e2);
+  min-height: 1.75rem;
+  cursor: pointer;
+}
+.fin-opcao input {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0;
+  accent-color: var(--azul);
+}
+.fin-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--e3);
+}
+.fin-grupo-botoes {
+  display: flex;
+  overflow: hidden;
+  background: var(--superficie);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+}
+.fin-grupo-botoes button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e2);
+  min-height: 2.5rem;
+  padding: var(--e2) var(--e3);
+  font: inherit;
+  font-size: var(--t-sm);
+  color: var(--azul);
+  white-space: nowrap;
+  background: none;
+  border: none;
+  border-left: 1px solid var(--borda-forte);
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--curva);
+}
+.fin-grupo-botoes button:first-child {
+  border-left: none;
+}
+.fin-grupo-botoes button:hover:not(:disabled) {
+  background: var(--azul-claro);
+}
+.fin-grupo-botoes button:disabled {
+  color: var(--texto-2);
+  cursor: not-allowed;
+}
+.fin-grupo-botoes button[data-erro] {
+  color: var(--vermelho);
+}
+.fin-grupo-botoes:has(.fin-limpar) {
+  border-color: var(--azul);
+}
 
-.fin-acoes {
+/* ------------------------------------------------------ barra fixa do rodapé */
+/* Bubble `Group XZZZ`: totais presos ao pé da janela enquanto a lista rola. Sticky, e não
+ * fixed: acompanha a largura do conteúdo com o menu aberto ou fechado. */
+.fin-rodape {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--e3);
+  justify-content: space-between;
+  gap: var(--e2) var(--e5);
+  margin-top: auto;
+  padding: var(--e2) var(--e4);
+  background: var(--azul-claro);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  box-shadow: 0 -4px 12px rgb(0 0 0 / 8%);
 }
+.fin-rodape-grupo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2) var(--e5);
+}
+.fin-total {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e3);
+  min-width: calc(9 * var(--vw));
+  padding: var(--e1) var(--e2);
+  font: inherit;
+  text-align: left;
+  color: var(--texto);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+}
+button.fin-total {
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--curva);
+}
+button.fin-total:hover {
+  background: var(--superficie);
+}
+.fin-total[data-ativo] {
+  background: var(--superficie);
+  border-color: var(--borda-forte);
+}
+.fin-total > svg {
+  flex: none;
+}
+.fin-total-texto {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.fin-total-titulo {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.fin-total strong {
+  font-size: var(--t-sm);
+  font-weight: var(--peso-forte);
+}
+.fin-total[data-tom='roxo'] > svg,
+.fin-total[data-tom='roxo'] strong {
+  color: var(--roxo);
+}
+.fin-total[data-tom='verde'] > svg,
+.fin-total[data-tom='verde'] strong {
+  color: var(--verde);
+}
+.fin-total[data-tom='vermelho'] > svg,
+.fin-total[data-tom='vermelho'] strong {
+  color: var(--vermelho);
+}
+
 .fin-dica {
   margin: 0;
   font-size: var(--t-sm);
@@ -256,19 +341,16 @@ td.fin-num {
 td.fin-num > * {
   display: block;
 }
-.fin-datas span {
+.fin-datas > span {
   display: block;
   white-space: nowrap;
 }
-/* A data usada no filtro fica marcada (no Bubble, rótulo laranja). O laranja de texto
- * (--laranja-texto, 5,7:1) passa AA; o sublinhado laranja reforça sem depender só da cor. */
-.financeiro [data-destaque] {
-  font-weight: var(--peso-medio);
+/* A data usada no filtro fica marcada como no Bubble: só o RÓTULO em laranja ("Dt entrega"),
+ * em negrito — sem sublinhado, que fazia a data parecer link. --laranja-texto passa AA (5,7:1);
+ * o negrito é a pista que não depende só da cor. */
+.financeiro [data-destaque] .fin-rot-data {
+  font-weight: var(--peso-forte);
   color: var(--laranja-texto);
-  text-decoration: underline;
-  text-decoration-color: var(--laranja);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
 }
 .financeiro [data-vencida] {
   font-weight: var(--peso-forte);
@@ -280,6 +362,26 @@ td.fin-num > * {
 .fin-sub {
   font-size: var(--t-xs);
   color: var(--texto-2);
+}
+/* Cliente com a logo à esquerda, como a célula de logo do Bubble. */
+.fin-cliente {
+  display: flex;
+  gap: var(--e2);
+  align-items: center;
+  min-width: 0;
+}
+.fin-logo {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  overflow: hidden;
+  font-size: 0.6875rem;
+  font-weight: var(--peso-forte);
+  color: var(--roxo);
+  background: var(--lilas);
+  border-radius: 50%;
 }
 .fin-saldo {
   font-weight: var(--peso-medio);
@@ -310,8 +412,8 @@ td.fin-num > * {
 
 /* No celular a tabela vira cartões: cada célula com o rótulo da coluna. */
 @media (max-width: 48rem) {
-  .fin-cards {
-    grid-template-columns: 1fr;
+  .fin-rodape {
+    position: static;
   }
   .fin-rolagem {
     overflow: visible;
@@ -531,4 +633,91 @@ td.fin-num > * {
   .fin-abas button {
     flex: 1 1 auto;
   }
+}
+
+/* ===================================================================================
+ * DENSIDADE (pedido do dono, 30/09/2026): o fluxo financeiro é tela de conferência —
+ * precisa mostrar o maior número de contas de uma vez. Este bloco compacta linhas,
+ * filtros, abas, botões e o rodapé; só espaçamento e tamanho, com tokens. Vale só aqui.
+ * =================================================================================== */
+.fin-abas button,
+.fin-grupo-botoes button {
+  min-height: 2rem;
+  padding: var(--e1) var(--e3);
+}
+.fin-filtros {
+  gap: var(--e2);
+  padding: var(--e2) var(--e3);
+}
+.fin-filtros .campo {
+  gap: 0.125rem;
+}
+.fin-filtros .campo input,
+.fin-filtros .campo select {
+  min-height: 2rem;
+  padding-block: var(--e1);
+  font-size: var(--t-sm);
+}
+.fin-filtros-fim {
+  min-height: 2rem;
+}
+.fin-opcao {
+  min-height: 1.4rem;
+}
+.fin-tabela {
+  font-size: var(--t-xs);
+}
+.fin-tabela th {
+  padding: var(--e1) var(--e2);
+}
+.fin-tabela td {
+  padding: 0.1875rem var(--e2);
+  line-height: 1.25;
+}
+.fin-logo {
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.625rem;
+}
+.fin-rodape {
+  padding: var(--e1) var(--e3);
+}
+/* Cada linha empilhava 3–4 linhas de texto: a coluna NF/Baixa era estreita e quebrava, e
+ * nomes longos de vendedor e fornecedor viravam 2 linhas. Aqui cada informação cabe numa
+ * linha só (reticências quando não cabe, com o texto completo no title do navegador via
+ * seleção), e a coluna Cliente, que sobrava vazia, cede espaço. */
+.fin-tabela td {
+  line-height: 1.2;
+  vertical-align: middle;
+}
+.fin-tabela td[data-rotulo='NF / Baixa'],
+.fin-tabela td[data-rotulo='Valores'],
+.fin-tabela td[data-rotulo='Datas'] {
+  white-space: nowrap;
+}
+.fin-tabela td[data-rotulo='Vendedor / Pedido'],
+.fin-tabela td[data-rotulo='Cliente'],
+.fin-tabela td[data-rotulo='Fornecedor / Produto'] {
+  max-width: 0; /* com width abaixo, a célula respeita a largura e corta com reticências */
+}
+.fin-tabela td[data-rotulo='Vendedor / Pedido'] { width: 14%; }
+.fin-tabela td[data-rotulo='Cliente'] { width: 20%; }
+.fin-tabela td[data-rotulo='Fornecedor / Produto'] { width: 26%; }
+.fin-tabela td[data-rotulo='Vendedor / Pedido'] > *,
+.fin-tabela td[data-rotulo='Cliente'] *,
+.fin-tabela td[data-rotulo='Fornecedor / Produto'] > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fin-tabela td[data-rotulo='Vendedor / Pedido'] {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fin-tabela td[data-rotulo='Fornecedor / Produto'] > * {
+  display: block;
+}
+.fin-tabela td[data-rotulo='Fornecedor / Produto'] > br {
+  display: none; /* os filhos já são bloco: o <br> viraria uma linha em branco */
 }

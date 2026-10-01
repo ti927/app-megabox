@@ -11,7 +11,6 @@ import {
   Target,
   Trophy,
   UserCheck,
-  UserRound,
   Users,
 } from 'lucide-react'
 
@@ -28,6 +27,8 @@ import {
   type VendedorProspeccao,
 } from '@/lib/relatorios-paineis'
 
+import { Foto } from '@/componentes/foto'
+
 import { Anel, Colunas } from './graficos'
 import { CabecalhoRelatorio, Kpi, Vazio } from './pecas'
 import type { Vendedor } from './tipos'
@@ -42,6 +43,7 @@ function Destaque({
   Icone,
   categoria,
   quem,
+  foto,
   meta,
   valor,
   unidade,
@@ -50,6 +52,7 @@ function Destaque({
   Icone: typeof Trophy
   categoria: string
   quem: VendedorProspeccao | null
+  foto: string | undefined
   meta: string
   valor: string
   unidade: string
@@ -57,12 +60,16 @@ function Destaque({
   return (
     <div className="rel-vencedor" data-tom={tom}>
       <span className="rel-vencedor-cat">
-        <Icone size={14} aria-hidden /> {categoria}
+        <Icone size={16} aria-hidden /> {categoria}
       </span>
       <div className="rel-vencedor-pessoa">
-        <span className="rel-avatar rel-avatar-g" data-tom={tom === 'ouro' ? 'ouro' : tom} aria-hidden>
-          {quem ? iniciais(quem.nome) : '—'}
-        </span>
+        {quem ? (
+          <Foto url={foto} nome={quem.nome} className="rel-avatar rel-avatar-g" tom={tom} iniciais={iniciais(quem.nome)} />
+        ) : (
+          <span className="rel-avatar rel-avatar-g" data-tom={tom} aria-hidden>
+            —
+          </span>
+        )}
         <div>
           <b>{quem?.nome ?? '—'}</b>
           <small>{meta}</small>
@@ -78,6 +85,7 @@ function Destaque({
 
 export function AbaProspeccao({
   painel,
+  fotos,
   filtro,
   anoCorrente,
   vendedores,
@@ -88,6 +96,7 @@ export function AbaProspeccao({
   aoAtualizar,
 }: {
   painel: PainelProspeccao | null
+  fotos: Record<string, string>
   filtro: FiltroProspeccao
   anoCorrente: number
   vendedores: Vendedor[]
@@ -120,7 +129,7 @@ export function AbaProspeccao({
       {/* O HTML D recalcula ao trocar o select, sem botão de aplicar. */}
       <div className="rel-filtros-cartao" role="group" aria-label="Filtros do relatório de prospecção">
         <span className="rel-filtros-marca" aria-hidden>
-          <SlidersHorizontal size={17} />
+          <SlidersHorizontal size={18} />
           Filtros
         </span>
         <label className="campo rel-campo">
@@ -149,9 +158,7 @@ export function AbaProspeccao({
         </label>
         {veTodos ? (
           <label className="campo rel-campo rel-campo-largo">
-            <span>
-              <UserRound size={12} aria-hidden /> Vendedor
-            </span>
+            <span>Vendedor</span>
             <select
               value={filtro.vendedor ?? ''}
               disabled={pendente}
@@ -188,7 +195,7 @@ export function AbaProspeccao({
       {comDestaques ? (
         <section className="rel-bloco-titulado" aria-labelledby="rel-dest-t">
           <p className="rel-sobretitulo">
-            <Trophy size={14} aria-hidden /> Indicadores de performance
+            <Trophy size={16} aria-hidden /> Indicadores de performance
           </p>
           <h3 id="rel-dest-t">Destaques do mês</h3>
           <div className="rel-grade-3">
@@ -197,6 +204,7 @@ export function AbaProspeccao({
               Icone={Trophy}
               categoria="Mais propostas enviadas"
               quem={d.enviadas}
+              foto={d.enviadas ? fotos[d.enviadas.vendedor_id] : undefined}
               meta={d.enviadas ? `${umaCasa(d.enviadas.media_dia)} por dia útil` : ''}
               valor={d.enviadas ? String(d.enviadas.enviadas) : '—'}
               unidade="enviadas"
@@ -206,6 +214,7 @@ export function AbaProspeccao({
               Icone={Users}
               categoria="Mais clientes prospectados"
               quem={d.clientes}
+              foto={d.clientes ? fotos[d.clientes.vendedor_id] : undefined}
               meta={d.clientes ? `de ${d.clientes.carteira} na carteira` : ''}
               valor={d.clientes ? String(d.clientes.clientes) : '—'}
               unidade="clientes"
@@ -215,6 +224,7 @@ export function AbaProspeccao({
               Icone={Target}
               categoria="Melhor cobertura"
               quem={d.cobertura}
+              foto={d.cobertura ? fotos[d.cobertura.vendedor_id] : undefined}
               meta={d.cobertura ? `${d.cobertura.clientes} de ${d.cobertura.carteira} clientes` : ''}
               valor={d.cobertura ? String(Math.round(d.cobertura.cobertura * 100)) : '—'}
               unidade="%"
@@ -225,7 +235,7 @@ export function AbaProspeccao({
 
       <section className="rel-bloco-titulado" aria-labelledby="rel-rank-t">
         <p className="rel-sobretitulo">
-          <Award size={14} aria-hidden /> Ranking de prospecção
+          <Award size={16} aria-hidden /> Ranking de prospecção
         </p>
         <h3 id="rel-rank-t">Propostas e clientes da carteira — por vendedor</h3>
         <div className="rel-painel-cartao">
@@ -257,9 +267,13 @@ export function AbaProspeccao({
                         </td>
                         <th scope="row">
                           <span className="rel-quem">
-                            <span className="rel-avatar" data-tom={TOM_AVATAR[i % TOM_AVATAR.length]} aria-hidden>
-                              {iniciais(v.nome)}
-                            </span>
+                            <Foto
+                              url={fotos[v.vendedor_id]}
+                              nome={v.nome}
+                              className="rel-avatar"
+                              tom={TOM_AVATAR[i % TOM_AVATAR.length]}
+                              iniciais={iniciais(v.nome)}
+                            />
                             {v.nome}
                           </span>
                         </th>
@@ -294,7 +308,7 @@ export function AbaProspeccao({
 
       <section className="rel-bloco-titulado" aria-labelledby="rel-dia-t">
         <p className="rel-sobretitulo">
-          <BarChart3 size={14} aria-hidden /> Volume diário
+          <BarChart3 size={16} aria-hidden /> Volume diário
         </p>
         <h3 id="rel-dia-t">
           Propostas enviadas por dia — {mesNome} {filtro.ano}

@@ -7,6 +7,8 @@ import { TriangleAlert, X } from 'lucide-react'
 import { Icone } from '@/componentes/icone'
 
 import { formatarData } from '@/lib/datas'
+import { marcarFormularioGravado } from '@/lib/formulario-alterado'
+import { FOTOS_PRODUTO } from '@/lib/produtos-fotos'
 
 import {
   buscarFiliaisFornecedor,
@@ -81,8 +83,17 @@ function FormularioProduto({
   const linhas = new Set(p?.linhas.map((l) => l.linha_id) ?? [])
   const condicoes = new Set(p?.condicoes.map((c) => c.condicao_id) ?? [])
 
+  // Base do "tem alteração não gravada?" (lib/formulario-alterado): o que o formulário tinha ao
+  // abrir e, depois, o que acabou de ser gravado. Resposta com erro NÃO vira base — o que foi
+  // digitado continua pendente.
+  const formRef = useRef<HTMLFormElement>(null)
+  useEffect(() => {
+    if (estado.ok || (!estado.erro && !estado.parecidos)) marcarFormularioGravado(formRef.current)
+  }, [estado])
+
   return (
     <form
+      ref={formRef}
       id="form-produto"
       className="pf-form"
       noValidate
@@ -483,6 +494,101 @@ function AbaFornecedores({ ficha }: { ficha: Ficha }) {
   )
 }
 
+// ------------------------------------------------------------ resumo (aba Dados)
+
+/**
+ * O que o produto já tem, só leitura, embaixo do formulário: fotos, versões e filiais
+ * fornecedoras, cada bloco levando à sua aba. Antes a aba Dados ocupava meia altura do
+ * painel e o resto ficava vazio (auditoria P4).
+ */
+const RESUMO_MAX = 5
+
+function ResumoProduto({ ficha, irPara }: { ficha: Ficha; irPara: (aba: Aba) => void }) {
+  const fotos = FOTOS_PRODUTO.filter((f) => ficha.fotos[f.chave])
+  const versoes = ficha.versoes.filter((v) => v.ativo)
+  return (
+    <section className="pf-resumo" aria-label="Resumo do produto">
+      <div className="pf-resumo-bloco">
+        <div className="pf-resumo-topo">
+          <h3>Fotos</h3>
+          <button type="button" className="pf-link" onClick={() => irPara('fotos')}>
+            {fotos.length > 0 ? 'Ver fotos' : 'Enviar fotos'}
+          </button>
+        </div>
+        {fotos.length === 0 ? (
+          <p className="pf-vazio">Nenhuma foto enviada.</p>
+        ) : (
+          <ul className="pf-resumo-fotos">
+            {fotos.map((f) => (
+              <li key={f.chave}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- URL assinada de vida curta */}
+                <img src={ficha.fotos[f.chave]} alt={f.rotulo} loading="lazy" />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="pf-resumo-bloco">
+        <div className="pf-resumo-topo">
+          <h3>
+            Versões ativas <span className="aba-qtd">{versoes.length}</span>
+          </h3>
+          <button type="button" className="pf-link" onClick={() => irPara('versoes')}>
+            Gerenciar
+          </button>
+        </div>
+        {versoes.length === 0 ? (
+          <p className="pf-vazio">Nenhuma versão ativa.</p>
+        ) : (
+          <p className="pf-resumo-selos">
+            {versoes.map((v) => (
+              <span key={v.id} className="selo">
+                {v.nome}
+              </span>
+            ))}
+          </p>
+        )}
+      </div>
+
+      <div className="pf-resumo-bloco">
+        <div className="pf-resumo-topo">
+          <h3>
+            Fornecedores <span className="aba-qtd">{ficha.filiais.length}</span>
+          </h3>
+          <button type="button" className="pf-link" onClick={() => irPara('fornecedores')}>
+            Gerenciar
+          </button>
+        </div>
+        {ficha.filiais.length === 0 ? (
+          <p className="pf-vazio">Nenhuma filial atende este produto — ele não entra em orçamento.</p>
+        ) : (
+          <ul className="pf-resumo-lista">
+            {ficha.filiais.slice(0, RESUMO_MAX).map((f) => (
+              <li key={f.endereco_fornecedor_id}>
+                <strong>{f.endereco?.grupo?.nome ?? 'Cadastro removido'}</strong>
+                {f.endereco ? (
+                  <small>
+                    {f.endereco.nome_endereco} · {f.endereco.municipio ? `${f.endereco.municipio}/` : ''}
+                    {f.endereco.uf}
+                  </small>
+                ) : null}
+              </li>
+            ))}
+            {ficha.filiais.length > RESUMO_MAX ? (
+              <li>
+                <button type="button" className="pf-link" onClick={() => irPara('fornecedores')}>
+                  e mais {ficha.filiais.length - RESUMO_MAX}
+                </button>
+              </li>
+            ) : null}
+          </ul>
+        )}
+      </div>
+    </section>
+  )
+}
+
 // ----------------------------------------------------------------------- o diálogo
 
 /**
@@ -519,12 +625,13 @@ export function FichaProduto({
   const p = ficha?.produto ?? null
   const deCliente = ficha ? ficha.filiais.filter(ehDeCliente).length : 0
 
-  const abas: { id: Aba; rotulo: string }[] = ficha
+  // Contador em círculo (.aba-qtd), o mesmo das abas de /cadastros.
+  const abas: { id: Aba; rotulo: string; qtd?: number }[] = ficha
     ? [
         { id: 'dados', rotulo: 'Dados' },
-        { id: 'fotos', rotulo: `Fotos (${Object.keys(ficha.fotos).length})` },
-        { id: 'versoes', rotulo: `Versões (${ficha.versoes.length})` },
-        { id: 'fornecedores', rotulo: `Fornecedores (${ficha.filiais.length})` },
+        { id: 'fotos', rotulo: 'Fotos', qtd: Object.keys(ficha.fotos).length },
+        { id: 'versoes', rotulo: 'Versões', qtd: ficha.versoes.length },
+        { id: 'fornecedores', rotulo: 'Fornecedores', qtd: ficha.filiais.length },
       ]
     : []
 
@@ -532,7 +639,7 @@ export function FichaProduto({
     <div className="pf">
       <header className="painel-lateral-cabecalho pf-cabecalho">
         <div className="pf-titulo">
-          <p className="pf-tipo">{p ? 'Edita produto' : 'Novo produto'}</p>
+          <p className="pf-tipo">Produto</p>
           <h2 id="pf-titulo">{p ? p.nome : 'Novo produto'}</h2>
           {p ? (
             <p className="pf-selos">
@@ -565,6 +672,7 @@ export function FichaProduto({
               onClick={() => setAba(a.id)}
             >
               {a.rotulo}
+              {a.qtd !== undefined ? <span className="aba-qtd">{a.qtd}</span> : null}
               {a.id === 'fornecedores' && deCliente > 0 ? (
                 <span className="pf-alerta">
                   <Icone icone={TriangleAlert} tamanho={16} rotulo="com filial de cliente" />
@@ -599,6 +707,7 @@ export function FichaProduto({
             estado={estado}
             enviar={(form) => startTransition(() => salvar(form))}
           />
+          {ficha ? <ResumoProduto ficha={ficha} irPara={setAba} /> : null}
         </div>
         {ficha && aba === 'fotos' ? <AbaFotos ficha={ficha} /> : null}
         {ficha && aba === 'versoes' ? <AbaVersoes ficha={ficha} /> : null}

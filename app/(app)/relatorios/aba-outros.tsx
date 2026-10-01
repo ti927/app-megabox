@@ -12,13 +12,13 @@ import {
   PackageSearch,
   Search,
   Truck,
-  UserRound,
   X,
 } from 'lucide-react'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState, useTransition } from 'react'
 
+import { SeletorPeriodo } from '@/componentes/seletor-periodo'
 import { formatarData } from '@/lib/datas'
 import { formatarReais } from '@/lib/dinheiro'
 import {
@@ -91,9 +91,9 @@ function ThOrdena({
       <button type="button" className="rel-ordenar" onClick={() => aoOrdenar(col)}>
         {rotulo}
         {ativo ? (
-          ordem.dir === 'asc' ? <ArrowUp size={12} aria-hidden /> : <ArrowDown size={12} aria-hidden />
+          ordem.dir === 'asc' ? <ArrowUp size={16} aria-hidden /> : <ArrowDown size={16} aria-hidden />
         ) : (
-          <ArrowUpDown size={12} aria-hidden className="rel-ordenar-inativo" />
+          <ArrowUpDown size={16} aria-hidden className="rel-ordenar-inativo" />
         )}
       </button>
     </th>
@@ -213,7 +213,7 @@ function DialogoDetalhe({ aberto, query, aoFechar }: { aberto: Aberto | null; qu
                           href={`/vendas?numero=${l.cotacao_numero}&sel=${l.cotacao_id}` as Route}
                           title="Abrir a cotação"
                         >
-                          {l.cotacao_numero} <ExternalLink size={12} aria-hidden />
+                          {l.cotacao_numero} <ExternalLink size={16} aria-hidden />
                         </Link>
                       ) : (
                         '—'
@@ -536,21 +536,24 @@ export function AbaOutros({
             </label>
           ))}
         </fieldset>
-        <label className="campo rel-campo">
+        <div className="campo rel-campo">
           <span>
-            <CalendarRange size={12} aria-hidden /> Entrega de
+            <CalendarRange size={12} aria-hidden /> Entrega
           </span>
-          <input type="date" value={inicio} required onChange={(e) => setInicio(e.target.value)} />
-        </label>
-        <label className="campo rel-campo">
-          <span>até</span>
-          <input type="date" value={fim} required min={inicio} onChange={(e) => setFim(e.target.value)} />
-        </label>
+          <SeletorPeriodo
+            rotulo="Período de entrega"
+            de={inicio}
+            ate={fim}
+            onChange={(de, ate) => {
+              setInicio(de)
+              setFim(ate)
+            }}
+            data-teste="filtro-periodo"
+          />
+        </div>
         {veTodos ? (
           <label className="campo rel-campo">
-            <span>
-              <UserRound size={12} aria-hidden /> Vendedor
-            </span>
+            <span>Vendedor</span>
             <select value={filtros.vendedor ?? ''} onChange={(e) => aoNavegar({ vendedor: e.target.value || null, inicio, fim }, extras)}>
               <option value="">Todos</option>
               {vendedores.map((v) => (
@@ -642,11 +645,21 @@ export function AbaOutros({
                 subtitulo={MEDIDAS.find((x) => x.id === m)?.rotulo}
                 etiqueta={{ Icone: BarChart3, texto: 'Colunas' }}
               >
-                <Colunas
-                  descricao="Total de cada mês do período"
-                  formatar={fmtGrafico}
-                  dados={meses.map((x) => ({ rotulo: rotuloMes(x), valor: numMedida(matriz.totaisMes[x]), dica: rotuloMes(x) }))}
-                />
+                {meses.length === 1 && meses[0] ? (
+                  // Um mês só: uma coluna solitária vira uma barra fina perdida no cartão (R8).
+                  // O total cabe num número; o gráfico volta com dois meses ou mais.
+                  <div className="rel-mes-unico">
+                    <span>{rotuloMes(meses[0])}</span>
+                    <b>{formatarMedida(valorDaMedida(matriz.totaisMes[meses[0]], m) ?? 0, m)}</b>
+                    <small>Período de um mês. Amplie o período para comparar mês a mês.</small>
+                  </div>
+                ) : (
+                  <Colunas
+                    descricao="Total de cada mês do período"
+                    formatar={fmtGrafico}
+                    dados={meses.map((x) => ({ rotulo: rotuloMes(x), valor: numMedida(matriz.totaisMes[x]), dica: rotuloMes(x) }))}
+                  />
+                )}
               </Cartao>
               <Cartao
                 Icone={Truck}

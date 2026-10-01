@@ -135,7 +135,7 @@
   min-width: 0;
 }
 
-/* metais: ouro = laranja, prata = cinza claro, bronze = laranja + vermelho */
+/* metais: ouro = laranja, prata = cinza claro, bronze = laranja + vermelho (tokens → os dois temas) */
 [data-metal='ouro'],
 .mt-ranking-item[data-pos='1'] {
   --mt-metal: var(--laranja);
@@ -202,84 +202,6 @@
 }
 .mt-podio-vazio p {
   margin: 0;
-}
-
-.mt-brasao {
-  --mt-luz: color-mix(in oklab, var(--mt-metal) 72%, white);
-  --mt-sombra: color-mix(in oklab, var(--mt-metal) 90%, black);
-  --mt-aro: color-mix(in oklab, var(--mt-metal) 55%, black);
-  position: relative;
-  container-type: inline-size;
-  aspect-ratio: 200 / 250;
-  color: var(--sobre-laranja);
-  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 18%));
-}
-.mt-brasao[data-lugar='1'] {
-  margin-bottom: var(--e7);
-}
-.mt-brasao-forma {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-.mt-brasao-aro {
-  fill: var(--mt-aro);
-}
-.mt-brasao-luz {
-  stop-color: var(--mt-luz);
-}
-.mt-brasao-sombra {
-  stop-color: var(--mt-sombra);
-}
-.mt-brasao-conteudo {
-  position: absolute;
-  inset: 11% 13% 16%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 1.5cqi;
-  text-align: center;
-}
-.mt-brasao-lugar {
-  display: inline-flex;
-  align-items: center;
-  gap: 1.5cqi;
-  font-size: 8cqi;
-  font-weight: var(--peso-forte);
-  line-height: 1;
-}
-.mt-brasao-lugar svg {
-  width: 8cqi;
-  height: 8cqi;
-}
-.mt-avatar-g {
-  width: 44cqi;
-  border: 2cqi solid var(--mt-aro);
-  font-size: 13cqi;
-}
-.mt-brasao-nome {
-  max-width: 100%;
-  margin-top: 1cqi;
-  font-size: 8.5cqi;
-  font-weight: var(--peso-forte);
-  line-height: 1.1;
-  text-transform: uppercase;
-  letter-spacing: 0.01em;
-  overflow-wrap: anywhere;
-}
-.mt-brasao-nivel {
-  font-size: 7cqi;
-  font-weight: var(--peso-medio);
-  line-height: 1.1;
-}
-.mt-brasao-pct {
-  font-family: var(--fonte-numero);
-  font-variant-numeric: tabular-nums;
-  font-size: 13cqi;
-  font-weight: var(--peso-forte);
-  line-height: 1;
 }
 
 /* ------------------------------------------------------------------ avatar */
@@ -436,7 +358,7 @@
 }
 .mt-equipe-numeros dd small {
   font-size: var(--t-xs);
-  font-weight: 400;
+  font-weight: normal;
   color: var(--texto-2);
 }
 .mt-equipe-numeros dd .mt-ok,
@@ -510,11 +432,15 @@
   min-width: 0;
 }
 .mt-ranking-quem strong {
+  display: -webkit-box;
   font-size: var(--t-md);
   font-weight: var(--peso-forte);
+  line-height: 1.2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 .mt-ranking-quem small {
   font-size: var(--t-sm);
@@ -659,10 +585,10 @@
 
 /* ---------------------------------------------------------------- diálogos */
 .mt-dialogo {
-  width: min(40rem, calc(100vw - 2 * var(--e4)));
+  width: min(40rem, calc(100 * var(--vw) - 2 * var(--e4)));
 }
 .mt-dialogo[data-largo] {
-  width: min(64rem, calc(100vw - 2 * var(--e4)));
+  width: min(64rem, calc(100 * var(--vw) - 2 * var(--e4)));
 }
 .mt-dialogo .dialogo-cabecalho h2 {
   color: var(--azul);
@@ -818,9 +744,6 @@
   }
   .mt-podio-lista {
     gap: var(--e2);
-  }
-  .mt-brasao[data-lugar='1'] {
-    margin-bottom: var(--e5);
   }
   .mt-equipe,
   .mt-ranking {

@@ -3,27 +3,31 @@
  * Estrutura sugerida para o conteúdo: .painel-lateral-cabecalho, .painel-lateral-corpo
  * (rola) e .painel-lateral-rodape — todas opcionais. */
 
+/* Começa ABAIXO do cabeçalho (como no Bubble): tema, usuário e engrenagem continuam à vista.
+ * --altura-cabecalho vem da .casca (app/(app)/casca.css); fora dela, topo da janela.
+ * Larguras em --vw (estilos/base.css): com o zoom de 0,75, 1vw encolheria junto. */
 .painel-lateral {
   position: fixed;
-  inset: 0 0 0 auto;
+  inset: var(--altura-cabecalho, 0) 0 0 auto;
   z-index: 60;
   display: flex;
   flex-direction: column;
-  width: min(56vw, calc(100vw - 22rem));
-  min-width: min(26rem, 100vw);
-  max-width: 100vw;
+  width: min(calc(56 * var(--vw)), calc(100 * var(--vw) - 22rem));
+  min-width: min(26rem, calc(100 * var(--vw)));
+  max-width: calc(100 * var(--vw));
   color: var(--texto);
   background: var(--superficie);
   border-left: 1px solid var(--borda-forte);
   box-shadow: var(--sombra-3);
   animation: painel-lateral-entra var(--dur-2) var(--curva);
 }
-.painel-lateral:focus {
+/* O contêiner não é controle: recebe foco só como último recurso (sem título) e não desenha
+ * contorno em volta do painel inteiro. O foco inicial vai para o título (tabindex=-1, não entra
+ * na ordem do Tab) — também sem contorno, como todo título focado por programa. Os controles
+ * dentro continuam com o anel de foco do tema. */
+.painel-lateral:focus,
+.painel-lateral [data-painel-foco-inicial]:focus {
   outline: none;
-}
-.painel-lateral:focus-visible {
-  outline: var(--foco);
-  outline-offset: -3px;
 }
 .painel-lateral[data-arrastando] {
   user-select: none;
@@ -112,7 +116,7 @@
 
 @media (max-width: 48rem) {
   .painel-lateral {
-    width: 100vw !important;
+    width: calc(100 * var(--vw)) !important;
     border-left: none;
   }
   .painel-lateral-alca {

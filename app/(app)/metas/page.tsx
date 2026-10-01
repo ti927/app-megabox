@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
 
 import { urlsDeLinhas } from '@/lib/arquivos-lote'
 import { exigirAcesso } from '@/lib/autorizacao'
@@ -12,6 +13,8 @@ import {
   somarReais,
 } from '@/lib/metas'
 import { hojeSaoPaulo, metaDiaria } from '@/lib/metas-painel'
+import { COOKIE_PODIO, lerEstiloPodio } from '@/lib/metas-podio'
+import type { LinhaAnalise } from '@/lib/metas-relatorios'
 import { clienteServidor } from '@/lib/supabase/servidor'
 
 import { TelaMetas } from './tela'
@@ -26,6 +29,7 @@ import type {
 } from './tipos'
 
 import './metas.css'
+import './metas-extra.css'
 
 export const metadata: Metadata = { title: 'Metas & Vendas — MegaBox' }
 
@@ -191,6 +195,18 @@ async function buscarColetivo(supabase: Supabase, f: FiltrosMetas): Promise<Cole
   }
 }
 
+/**
+ * Análise de Entregas (HTML A, db/027): o agregado por categoria e vendedor no período da tela.
+ * Quem não é Diretor recebe só as próprias e sem "realizadas" — regra do banco.
+ */
+async function buscarAnalise(supabase: Supabase, f: FiltrosMetas) {
+  const { data, error } = await supabase
+    .rpc('fn_metas_analise_entregas', { p_inicio: f.inicio, p_fim: f.fim })
+    .select('categoria, vendedor_id, qtd, valor_comissao::text, valor_venda::text')
+  if (error) console.error('metas: análise de entregas', error)
+  return (data ?? []) as unknown as LinhaAnalise[]
+}
+
 async function buscarHistorico(supabase: Supabase) {
   const { data, error } = await supabase
     .from('vendedor_nivel_historico')
@@ -213,13 +229,15 @@ export default async function PaginaMetas({
 
   // Cliente da SESSÃO: a RLS decide o que cada um vê. Nunca service_role aqui.
   const supabase = await clienteServidor()
-  const [painel, ranking, niveis, vendedoresLidos, coletivo, historico] = await Promise.all([
+  const estiloPodio = lerEstiloPodio((await cookies()).get(COOKIE_PODIO)?.value)
+  const [painel, ranking, niveis, vendedoresLidos, coletivo, historico, analise] = await Promise.all([
     buscarPainel(supabase, filtros, permissoes.gerir),
     buscarRanking(supabase, filtros),
     buscarNiveis(supabase),
     buscarVendedores(supabase),
     permissoes.gerir ? buscarColetivo(supabase, filtros) : Promise.resolve(null),
     permissoes.diretor ? buscarHistorico(supabase) : Promise.resolve([] as HistoricoNivel[]),
+    buscarAnalise(supabase, filtros),
   ])
 
   // Fotos só de quem aparece (painel + ranking), numa chamada de Storage só. A linha dona
@@ -266,6 +284,8 @@ export default async function PaginaMetas({
       vendedores={vendedores}
       coletivo={coletivo}
       historico={historico}
+      analise={analise}
+      estiloPodio={estiloPodio}
     />
   )
 }

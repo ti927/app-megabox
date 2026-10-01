@@ -73,6 +73,11 @@ export type DadosRelatorio =
   | { aba: 'outros'; modelo: 'produtos'; produtos: LinhaProdutoGrupo[] }
   | { aba: 'outros'; modelo: 'clientes' | 'fornecedores'; mes: LinhaMes[] }
   | { aba: 'cotacao'; painel: PainelCotacao | null; detalhe: CotacaoDetalhe[]; totalDetalhe: number }
-  | { aba: 'prospeccao'; painel: PainelProspeccao | null }
+  | {
+      aba: 'prospeccao'
+      painel: PainelProspeccao | null
+      /** vendedor_id → URL assinada curta da foto (bucket `usuarios`); ausente → iniciais */
+      fotos: Record<string, string>
+    }
 
 export type Vendedor = { id: string; nome: string }

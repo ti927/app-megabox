@@ -6,6 +6,9 @@
  */
 :root {
   --escala: 1;
+  /* 1vw compensado pela escala: com zoom, 100vw encolheria junto e a "tela cheia" ficaria em 75%.
+     Use `calc(56 * var(--vw))` no lugar de `56vw`. O mesmo vale para vh (ver as alturas). */
+  --vw: calc(1vw / var(--escala));
 }
 @media (min-width: 64rem) {
   :root {

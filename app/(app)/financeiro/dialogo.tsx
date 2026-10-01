@@ -239,11 +239,14 @@ export function DialogoBaixaLote({
 export function DialogoCobranca({
   selecionadas,
   fornecedorId,
+  filialInicial,
   aoConcluir,
   aoFechar,
 }: {
   selecionadas: Selecionada[]
   fornecedorId: string
+  /** filial do filtro "Filial Fornecedor" (no Bubble o botão exigia a filial escolhida) */
+  filialInicial: string | null
   aoConcluir: () => void
   aoFechar: () => void
 }) {
@@ -285,7 +288,14 @@ export function DialogoCobranca({
         <div className="fin-campos">
           <label className="campo">
             <span>Filial do fornecedor</span>
-            <select name="endereco" required defaultValue="" disabled={!dados || concluido} data-teste="campo-filial">
+            <select
+              key={dados ? 'com-dados' : 'carregando'}
+              name="endereco"
+              required
+              defaultValue={dados?.enderecos.some((e) => e.id === filialInicial) ? (filialInicial ?? '') : ''}
+              disabled={!dados || concluido}
+              data-teste="campo-filial"
+            >
               <option value="">{dados ? 'Escolha…' : 'Carregando…'}</option>
               {dados?.enderecos.map((e) => (
                 <option key={e.id} value={e.id}>
@@ -296,9 +306,9 @@ export function DialogoCobranca({
             </select>
           </label>
           <label className="campo">
-            <span>A/C (contato)</span>
+            <span>Para (contato do fornecedor)</span>
             <select name="contato" defaultValue="" disabled={!dados || concluido}>
-              <option value="">Sem contato</option>
+              <option value="">Sem contato — só registrar</option>
               {dados?.contatos.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.nome}
@@ -312,7 +322,8 @@ export function DialogoCobranca({
           <p className="aviso">Este fornecedor não tem filial ativa. Cadastre uma em Cadastros antes de cobrar.</p>
         ) : null}
         <p className="fin-nota">
-          O número da cobrança sai do banco ao registrar. O PDF e o e-mail ao fornecedor ainda não são enviados daqui.
+          O número da cobrança sai do banco ao registrar. Com contato com e-mail, a cobrança entra na fila de
+          envio de e-mails (o PDF ainda não é gerado daqui).
         </p>
         <ListaSelecionadas selecionadas={lista} />
         <Mensagem estado={estado} />
@@ -330,7 +341,7 @@ export function DialogoCobranca({
             aria-busy={gravando}
             data-teste="confirmar-cobranca"
           >
-            {gravando ? 'Gravando…' : 'Registrar cobrança'}
+            {gravando ? 'Gravando…' : 'Enviar cobrança'}
           </button>
         ) : null}
       </footer>

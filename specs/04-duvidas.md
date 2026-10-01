@@ -635,6 +635,149 @@ negócio) ou **escopo** (portar ou não).
 
 ---
 
+## Pendências resolvidas em 30/09
+
+Branch `feat/pendencias`. Cada decisão abaixo foi tomada onde o mapa não decidia; a regra está no
+arquivo citado.
+
+### P1. Escritas de venda em transação — `db/022_transacoes_venda.sql`
+
+| Função | Substitui | Decisão |
+|---|---|---|
+| `fn_definir_principal(p_endereco)` | os dois UPDATEs com compensação de `cadastros/acoes-filial.ts` | Só filial **ativa** (23514). Serializa por grupo (`for update`). A action grava a filial primeiro e depois chama a função: se a troca falhar, a filial fica gravada e a principal anterior continua — o grupo nunca fica sem principal. |
+| `fn_alterar_qtd_item(p_item, p_qtd)` | WF bTOYp0 (bTOYv0 + bTOZB0) em `vendas/acoes-cotacao.ts` | Item primeiro, orçamentos depois, na mesma transação: orçamento que recusa (ex.: bruto estoura `numeric(14,2)`, 22003) desfaz a qtd do item. Item sem orçamento não é erro. |
+| `fn_limpar_rascunhos(p_idade default '24 hours')` | WF bTcal ("apaga temporários ao abrir") | Só rascunhos do **próprio** usuário (`vendedor_id = auth.uid()`), inclusive para Diretor/Gerente, que pela RLS poderiam apagar o de outro. "Antigo" = sem atividade na cotação, itens e orçamentos há `p_idade`. Piso de 1 h (22023). Rascunho preso por FK `restrict` fica (bloco por linha). Chamada por `vendas/page.tsx` só com o quadro à vista, em paralelo, e erro só vai para o log. |
+
+As três: `security invoker`, `search_path = ''`, execute só `authenticated` (critério de
+`05-avisos-do-advisor.md` §2). `get_advisors` de segurança sem achado novo depois da 022 e da 023.
+`scripts/testar-rls-vendas.mjs`: 100/100 (anon, dono, atomicidade das três).
+
+### P2. `/produtos` — descartar alteração não gravada
+
+X, Esc, clique fora e "Fechar" do painel pedem confirmação (`window.confirm`, o padrão do app)
+**só** quando o formulário da aba Dados difere do estado ao abrir ou do último gravado
+(`lib/formulario-alterado.ts`, assinatura do FormData). Digitar e apagar de volta não pergunta.
+Vale para produto novo e para edição. **Fora do escopo:** clicar em OUTRA linha da lista com
+edição pendente troca de produto sem perguntar (não passa por "fechar"); se incomodar, o mesmo
+`formularioAlterado` resolve no clique da linha.
+
+### P3. Painel lateral — foco inicial
+
+O foco ao abrir vai para o campo com `autoFocus` (produto novo) ou para o **título**
+(`aria-labelledby`, recebe `tabindex=-1`), nunca mais para o contêiner. O contêiner e o título
+focado por programa não desenham contorno; os controles continuam com o anel do tema. Tab preso,
+Esc e devolução do foco a quem abriu: inalterados.
+
+### P4. Modelos de e-mail de vendas — `db/023_modelos_email.sql`
+
+- Chaves `vendas_proposta`, `vendas_pedido_cliente`, `vendas_pedido_fornecedor`,
+  `vendas_nota_boleto`, `vendas_cancelamento_entrega` (ordem 101–105; 1–100 fica para os 7 de
+  prospecção do histórico). Texto = o que estava fixo em `lib/vendas-fluxo.ts`, e um teste
+  (`lib/vendas-emails.test.ts`) garante que a 023 e o código dizem o mesmo.
+- **Corpo em texto puro** com `{{variavel}}`, não HTML: é o formato do corpo que o vendedor
+  digita (que continua vencendo o modelo) e o servidor escapa tudo com `textoParaHtml`. Quando
+  a tela de modelos existir, editar estes cinco é editar texto.
+- **Fallback por parte:** modelo inexistente, inativo, ou com variável que o código não fornece
+  → aquela parte (assunto ou corpo) usa o texto padrão do código. Nunca sai `{{x}}` para o cliente.
+- `modelo_chave` da fila continua nulo nestes envios (o texto é montado na action, `conteudo`).
+- **Defeito corrigido:** `fn_auditoria` (001) exigia `id` uuid e `modelos_email` tem PK `chave`:
+  toda escrita na tabela falhava com `linha_id` nulo — por isso ela estava vazia. A 023 faz a
+  função usar `md5(tabela:chave)::uuid` quando não há `id`; tabelas com `id` não mudam.
+- Sem envio real: a fila segue em modo registro.
+- **Fora da lista de arquivos da frente:** para usar os modelos, `vendas/acoes-fluxo.ts` mudou
+  nos quatro envios (proposta, pedido, NF/boleto, cancelamento) — só a troca de onde vem o texto.
+
+## Metas: relatórios e pódio
+
+Decisões da frente `fix/metas` (30/09). Migration `db/027_metas_relatorios.sql` (criada como
+`024_*`; renomeada porque o 024 ficou com `024_proposta_documento.sql` — o banco guarda o
+conteúdo aplicado, não o número). Teste: `node scripts/testar-rls-metas-relatorios.mjs` (26 casos).
+
+- **"Valores da tabela errados vs Bubble" — CAUSA: o Bubble comparado é o `version-test`.** O
+  logotipo da captura diz "TESTE megabox" e o bloco HTML "Análise de Entregas" mostra o selo
+  VERSION-TEST. O banco de desenvolvimento do Bubble parou em 03/09/2026 (última modificação
+  de entrega em setembro): lá a Barbara tem 2 entregas em setembro (01/09, R$ 700 + R$ 720 =
+  R$ 1.420), a Juliane 5 (R$ 860), a Nubia 3 (R$ 1.000). Conferido pela Data API nos dois
+  ambientes. No Bubble de PRODUÇÃO a mesma regra dá Barbara 23 entregas / R$ 12.851,21,
+  Juliane R$ 5.150,10 (igual ao app novo), Nubia R$ 13.786,68, Gabriella R$ 46.081,40 — o app
+  novo tem R$ 10.616,21 / 5.150,10 / 12.439,68 / 43.422,90 porque a carga é anterior às
+  últimas entregas de setembro. **A fórmula está certa e é a do mapa** (Ipt valor faturado
+  bTvpn / CalculaRanking bTwAv): soma de `valorcomissao` (= `ValorComissaoBruto`, comissão
+  MegaBox) das entregas com status Financeiro e `dtentrega` (data REAL de entrega) no período,
+  do vendedor titular sem substituto (Regular) ou em que ele é o substituto (Substituição).
+  Nada foi mudado em `fn_status_realizado`/`fn_entregas_da_meta`/`fn_calculo_meta`. O
+  "11/100" do Bubble é `floor(faturado × 100 ÷ meta)` (Progress-Bar A): 1.420 ÷ 12.000 = 11,8%
+  → 11. **Ação para o dono:** comparar com o Bubble de produção (sem `/version-test`) e,
+  para bater ao centavo, rodar a carga incremental de entregas antes do corte.
+- **Diferença conhecida (011 D3):** o app novo conta Financeiro **e** Concluído; o Bubble, só
+  Financeiro. Em setembro/2026 não há entrega Concluída, então o número é o mesmo.
+- **Popup do valor faturado = a regra ao vivo** (`fn_metas_entregas_meta` → `fn_entregas_da_meta`),
+  como o popup do Bubble (que filtra `rpg entregas gerais` também para meta fechada). Meta
+  aberta: soma do popup = valor da linha, sempre (teste). Meta FECHADA mostra na linha o valor
+  congelado (011 D7); em metas fechadas no Bubble o congelado nem sempre bate com as entregas de
+  hoje (a lista `QuaisEntregas` misturava titular e substituto e as entregas mudaram depois) — o
+  popup mostra um aviso com os dois valores em vez de esconder. Metas fechadas pelo app novo
+  congelam esta mesma lista.
+- **Exportar para Excel = .xlsx de verdade, sem dependência** (`lib/xlsx-simples.ts`, ZIP sem
+  compressão, testado e aberto no openpyxl): SheetJS/ExcelJS custariam 400–900 KB para uma
+  tabela. Valor em célula numérica com formato R$. **Imprimir** = folha "Metas & Bonus" com data,
+  vendedor, período e a mesma tabela filtrada, por `@media print` (a casca do app some).
+- **Análise de Entregas (HTML A bUEzP):** realizadas = status do realizado (`fn_status_realizado`,
+  para bater com a tabela; o HTML usava só Financeiro) por data de entrega; em andamento e
+  canceladas pela data PREVISTA. Diretor vê os três; os demais não veem "realizadas" e veem só as
+  próprias — no banco, não só na tela.
+- **Relatório Anual (HTML C bUFCJ), só perfil 1 (o banco recusa os demais com 42501).** O
+  `STATUS_MAP` do HTML procura rótulos que não existem nas Etapas ("Fechado", "Entregue"…); na
+  prática só Financeiro e Cancelado eram reconhecidos e Fechado = Entregue = Faturado. Mantida a
+  INTENÇÃO com as etapas reais: Fechado = Pedido/Em Entrega/Financeiro/Concluído (data do pedido),
+  Entregue = Financeiro/Concluído (data de entrega), Faturado = status do realizado (data de
+  entrega), Cancelado (data do pedido). Mês com meta fechada usa as entregas do fechamento (regra
+  do HTML). "Status financeiro" sai do detalhamento (não migrou). Os alertas de consistência do
+  HTML iam só para o console; não foram reproduzidos. **Dado a conferir:** a base carregada tem
+  entregas de 2024–2025 com comissão absurda (máx. R$ 19.600.000,00 numa entrega de fev/2025),
+  o que faz "Faturado em 2025" dar R$ 26,9 milhões — é dado do Bubble, não conta do relatório.
+- **Pódio em 4 estilos para o dono escolher** (seletor "Estilo do pódio A | B | C | D" no cartão,
+  cookie `mb-podio` + localStorage, padrão A): A escudos com o % dentro; B degraus; C medalhas com
+  anel de progresso; D placar com a linha de 100% da meta. **[DÚVIDA]** qual fica — quando o dono
+  escolher, apagar os outros três e o seletor.
+- Auditoria: M2 níveis em tabela com cabeçalho único; M3 `vw` → `--vw`; M4 nomes do ranking em
+  até duas linhas com o nome inteiro no `title`; M5 "✕" → ícone e valores fora dos tokens; M6 anel
+  de foco no campo de data. O bloco do filtro de período não foi tocado (outra frente troca por
+  `SeletorPeriodo`).
+
+## Decisões da auditoria de /inicio, /relatorios, /sac e páginas públicas (30/09)
+
+### A1. `/inicio` — matriz Fornecedor × meses (`db/025_inicio_matriz.sql`)
+- Recriada a `Table B` (bUAxV) com o filtro "Intervalo datas" (bUBFN/bUBFT, padrão = mês corrente).
+- **inicio-e-acesso [DÚVIDA 7]** seguida a recomendação: a célula soma `entregas.valor_comissao`
+  (o que a tela do Bubble mostra); o `sum ValorComissaoBruto` do agrupamento não é reproduzido.
+- **[DÚVIDA 8]** o mês agora tem ano. Período dentro de um ano → as 12 colunas jan–dez daquele ano
+  (idêntico ao Bubble); período que cruza o ano → uma coluna por mês com o ano no rótulo. Ganhou
+  coluna e linha de total (o Bubble não tinha). Período ≤ 24 meses.
+- **[DÚVIDA 9]** mantida a regra "só entrega em Financeiro"; o subtítulo da tela a diz.
+- Quem não tem a página `vendas` vê a matriz vazia (RLS de `entregas`, 009). Operador vê só as
+  entregas dele. Casos em `scripts/testar-rls-inicio.mjs`.
+- A contagem "Você tem acesso a N páginas" saiu: contava `inicio` e não batia com os atalhos.
+
+### A2. SAC — abas Relatórios e Pós-Venda (`db/026_sac_indicadores.sql`)
+- **sac [DÚVIDA 1]** o HTML A é o "SLA médio de resolução — média de dias para resolução por mês"
+  (captura sac-03). Painel = cartões (total, não resolvidos, resolvidos, tempo médio/mediano),
+  SLA por mês de abertura, volume por tipo, status e prioridade.
+- **sac [DÚVIDA 2]** período exposto e aplicado a TODOS os números; responsável no lugar de
+  "Departamento". **Divergência da recomendação:** o padrão é **os últimos 12 meses**, não o mês
+  corrente — a série mensal com um mês só vira um ponto. Excluídos ficam fora.
+- Pós-Venda: busca por cliente soma ao tipo Pós-Venda (no Bubble trocava pela campanha NPS da outra
+  aba); "Qual vendedora" filtra (no Bubble não filtrava). Data = criação do convite (Created Date).
+  Convites removidos não aparecem.
+- Casos em `scripts/testar-rls-sac-indicadores.mjs`.
+
+### A3. Relatórios — paleta e rótulos
+- Categóricos com `light-dark()` num bloco só; 1º passo vem do token (`--azul-vivo` / `--azul`, que no
+  escuro é o roxo da marca); o 7º no escuro virou ciano-esverdeado (#2aa3b8) no lugar do violeta
+  que colidia com o roxo. Validados com o script da skill dataviz (claro e escuro).
+- Rótulos de campo e cabeçalhos de tabela em frase, sem ícone. Os controles de período (Mês/Ano,
+  "Entrega de/até") ficaram como estavam: outro agente troca por componente novo.
+
 ## 5. O que fazer com este arquivo
 
 1. **Responder a seção 1 primeiro.** Sem ela não há carga, e sem carga não há tela com dado real.

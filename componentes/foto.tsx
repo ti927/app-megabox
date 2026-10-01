@@ -25,23 +25,26 @@ export function Foto({
   nome,
   className,
   iniciais,
+  tom,
 }: {
   url: string | null | undefined
   nome: string
   className: string
   iniciais: string
+  /** vira `data-tom` no contêiner: a cor das iniciais quando a classe tem variações de tom */
+  tom?: string
 }) {
   // Guarda QUAL url falhou: uma url nova (a página recarregou) tenta de novo.
   const [falhou, setFalhou] = useState<string | null>(null)
   if (!url || falhou === url) {
     return (
-      <span className={className} aria-hidden="true">
+      <span className={className} data-tom={tom} aria-hidden="true">
         {iniciais}
       </span>
     )
   }
   return (
-    <span className={className} data-foto="" title={nome}>
+    <span className={className} data-tom={tom} data-foto="" title={nome}>
       {/* alt vazio: a foto sempre acompanha o nome escrito ao lado — é decorativa. */}
       {/* eslint-disable-next-line @next/next/no-img-element -- URL assinada privada: ver acima */}
       <img src={url} alt="" loading="lazy" decoding="async" style={PREENCHE} onError={() => setFalhou(url)} />

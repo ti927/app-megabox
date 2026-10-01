@@ -31,8 +31,10 @@ Tudo no Brasil: servidor e banco na mesma região. No app_capital as funções f
 5. **Vertical slice:** migration → RLS → server actions → tela → teste. Nunca todas as migrations
    primeiro e as telas depois.
 6. **`npm run verify` (typecheck + lint + teste) passa antes de todo commit.**
-7. **QA por captura de tela** (claro, escuro, celular) antes de entregar tela — e as capturas se
-   abrem. Espere pelo conteúdo, nunca pelo esqueleto de carregamento.
+7. **QA por captura de tela** (claro e escuro, em desktop 1920 e 1440) antes de entregar tela — e as
+   capturas se abrem. Espere pelo conteúdo, nunca pelo esqueleto de carregamento. **Celular fora por
+   ora** (decisão do dono, 30/09/2026): sem QA de 390px e sem trabalho de responsividade; o que já é
+   responsivo fica como está. Está no plano como fase posterior (`specs/03` §10).
 8. **Segredo não entra no repositório nem no chat.** Vai para `.env`; cite o nome da variável.
 9. **Decisão tomada vira arquivo em `specs/`.** Sessão não persiste; `specs/` persiste.
 10. **Dinheiro é exato:** `numeric`, nunca `float`; cálculos de comissão, metas, parcelas e ICMS

@@ -85,6 +85,7 @@ function caso(nome, esperado, obtido, detalhe = '') {
 }
 
 const reais = (v) => (v === null || v === undefined ? String(v) : Number(v).toFixed(2))
+const ZERO = '00000000-0000-0000-0000-000000000000'
 const codigo = (r) => r.error?.code ?? 'sem erro'
 
 async function ler(cliente, tabela) {
@@ -393,6 +394,58 @@ async function main() {
   caso('regravar a confirmação não duplica (vendas [DÚVIDA 9])', 'sem erro 3/1', `${codigo(reconf)} ${nCr}/${nCp}`)
   caso('gerar parcelas de novo é recusado', '23505', codigo(await D.rpc('fn_gerar_contas_receber', { p_entrega: d.entA.id })))
   caso('gerar outra CP da mesma entrega é recusado', '23505', codigo(await D.rpc('fn_gerar_conta_pagar', { p_entrega: d.entA.id })))
+
+  // ------------------------------------------- prévia do rateio e duplicação (db/029)
+  console.log('\nPrévia das condições de pagamento e "Duplicar pedido" (db/029, perfil 1):')
+  const prev = await D.rpc('fn_rateio_prazos', { p_pedido: d.ped, p_prazos: [PRAZOS.d90, PRAZOS.d30, PRAZOS.d60] })
+  caso('fn_rateio_prazos sem erro', 'sem erro', codigo(prev), prev.error?.message)
+  // Venda 2×1000 + 2×500 = 3000,00; comissão 2×123,46 + 2×76,55 = 400,02 (snapshot, FOB).
+  caso(
+    'prévia: ordem por dias, venda 3000,00 e comissão 400,02 rateadas como na confirmação',
+    '30:1000.00/133.34|60:1000.00/133.34|90:1000.00/133.34',
+    (prev.data ?? []).map((p) => `${p.dias_prazo}:${reais(p.valor)}/${reais(p.comissao)}`).join('|'),
+  )
+  const prevOp = await O.rpc('fn_rateio_prazos', { p_pedido: d.ped, p_prazos: [PRAZOS.d30] })
+  caso('Operador não vê o rateio do pedido alheio (valor nulo)', 'null', String(prevOp.data?.[0]?.valor ?? null))
+  caso('anon executa fn_duplicar_pedido', RECUSADO, codigo(await anonimo.rpc('fn_duplicar_pedido', { p_pedido: d.ped, p_destino: d.destino })))
+  caso('anon lê v_pedido_item_saldo', 'negado', await ler(anonimo, 'v_pedido_item_saldo'))
+
+  // A regra crítica: duplicar o pedido NÃO duplica lançamento do financeiro.
+  const contar = async () => {
+    const n = async (t, col, val) => (await admin.from(t).select('id', { count: 'exact', head: true }).in(col, val)).count
+    const ids = [d.cliente, d.fornecedor]
+    return [
+      await n('contas_receber', 'cliente_id', ids),
+      await n('contas_pagar', 'cliente_id', ids),
+      await n('entregas', 'cliente_id', ids),
+      await n('pedidos', 'cliente_id', ids),
+      (await admin.from('pedido_prazos').select('prazo_id', { count: 'exact', head: true }).eq('pedido_id', d.ped)).count,
+    ].join('/')
+  }
+  const antes = await contar()
+  const dupOp = await O.rpc('fn_duplicar_pedido', { p_pedido: d.ped, p_destino: d.destino })
+  caso('Operador não duplica pedido que não enxerga', 'P0002', codigo(dupOp))
+  const dupRuim = await D.rpc('fn_duplicar_pedido', { p_pedido: d.ped, p_destino: d.origem })
+  caso('duplicar para endereço de FORNECEDOR é recusado', '22023', codigo(dupRuim))
+  const dupVazio = await D.rpc('fn_duplicar_pedido', { p_pedido: d.ped, p_destino: d.destino, p_orcamentos: [d.ped] })
+  caso('duplicar sem nenhum item do pedido é recusado', '22023', codigo(dupVazio))
+  const dup = await D.rpc('fn_duplicar_pedido', { p_pedido: d.ped, p_destino: d.destino })
+  caso('fn_duplicar_pedido sem erro', 'sem erro', codigo(dup), dup.error?.message)
+  const depois = await contar()
+  caso('duplicar NÃO cria conta a receber, conta a pagar, entrega, pedido nem prazo', antes, depois)
+  const { data: nova } = await D.from('cotacoes').select('id, cliente_id, vendedor_id, etapa_id, rascunho').eq('id', dup.data ?? ZERO).maybeSingle()
+  caso('cotação nova: mesmo cliente, vendedor = quem duplicou, etapa Cotação', `${d.cliente}/${dir.id}/1/false`, nova ? `${nova.cliente_id}/${nova.vendedor_id}/${nova.etapa_id}/${nova.rascunho}` : null)
+  const { data: novosOrc } = await D.from('orcamentos_fornecedor')
+    .select('valor_venda_unit, valor_comissao_unit, qtd_venda, vencedor, endereco_destino_id, endereco_cobranca_id')
+    .eq('cotacao_id', dup.data ?? ZERO)
+    .order('valor_venda_unit')
+  caso(
+    'itens copiados do orçamento vencedor (bUAer), destino e cobrança = escolhido (bUAfi)',
+    `500.00/76.55/2/true/${d.destino}/${d.destino}|1000.00/123.46/2/true/${d.destino}/${d.destino}`,
+    (novosOrc ?? []).map((o) => `${reais(o.valor_venda_unit)}/${reais(o.valor_comissao_unit)}/${Number(o.qtd_venda)}/${o.vencedor}/${o.endereco_destino_id}/${o.endereco_cobranca_id}`).join('|'),
+  )
+  const { count: nPedNovo } = await admin.from('pedidos').select('id', { count: 'exact', head: true }).eq('cotacao_id', dup.data ?? ZERO)
+  caso('a cotação duplicada nasce sem pedido', 0, nPedNovo)
 
   const [p1, p2, p3] = crA ?? []
   const desfecha = await D.from('contas_receber').update({ valor_comissao: '41.16', motivo_altera_comissao: NOME }).eq('id', p1?.id).select('id')

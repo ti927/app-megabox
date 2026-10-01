@@ -686,6 +686,41 @@ conteúdo aplicado, não o número). Teste: `node scripts/testar-rls-metas-relat
 - Rótulos de campo e cabeçalhos de tabela em frase, sem ícone. Os controles de período (Mês/Ano,
   "Entrega de/até") ficaram como estavam: outro agente troca por componente novo.
 
+## Tela única proposta → pedido → entregas (01/10, branch `w/proposta`)
+
+Pedido do dono: proposta, pedido e entregas numa tela só, entregas como caminhões, menos cliques
+e condições de pagamento claras. Referência: `pop add edita pedido` ("Pedido ao Fornecedor",
+`mapa/pagina-vendas.md`, bTaxG) — documento à esquerda, trabalho à direita.
+
+### T1. Uma aba, com trilha — `app/(app)/vendas/fluxo.tsx`
+As abas Propostas e Pedidos viraram **uma** ("Proposta e pedido"), com a trilha 1 Proposta →
+2 Pedido → 3 Entregas no topo, cada passo com o seu estado. A URL continua aceitando
+`aba=propostas|pedidos` (`lib/vendas.ts`), então links e o e2e não mudam.
+
+### T2. Entregas como caminhões — `entregas.tsx`
+Cada entrega é um caminhão (data e quantidade editáveis na cabine, bUEti/bTbPN); o que falta é
+um caminhão tracejado e **um clique** programa a carga inteira (bTbOt; no Bubble a entrega nascia
+sem quantidade). "Dividir" parte um caminhão em dois (soma exata em milésimos, `lib/fluxo-tela`).
+
+### T3. Condição de pagamento em frase + parcelas com venda e comissão — `pagamento.tsx`, db/029
+A condição aparece em português ("O cliente paga em 3 parcelas: 30, 60 e 90 dias depois de cada
+entrega, por Boleto") e a tabela mostra, por parcela, o que o **cliente paga** e o que a
+**MegaBox recebe** — `fn_rateio_prazos` com `fn_valor_parcela` (010 D3), as regras de
+`fn_gerar_contas_receber` (bTfDZ). A prévia é sobre o pedido inteiro; na confirmação o rateio é
+por entrega. A tela compara com a condição escrita na proposta (texto livre) e avisa quando
+diverge — era a fonte da confusão ("Mediante análise do financeiro" × prazos do pedido).
+
+### T4. "Duplicar pedido" existe e NÃO duplica financeiro — `fn_duplicar_pedido` (db/029)
+No Bubble o ícone (Icon GZZZ, WF bUAdY) nunca aparece, mas o reusable `pop.DuplicarPedido`
+(bTzte + backend bUAeU) está inteiro; o dono pediu a função. Cria **cotação nova** na etapa
+Cotação com cópia dos itens e orçamentos vencedores (bUAer) e destino/cobrança no endereço
+escolhido (bUAfi). Não toca `pedidos`, `pedido_prazos`, `entregas`, `contas_receber`,
+`contas_pagar` — `scripts/testar-rls-financeiro.mjs` conta antes e depois. Diferenças conscientes:
+(a) destino diferente → alíquotas recalculadas pela UF nova (007 D5); o Bubble copiava as velhas;
+(b) empresa emissora herdada da cotação original (o rádio do Bubble nascia em Megabox).
+**[DÚVIDA]** o Bubble deixava escolher **outro cliente** (autocomplete). Recomendação padrão
+seguida: só endereços do **mesmo** cliente nesta versão; outro cliente entra se o dono pedir.
+
 ## 5. O que fazer com este arquivo
 
 1. **Responder a seção 1 primeiro.** Sem ela não há carga, e sem carga não há tela com dado real.

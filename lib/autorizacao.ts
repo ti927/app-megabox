@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { cache } from 'react'
 
 import { clienteServidor } from '@/lib/supabase/servidor'
 
@@ -23,8 +24,11 @@ export type UsuarioAtual = {
  *
  * Lê a própria linha de `usuarios`, o que a policy permite. Devolve null também
  * quando existe sessão mas não existe linha — conta criada no Auth sem bootstrap.
+ *
+ * `cache`: uma leitura por requisição. Layout, página e `exigirAcesso` chamavam cada um a sua
+ * (getUser + usuarios), e cada render de /vendas pagava 3× as mesmas duas idas ao banco.
  */
-export async function usuarioAtual(): Promise<UsuarioAtual | null> {
+export const usuarioAtual = cache(async (): Promise<UsuarioAtual | null> => {
   const supabase = await clienteServidor()
 
   const {
@@ -48,7 +52,7 @@ export async function usuarioAtual(): Promise<UsuarioAtual | null> {
     ehDiretor: data.perfil_id === 1,
     ehGerenciaOuAcima: data.perfil_id <= 2,
   }
-}
+})
 
 /** As páginas que o usuário pode abrir. É a fonte do menu. */
 export async function minhasPaginas(): Promise<Pagina[]> {
@@ -78,12 +82,14 @@ export async function minhasConfiguracoes(): Promise<Pagina[]> {
  * item de menu, então digitar a URL basta (specs/00-achados-de-seguranca.md §2.6).
  */
 export async function exigirAcesso(slug: string): Promise<UsuarioAtual> {
-  const usuario = await usuarioAtual()
+  // As duas leituras em paralelo: a RPC decide pelo auth.uid() do JWT, não pelo `usuario`.
+  // Sem sessão ela devolve false — e o redirect para /entrar vem antes, como sempre.
+  const [usuario, pode] = await Promise.all([
+    usuarioAtual(),
+    clienteServidor().then((s) => s.rpc('fn_pode_acessar_pagina', { p_slug: slug })),
+  ])
   if (!usuario) redirect('/entrar')
 
-  const supabase = await clienteServidor()
-  const { data: pode } = await supabase.rpc('fn_pode_acessar_pagina', { p_slug: slug })
-
-  if (pode !== true) redirect('/sem-acesso')
+  if (pode.data !== true) redirect('/sem-acesso')
   return usuario
 }

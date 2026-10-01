@@ -16,6 +16,7 @@ import {
   validarProtocoloEdicao,
   validarProtocoloNovo,
 } from '@/lib/sac'
+import { ehTipoAcao, textoDaAcao, type TipoAcao } from '@/lib/sac-apoio'
 import { clienteAdmin } from '@/lib/supabase/admin'
 import { clienteServidor } from '@/lib/supabase/servidor'
 
@@ -428,6 +429,14 @@ export async function registrarInteracao(_anterior: EstadoAcao, form: FormData):
 
   const protocoloId = idDoForm(form, 'protocolo_id')
   if (!protocoloId) return { erro: 'Protocolo inválido. Recarregue a página.' }
+  // Tipo da ação (db/030 D1): deriva "cliente informado" e "fornecedor cobrado". Com tipo
+  // escolhido, o texto é opcional e vira a frase padrão do tipo.
+  const tipoBruto = form.get('tipo_acao')
+  const tipo: TipoAcao = ehTipoAcao(tipoBruto) ? tipoBruto : 'atualizacao_interna'
+  const descricaoBruta = form.get('descricao')
+  if (ehTipoAcao(tipoBruto) && (typeof descricaoBruta !== 'string' || descricaoBruta.trim() === '')) {
+    form.set('descricao', textoDaAcao(tipo, ''))
+  }
   const v = validarInteracao(form)
   if (!v.ok) return { erro: v.erro }
 
@@ -446,6 +455,7 @@ export async function registrarInteracao(_anterior: EstadoAcao, form: FormData):
     visivel_cliente: v.dados.visivel_cliente,
     contato_id: v.dados.contato_id,
     autor_id: usuario.id,
+    tipo_acao: tipo,
   })
   if (error) return { erro: traduzirErro('registrar interação', error) }
 

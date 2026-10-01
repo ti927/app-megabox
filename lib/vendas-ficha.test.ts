@@ -3,15 +3,13 @@ import { describe, expect, it } from 'vitest'
 import type { Item, Orcamento } from '@/app/(app)/vendas/tipos'
 
 import {
+  aplicarCarrinho,
   aplicarPartes,
-  comItem,
   comVencedor,
   type FichaTela,
+  fluxoPendente,
   mesclarFicha,
   restaurarVencedores,
-  semItem,
-  semOrcamento,
-  vencedoresDoItem,
 } from './vendas-ficha'
 
 const item = (id: string): Item => ({
@@ -99,19 +97,36 @@ describe('aplicarPartes', () => {
   })
 })
 
-describe('otimista', () => {
-  it('comItem acrescenta no fim; semItem tira o item e os orçamentos dele', () => {
-    const f = comItem(ficha('c1'), item('novo'))
-    expect(f.itens.map((i) => i.id)).toEqual(['i1', 'novo'])
-    const s = semItem(f, 'i1')
-    expect(s.itens.map((i) => i.id)).toEqual(['novo'])
-    expect(s.orcamentos.map((o) => o.id)).toEqual(['o3'])
+describe('aplicarCarrinho', () => {
+  it('carrinho relido da mesma cotação troca itens e orçamentos e mantém o fluxo', () => {
+    const f = ficha('c1')
+    const r = aplicarCarrinho(f, { cotacaoId: 'c1', partes: { itens: [item('i1'), item('i2')], orcamentos: [] }, falhas: [] })
+    expect(r.itens).toHaveLength(2)
+    expect(r.orcamentos).toEqual([])
+    expect(r.propostas).toBe(f.propostas)
   })
 
-  it('semOrcamento', () => {
-    expect(semOrcamento(ficha('c1'), 'o2').orcamentos.map((o) => o.id)).toEqual(['o1', 'o3'])
+  it('carrinho de OUTRA cotação (a pessoa trocou de ficha no meio) é ignorado', () => {
+    const f = ficha('c1')
+    expect(aplicarCarrinho(f, { cotacaoId: 'c2', partes: { itens: [] }, falhas: [] })).toBe(f)
   })
 
+  it('releitura que falhou não apaga o carrinho da tela', () => {
+    const f = ficha('c1')
+    const r = aplicarCarrinho(f, { cotacaoId: 'c1', partes: { itens: [], orcamentos: [] }, falhas: ['itens', 'orcamentos'] })
+    expect(r.itens).toBe(f.itens)
+    expect(r.orcamentos).toBe(f.orcamentos)
+  })
+})
+
+describe('fluxoPendente', () => {
+  it('aba de propostas/pedidos espera as partes do fluxo; o carrinho não conta', () => {
+    expect(fluxoPendente(ficha('c1', { pendentes: ['propostas', 'pedidos'] }))).toBe(true)
+    expect(fluxoPendente(ficha('c1', { pendentes: [] }))).toBe(false)
+  })
+})
+
+describe('troféu otimista', () => {
   it('marcar vencedor desmarca o do MESMO item e não mexe nos outros itens', () => {
     const r = comVencedor(ficha('c1'), 'o2', true)
     expect(r.orcamentos.map((o) => [o.id, o.vencedor])).toEqual([
@@ -133,7 +148,10 @@ describe('otimista', () => {
 
   it('restaurarVencedores desfaz o troféu otimista exatamente', () => {
     const f = ficha('c1')
-    const antes = vencedoresDoItem(f, 'o2')
+    const antes = new Map([
+      ['o1', true],
+      ['o2', false],
+    ])
     const r = restaurarVencedores(comVencedor(f, 'o2', true), antes)
     expect(r.orcamentos.map((o) => o.vencedor)).toEqual([true, false, true])
   })

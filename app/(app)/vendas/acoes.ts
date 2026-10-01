@@ -1,5 +1,7 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
+
 import { exigirAcesso } from '@/lib/autorizacao'
 import { clienteServidor } from '@/lib/supabase/servidor'
 import {
@@ -14,14 +16,9 @@ import {
   validarOrcamento,
 } from '@/lib/vendas'
 
-import type { CarrinhoRelido } from '@/lib/vendas-ficha'
-
 import { carrinhoAtual } from './consultas'
 import { cotacaoEditavel, traduzirErro } from './regras-servidor'
-import type { EstadoAcao, FornecedorParaItem } from './tipos'
-
-/** EstadoAcao + o carrinho relido do banco (lib/vendas-ficha): a tela troca só ele. */
-export type EstadoCarrinho = EstadoAcao & { carrinho?: CarrinhoRelido }
+import type { EstadoAcao, EstadoCarrinho, FornecedorParaItem } from './tipos'
 
 /*
  * Escrita da página de vendas: cotação, item e orçamento de fornecedor.
@@ -35,11 +32,13 @@ export type EstadoCarrinho = EstadoAcao & { carrinho?: CarrinhoRelido }
  * E-mail (proposta, pedido) fica fora desta versão: a fila email_outbox só aceita escrita
  * de servidor com service_role, e o envio real ainda não existe.
  *
- * DESEMPENHO: nenhuma action daqui revalida a página. Revalidar re-renderizava layout +
- * página + a ficha inteira (propostas, pedidos, documento…) a cada clique — era o que deixava
- * "adicionar ao carrinho" e o troféu em 5–10 s e fazia a ficha cair em 57014. Quem muda o
- * carrinho devolve o carrinho relido (`carrinho`), e a tela troca só ele; o quadro é refeito
- * quando a ficha fecha (navegação sem `sel`).
+ * DESEMPENHO: as actions do CARRINHO não revalidam a página. Revalidar re-renderizava layout +
+ * página + a ficha inteira (propostas, pedidos, documento…) a cada clique — ~25 consultas em
+ * rajada, com a RLS em cascata, era o que deixava "adicionar ao carrinho" e o troféu em 2–9 s e
+ * fazia partes da ficha caírem em 57014 (scripts/medir-ficha-vendas.mjs). Quem muda o carrinho
+ * devolve o carrinho relido (`carrinho`: itens + orçamentos, 3 consultas) e a tela troca só ele.
+ * O quadro é refeito quando a ficha fecha (navegação sem `sel`). Arquivar/desarquivar mudam o
+ * cabeçalho, são raros e continuam revalidando (a ficha na aba Cotação é só o carrinho).
  */
 
 /** regimes_tributarios.id 1 = 'lucro_real' ("Lucro Real/Presumido"), seed fixo da 003. */
@@ -127,6 +126,7 @@ export async function arquivarCotacao(_anterior: EstadoAcao, form: FormData): Pr
   if (error) return { erro: traduzirErro('arquivar', error) }
   // UPDATE barrado pela RLS (ou fora da etapa) não dá erro: devolve zero linhas.
   if (!data || data.length === 0) return { erro: 'Não foi possível arquivar esta cotação.' }
+  revalidatePath('/vendas')
   return { ok: 'Cotação arquivada.', id: validacao.dados.cotacao_id }
 }
 
@@ -142,6 +142,7 @@ export async function desarquivarCotacao(_anterior: EstadoAcao, form: FormData):
     .select('id')
   if (error) return { erro: traduzirErro('desarquivar', error) }
   if (!data || data.length === 0) return { erro: 'Não foi possível desarquivar esta cotação.' }
+  revalidatePath('/vendas')
   return { ok: 'Cotação desarquivada.', id }
 }
 

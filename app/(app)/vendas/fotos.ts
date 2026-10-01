@@ -2,7 +2,7 @@ import 'server-only'
 
 import { fotosDeGrupos } from '@/lib/fotos-lote'
 
-import type { Ficha, Kanban } from './tipos'
+import type { Kanban } from './tipos'
 
 /**
  * Logo do cliente no avatar dos cartões (Bubble: Image N/K/L/M, `QualCliente:Foto`).
@@ -23,11 +23,4 @@ export async function comFotosKanban(k: Kanban): Promise<Kanban> {
     entregas: { ...k.entregas, cartoes: k.entregas.cartoes.map(foto) },
     substituto: { ...k.substituto, cartoes: k.substituto.cartoes.map(foto) },
   }
-}
-
-/** Logo do cliente ao lado de "Cliente" na cotação aberta (Bubble bTcWp). */
-export async function comFotoFicha(f: Ficha | null): Promise<Ficha | null> {
-  if (!f) return f
-  const fotos = await fotosDeGrupos([f.cotacao.cliente_id])
-  return { ...f, clienteFoto: fotos.get(f.cotacao.cliente_id) ?? null }
 }

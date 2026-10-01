@@ -16,8 +16,9 @@ import {
   UserPlus,
   X,
 } from 'lucide-react'
-import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
+import { createContext, startTransition, useActionState, useContext, useEffect, useRef, useState } from 'react'
 
+import { useAcao, useActionStateComAviso } from '@/componentes/aviso-acao'
 import { Foto } from '@/componentes/foto'
 import {
   destinoPadrao,
@@ -40,6 +41,14 @@ import {
   podeSerVencedor,
   validadePadrao,
 } from '@/lib/vendas'
+import {
+  aplicarCarrinho,
+  comVencedor,
+  type FichaTela,
+  fluxoPendente,
+  NOME_PARTE,
+  restaurarVencedores,
+} from '@/lib/vendas-ficha'
 
 import {
   adicionarOrcamento,
@@ -60,13 +69,12 @@ import {
   excluirItem,
   excluirOrcamento,
   gravarCabecalho,
-  opcoesDaCotacaoNova,
 } from './acoes-cotacao'
 import { AbaPedidos, AbaPropostas } from './fluxo'
 import type {
   Destino,
   EstadoAcao,
-  Ficha,
+  EstadoCarrinho,
   FornecedorParaItem,
   Item,
   Opcao,
@@ -88,6 +96,41 @@ import type {
  */
 
 const ICONE = { size: 18, strokeWidth: 2, 'aria-hidden': true } as const
+
+// ============================================================ ficha na tela
+
+/** Troca a ficha da tela (TelaVendas): carrinho relido, troféu otimista. */
+type AtualizarFicha = (fn: (f: FichaTela) => FichaTela) => void
+const AtualizarFichaCtx = createContext<AtualizarFicha>(() => undefined)
+
+const FALHA_REDE = 'Não foi possível concluir agora. Verifique a conexão e tente de novo.'
+
+/**
+ * Executa uma action do carrinho com o aviso de carregamento (componentes/aviso-acao) e aplica o
+ * carrinho relido que ela devolve. Sem revalidar a página: só itens e orçamentos mudam na tela.
+ * Exceção (rede) vira `{ erro }` — não derruba a tela.
+ */
+function useExecutarCarrinho() {
+  const atualizar = useContext(AtualizarFichaCtx)
+  const aviso = useAcao()
+  return async (rotulo: string, fn: () => Promise<EstadoCarrinho>): Promise<EstadoCarrinho> => {
+    let r: EstadoCarrinho
+    try {
+      r = await aviso.executar(rotulo, fn)
+    } catch {
+      return { erro: FALHA_REDE }
+    }
+    const carrinho = r.carrinho
+    if (carrinho) atualizar((f) => aplicarCarrinho(f, carrinho))
+    return r
+  }
+}
+
+/** `useActionState` das actions do carrinho, com aviso e carrinho relido. */
+function useAcaoCarrinho(acao: (anterior: EstadoAcao, form: FormData) => Promise<EstadoCarrinho>, rotulo: string) {
+  const executar = useExecutarCarrinho()
+  return useActionState<EstadoAcao, FormData>((anterior, form) => executar(rotulo, () => acao(anterior, form)), {})
+}
 
 function Mensagem({ estado }: { estado: EstadoAcao }) {
   if (estado.erro) {
@@ -581,7 +624,7 @@ function CartaoCarrinho({
 const COLUNAS = 14
 
 function FormOrcamento({ item, fretes, aoTerminar }: { item: Item; fretes: Opcao[]; aoTerminar: () => void }) {
-  const [estado, enviar, enviando] = useActionState(adicionarOrcamento, {})
+  const [estado, enviar, enviando] = useAcaoCarrinho(adicionarOrcamento, 'Adicionando fornecedor…')
   const [lista, setLista] = useState<FornecedorParaItem[] | null>(null)
   const [erroLista, setErroLista] = useState<string | null>(null)
   const [tipoFrete, setTipoFrete] = useState('1')
@@ -666,8 +709,37 @@ function FormOrcamento({ item, fretes, aoTerminar }: { item: Item; fretes: Opcao
   )
 }
 
-function BotaoTrofeu({ o, amostra, editavel }: { o: Orcamento; amostra: boolean; editavel: boolean }) {
-  const [estado, enviar, pendente] = useActionState(definirVencedor, {})
+function BotaoTrofeu({
+  o,
+  irmaos,
+  amostra,
+  editavel,
+}: {
+  o: Orcamento
+  irmaos: Orcamento[]
+  amostra: boolean
+  editavel: boolean
+}) {
+  const atualizar = useContext(AtualizarFichaCtx)
+  const executar = useExecutarCarrinho()
+  const antes = useRef<Map<string, boolean>>(new Map())
+  const [estado, enviar, pendente] = useActionState<EstadoAcao, FormData>(async (_anterior, form) => {
+    const marcar = form.get('marcar') === 'true'
+    const r = await executar(marcar ? 'Definindo vencedor…' : 'Desmarcando vencedor…', () => definirVencedor({}, form))
+    // Recusado sem carrinho relido (regra bTOUP0, rede): nada mudou no banco — desfaz o troféu.
+    if (r.erro && !r.carrinho) {
+      const a = antes.current
+      atualizar((f) => restaurarVencedores(f, a))
+    }
+    return r
+  }, {})
+  /** Troféu OTIMISTA: muda no clique (mesma regra de fn_definir_vencedor); o banco confirma. */
+  function alternar() {
+    const marcar = !o.vencedor
+    antes.current = new Map(irmaos.map((x) => [x.id, x.vencedor]))
+    atualizar((f) => comVencedor(f, o.id, marcar))
+    startTransition(() => enviar(formDe({ orcamento_id: o.id, marcar: marcar ? 'true' : 'false' })))
+  }
   const pode = podeSerVencedor(o, amostra)
   const rotulo = o.vencedor
     ? editavel
@@ -686,7 +758,7 @@ function BotaoTrofeu({ o, amostra, editavel }: { o: Orcamento; amostra: boolean;
         aria-label={rotulo}
         title={estado.erro ?? rotulo}
         disabled={!editavel || pendente || (!o.vencedor && !pode)}
-        onClick={() => startTransition(() => enviar(formDe({ orcamento_id: o.id, marcar: o.vencedor ? 'false' : 'true' })))}
+        onClick={alternar}
         data-teste="trofeu"
       >
         <Trophy size={16} aria-hidden="true" />
@@ -702,19 +774,22 @@ function BotaoTrofeu({ o, amostra, editavel }: { o: Orcamento; amostra: boolean;
 
 function LinhaOrcamento({
   o,
+  irmaos,
   menor,
   amostra,
   editavel,
   fretes,
 }: {
   o: Orcamento
+  /** os orçamentos do mesmo item (para desfazer o troféu otimista) */
+  irmaos: Orcamento[]
   menor: boolean
   amostra: boolean
   editavel: boolean
   fretes: Opcao[]
 }) {
-  const [estado, enviar, gravando] = useActionState(editarOrcamento, {})
-  const [estadoApagar, apagar, apagando] = useActionState(excluirOrcamento, {})
+  const [estado, enviar, gravando] = useAcaoCarrinho(editarOrcamento, 'Gravando orçamento…')
+  const [estadoApagar, apagar, apagando] = useAcaoCarrinho(excluirOrcamento, 'Apagando orçamento…')
   const [tipo, setTipo] = useState(String(o.tipo_frete_id))
   const formId = `orc-${o.id}`
   const formRef = useRef<HTMLFormElement>(null)
@@ -731,7 +806,7 @@ function LinhaOrcamento({
       <tr className="cot-orc" data-vencedor={o.vencedor || undefined} aria-busy={gravando || undefined} data-teste="linha-orcamento">
         <td className="cot-col-acoes" />
         <td className="cot-col-qtd cot-centro">
-          <BotaoTrofeu o={o} amostra={amostra} editavel={editavel} />
+          <BotaoTrofeu o={o} irmaos={irmaos} amostra={amostra} editavel={editavel} />
         </td>
         <th scope="row" className="cot-col-produto">
           <form id={formId} ref={formRef} onSubmit={enviarCom(enviar)} hidden>
@@ -839,7 +914,7 @@ function LinhaOrcamento({
 }
 
 function QtdItem({ item, editavel }: { item: Item; editavel: boolean }) {
-  const [estado, enviar, gravando] = useActionState(alterarQtdItem, {})
+  const [estado, enviar, gravando] = useAcaoCarrinho(alterarQtdItem, 'Alterando quantidade…')
   const formRef = useRef<HTMLFormElement>(null)
   if (!editavel) return <span className="cot-qtd-leitura">{formatarQuantidade(item.qtd)}</span>
   return (
@@ -886,7 +961,7 @@ function LinhasItem({
   editando: boolean
 }) {
   const [orcando, setOrcando] = useState(false)
-  const [estadoApagar, apagar, apagando] = useActionState(excluirItem, {})
+  const [estadoApagar, apagar, apagando] = useAcaoCarrinho(excluirItem, 'Removendo produto do carrinho…')
   const vencedor = orcamentos.find((o) => o.vencedor)
   const menores = new Set(idsMenorLiquido(orcamentos))
   const sub = [item.condicao?.nome, item.linha?.nome, item.medida].filter(Boolean).join(' - ')
@@ -988,7 +1063,7 @@ function LinhasItem({
       ) : null}
       {aberto
         ? orcamentos.map((o) => (
-            <LinhaOrcamento key={o.id} o={o} menor={menores.has(o.id)} amostra={amostra} editavel={editavel} fretes={fretes} />
+            <LinhaOrcamento key={o.id} o={o} irmaos={orcamentos} menor={menores.has(o.id)} amostra={amostra} editavel={editavel} fretes={fretes} />
           ))
         : null}
     </tbody>
@@ -1003,7 +1078,7 @@ function TabelaCarrinho({
   editandoId,
   aoEditar,
 }: {
-  ficha: Ficha | null
+  ficha: FichaTela | null
   fretes: Opcao[]
   amostra: boolean
   editavel: boolean
@@ -1099,9 +1174,9 @@ function TabelaCarrinho({
 
 // ================================================================ arquivamento
 
-function Arquivamento({ ficha, motivos }: { ficha: Ficha; motivos: Opcao[] }) {
-  const [estadoArq, arquivar, arquivando] = useActionState(arquivarCotacao, {})
-  const [estadoDes, desarquivar, desarquivando] = useActionState(desarquivarCotacao, {})
+function Arquivamento({ ficha, motivos }: { ficha: FichaTela; motivos: Opcao[] }) {
+  const [estadoArq, arquivar, arquivando] = useActionStateComAviso(arquivarCotacao, 'Arquivando cotação…')
+  const [estadoDes, desarquivar, desarquivando] = useActionStateComAviso(desarquivarCotacao, 'Desarquivando cotação…')
   const c = ficha.cotacao
   if (c.etapa_id !== ETAPA.COTACAO || c.rascunho) return null
   return (
@@ -1154,41 +1229,56 @@ function useModal() {
  * rascunho (ainda "Nova Cotação") ou a cotação gravada ("Edita Cotação"), que hospeda também
  * as abas de propostas e pedidos (fluxo.tsx).
  */
-export function TelaCotacao({
-  ficha,
-  abaInicial,
-  opcoes,
-  opcoesFicha: opcoesDaPagina,
-  permissoes,
-  aoCriarRascunho,
-  aoFechar,
-}: {
-  ficha: Ficha | null
+type PropsTelaCotacao = {
+  ficha: FichaTela | null
   abaInicial: Aba
   opcoes: Opcoes
+  /** listas dos selects, pedidas uma vez pela página (null = carregando) */
   opcoesFicha: OpcoesFicha | null
   permissoes: Permissoes
+  /** troca a ficha da tela (carrinho relido, troféu otimista) */
+  aoAtualizar: AtualizarFicha
+  /** a aba vai para a URL: o servidor lê as partes dela (propostas, pedidos…) */
+  aoTrocarAba: (aba: Aba) => void
+  /** relê no servidor a parte que falhou */
+  aoRecarregar: () => void
+  recarregando: boolean
+  /** o cabeçalho não recarregou na última leitura (a tela mostra a versão anterior) */
+  cabecalhoFalhou: boolean
   /** o primeiro produto criou o rascunho: a página passa a mostrá-lo pela URL */
   aoCriarRascunho: (id: string) => void
   aoFechar: () => void
-}) {
+}
+
+export function TelaCotacao(props: PropsTelaCotacao) {
+  // O carrinho relido e o troféu otimista chegam a qualquer linha da tabela por contexto.
+  return (
+    <AtualizarFichaCtx value={props.aoAtualizar}>
+      <ConteudoCotacao {...props} />
+    </AtualizarFichaCtx>
+  )
+}
+
+function ConteudoCotacao({
+  ficha,
+  abaInicial,
+  opcoes,
+  opcoesFicha,
+  permissoes,
+  aoTrocarAba,
+  aoRecarregar,
+  recarregando,
+  cabecalhoFalhou,
+  aoCriarRascunho,
+  aoFechar,
+}: PropsTelaCotacao) {
+  const aviso = useAcao()
+  const executarCarrinho = useExecutarCarrinho()
   const ref = useModal()
   const c = ficha?.cotacao ?? null
   const nova = !c || c.rascunho
   const editavel = !c || (c.etapa_id === ETAPA.COTACAO && (!c.arquivado || permissoes.ehDiretor))
   const [aba, setAba] = useState<Aba>(nova ? 'cotacao' : abaInicial)
-
-  // Listas do carrinho: da página quando há ficha; na nova, pedidas ao abrir.
-  const [opcoesNova, setOpcoesNova] = useState<OpcoesFicha | null>(null)
-  const opcoesFicha = opcoesDaPagina ?? opcoesNova
-  useEffect(() => {
-    if (opcoesDaPagina || opcoesNova) return
-    let vivo = true
-    opcoesDaCotacaoNova().then((o) => vivo && setOpcoesNova(o))
-    return () => {
-      vivo = false
-    }
-  }, [opcoesDaPagina, opcoesNova])
 
   // Cliente e endereços: da ficha quando existe; na nova, da busca.
   const [clienteNovo, setClienteNovo] = useState<{ id: string; nome: string } | null>(null)
@@ -1234,10 +1324,10 @@ export function TelaCotacao({
 
   async function enviarItem(f: FormData, editando: boolean) {
     setEnviandoItem(true)
-    let r: EstadoAcao
+    let r: EstadoCarrinho
     if (editando && edicao) {
       f.set('item_id', edicao.item.id)
-      r = await editarItem({}, f)
+      r = await executarCarrinho('Salvando produto…', () => editarItem({}, f))
     } else {
       for (const [k, v] of Object.entries(camposCabecalho())) {
         if (typeof v === 'boolean') {
@@ -1246,7 +1336,7 @@ export function TelaCotacao({
       }
       f.set('cotacao_id', c?.id ?? '')
       f.set('endereco_destino_id', destino)
-      r = await adicionarAoCarrinho({}, f)
+      r = await executarCarrinho('Adicionando ao carrinho…', () => adicionarAoCarrinho({}, f))
     }
     setEnviandoItem(false)
     setEstadoItem(r)
@@ -1273,9 +1363,11 @@ export function TelaCotacao({
 
   async function gravar() {
     setGravando(true)
-    const r = c
-      ? await gravarCabecalho({}, formDe({ cotacao_id: c.id, finalizar: 'true', ...camposCabecalho() }))
-      : await criarCotacao({}, formDe(camposCabecalho()))
+    const r = await comAviso('Gravando cotação…', () =>
+      c
+        ? gravarCabecalho({}, formDe({ cotacao_id: c.id, finalizar: 'true', ...camposCabecalho() }))
+        : criarCotacao({}, formDe(camposCabecalho())),
+    )
     setGravando(false)
     setEstadoRodape(r)
     if (r.ok) ref.current?.close()
@@ -1284,7 +1376,7 @@ export function TelaCotacao({
   async function cancelar() {
     if (c?.rascunho) {
       setGravando(true)
-      const r = await descartarRascunho({}, formDe({ cotacao_id: c.id }))
+      const r = await comAviso('Descartando rascunho…', () => descartarRascunho({}, formDe({ cotacao_id: c.id })))
       setGravando(false)
       if (r.erro) return setEstadoRodape(r)
     }
@@ -1293,20 +1385,40 @@ export function TelaCotacao({
 
   async function trocarAmostra(amostra: boolean) {
     if (!c) return
-    const r = await gravarCabecalho({}, formDe({ cotacao_id: c.id, ...camposCabecalho(), amostra }))
+    const r = await comAviso('Gravando Pedido de Amostra…', () =>
+      gravarCabecalho({}, formDe({ cotacao_id: c.id, ...camposCabecalho(), amostra })),
+    )
     if (r.erro) {
       setCab((x) => ({ ...x, amostra: !amostra }))
       setEstadoRodape(r)
     }
   }
 
+  /** Ação fora do carrinho (cabeçalho, rascunho): só o aviso; exceção vira erro na tela. */
+  async function comAviso(rotulo: string, fn: () => Promise<EstadoAcao>): Promise<EstadoAcao> {
+    try {
+      return await aviso.executar(rotulo, fn)
+    } catch {
+      return { erro: FALHA_REDE }
+    }
+  }
+
+  // Contagem só da parte que já chegou: "Propostas (0)" enquanto carrega seria um número falso.
+  const contagem = (p: 'itens' | 'propostas' | 'pedidos', n: number) => (ficha?.pendentes.includes(p) ? '' : ` (${n})`)
   const abas: { id: Aba; rotulo: string }[] = ficha
     ? [
-        { id: 'cotacao', rotulo: `Cotação (${ficha.itens.length})` },
-        { id: 'propostas', rotulo: `Propostas (${ficha.propostas.length})` },
-        { id: 'pedidos', rotulo: `Pedidos (${ficha.pedidos.length})` },
+        { id: 'cotacao', rotulo: `Cotação${contagem('itens', ficha.itens.length)}` },
+        { id: 'propostas', rotulo: `Propostas${contagem('propostas', ficha.propostas.length)}` },
+        { id: 'pedidos', rotulo: `Pedidos${contagem('pedidos', ficha.pedidos.length)}` },
       ]
     : []
+  function trocarAba(a: Aba) {
+    if (a === aba) return
+    setAba(a)
+    aoTrocarAba(a)
+  }
+  const falhas = ficha?.falhas ?? []
+  const carregandoFluxo = !!ficha && aba !== 'cotacao' && fluxoPendente(ficha)
 
   return (
     <dialog
@@ -1358,7 +1470,7 @@ export function TelaCotacao({
                 id={`aba-${a.id}`}
                 aria-selected={aba === a.id}
                 aria-controls={`painel-${a.id}`}
-                onClick={() => setAba(a.id)}
+                onClick={() => trocarAba(a.id)}
               >
                 {a.rotulo}
               </button>
@@ -1371,10 +1483,19 @@ export function TelaCotacao({
       </header>
 
       <div className="cot-corpo" role={abas.length > 0 && !nova ? 'tabpanel' : undefined} id={`painel-${aba}`} aria-labelledby={abas.length > 0 && !nova ? `aba-${aba}` : undefined}>
-        {ficha?.incompleta ? (
-          <p className="aviso" data-tom="erro" role="alert">
-            Parte desta cotação não carregou agora. Recarregue a página antes de alterar.
-          </p>
+        {/* Parte que falhou mesmo com a retentativa: a tela mostra o último valor bom dela (nunca
+            uma lista vazia) e oferece reler no servidor, sem recarregar a página. */}
+        {falhas.length > 0 || cabecalhoFalhou ? (
+          <div className="aviso cot-aviso-falha" data-tom="erro" role="alert" data-teste="ficha-incompleta">
+            <p>
+              Não carregou agora:{' '}
+              {[...(cabecalhoFalhou ? ['o cabeçalho da cotação'] : []), ...falhas.map((p) => NOME_PARTE[p])].join(', ')}. O
+              que aparece abaixo pode estar desatualizado.
+            </p>
+            <button type="button" className="botao-secundario" disabled={recarregando} aria-busy={recarregando} onClick={aoRecarregar}>
+              {recarregando ? 'Carregando…' : 'Tentar de novo'}
+            </button>
+          </div>
         ) : null}
         {c?.arquivado && !permissoes.ehDiretor ? (
           <p className="aviso vendas-aviso-topo">Cotação arquivada: só o Diretor altera. Desarquive para editar.</p>
@@ -1430,10 +1551,15 @@ export function TelaCotacao({
             />
           </>
         ) : null}
-        {ficha && aba === 'propostas' ? (
+        {carregandoFluxo ? (
+          <p className="cot-carregando" role="status" aria-busy="true">
+            Carregando {aba === 'propostas' ? 'as propostas' : 'os pedidos'}…
+          </p>
+        ) : null}
+        {ficha && !carregandoFluxo && aba === 'propostas' ? (
           <AbaPropostas ficha={ficha} editavel={!ficha.cotacao.arquivado || permissoes.ehDiretor} irParaPedidos={() => setAba('pedidos')} />
         ) : null}
-        {ficha && aba === 'pedidos' ? <AbaPedidos ficha={ficha} etapas={opcoes.etapas} opcoesFicha={opcoesFicha ?? vazias} /> : null}
+        {ficha && !carregandoFluxo && aba === 'pedidos' ? <AbaPedidos ficha={ficha} etapas={opcoes.etapas} opcoesFicha={opcoesFicha ?? vazias} /> : null}
       </div>
 
       <footer className="dialogo-rodape cot-rodape">

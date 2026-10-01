@@ -13,9 +13,9 @@ import { clienteServidor } from '@/lib/supabase/servidor'
 import { ehUuid, hojeSP, validarCotacao } from '@/lib/vendas'
 
 import { adicionarItem } from './acoes'
-import { buscarOpcoesFicha } from './consultas'
+import { buscarOpcoesFicha, carrinhoAtual } from './consultas'
 import { cotacaoEditavel, traduzirErro } from './regras-servidor'
-import type { Destino, EstadoAcao, OpcoesFicha } from './tipos'
+import type { Destino, EstadoAcao, EstadoCarrinho, OpcoesFicha } from './tipos'
 
 /*
  * Escrita da cotação em TELA CHEIA (`pop add edita cotacao`, spec vendas §2.6, §4.2, §4.3):
@@ -30,13 +30,20 @@ import type { Destino, EstadoAcao, OpcoesFicha } from './tipos'
  * User.TempOrcamentoProdutos): nasce no primeiro "adicionar ao carrinho", fica fora do kanban
  * (`rascunho = false` no filtro) e "Cancela" a apaga com itens e orçamentos em cascata — no
  * Bubble os orçamentos ficavam órfãos (vendas §8.3).
+ *
+ * DESEMPENHO (como em acoes.ts): carrinho e orçamentos devolvem o carrinho relido em vez de
+ * revalidar a página. Só a troca de "Pedido de Amostra" revalida (muda o cabeçalho, é rara);
+ * gravar, descartar e criar fecham a ficha, e fechar já refaz o quadro pela navegação.
  */
 
 const MSG_PROPOSTA = 'Este orçamento já está numa proposta. Descarte a proposta antes de apagar.'
 
 // ------------------------------------------------------------------ abrir
 
-/** Listas do carrinho para a cotação NOVA, que abre antes de existir ficha na URL. */
+/**
+ * Listas dos selects da cotação (produtos, condições, linhas, fretes, prazos, formas): a tela
+ * pede UMA vez ao abrir a primeira cotação e guarda — não vão mais em todo render da ficha.
+ */
 export async function opcoesDaCotacaoNova(): Promise<OpcoesFicha> {
   await exigirAcesso('vendas')
   return buscarOpcoesFicha(await clienteServidor())
@@ -69,7 +76,7 @@ export async function enderecosDoCliente(clienteId: string): Promise<Destino[] |
  * rascunho ou na edição, é o `adicionarItem` de sempre. O destino é o "Endereço de entrega" do
  * cabeçalho (bTNjp: destino = endereço de entrega escolhido).
  */
-export async function adicionarAoCarrinho(anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+export async function adicionarAoCarrinho(anterior: EstadoAcao, form: FormData): Promise<EstadoCarrinho> {
   const usuario = await exigirAcesso('vendas')
   if (ehUuid(form.get('cotacao_id'))) return adicionarItem(anterior, form)
 
@@ -117,7 +124,7 @@ export async function adicionarAoCarrinho(anterior: EstadoAcao, form: FormData):
     await supabase.from('cotacoes').delete().eq('id', nova.id).eq('rascunho', true)
     return { erro: r.erro }
   }
-  revalidatePath('/vendas')
+  // Sem revalidar: a tela abre o rascunho pela URL (aoCriarRascunho), e a navegação lê a ficha.
   return { ok: 'Produto adicionado ao carrinho.', id: nova.id as string }
 }
 
@@ -134,7 +141,7 @@ async function itemEditavel(supabase: Awaited<ReturnType<typeof clienteServidor>
  * Qtd na linha do carrinho (WF bTOYp0): grava a qtd do item (bTOYv0) e a copia para `qtd_venda`
  * de todos os orçamentos dele (bTOZB0). O recálculo (bTPGL) é das colunas geradas.
  */
-export async function alterarQtdItem(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+export async function alterarQtdItem(_anterior: EstadoAcao, form: FormData): Promise<EstadoCarrinho> {
   const usuario = await exigirAcesso('vendas')
   const v = validarQtdItem(form)
   if (!v.ok) return { erro: v.erro }
@@ -155,8 +162,7 @@ export async function alterarQtdItem(_anterior: EstadoAcao, form: FormData): Pro
     }
     return { erro: traduzirErro('qtd do item', error) }
   }
-  revalidatePath('/vendas')
-  return { ok: 'Quantidade alterada.', id: item.cotacao_id }
+  return { ok: 'Quantidade alterada.', id: item.cotacao_id, carrinho: await carrinhoAtual(supabase, item.cotacao_id) }
 }
 
 /**
@@ -164,7 +170,7 @@ export async function alterarQtdItem(_anterior: EstadoAcao, form: FormData): Pro
  * medida, linha e condição para os orçamentos (bTOip0). Trocar o PRODUTO de um item que já tem
  * orçamento não é aceito: os fornecedores orçaram o produto antigo.
  */
-export async function editarItem(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+export async function editarItem(_anterior: EstadoAcao, form: FormData): Promise<EstadoCarrinho> {
   const usuario = await exigirAcesso('vendas')
   const itemId = form.get('item_id')
   if (!ehUuid(itemId)) return { erro: 'Item inválido. Recarregue a página.' }
@@ -215,12 +221,11 @@ export async function editarItem(_anterior: EstadoAcao, form: FormData): Promise
     .update({ ...d, grupo_produto_id: (produto.data as { grupo_id: string | null }).grupo_id })
     .eq('id', item.id)
   if (error) return { erro: traduzirErro('editar item', error) }
-  revalidatePath('/vendas')
-  return { ok: 'Produto alterado.', id: item.cotacao_id }
+  return { ok: 'Produto alterado.', id: item.cotacao_id, carrinho: await carrinhoAtual(supabase, item.cotacao_id) }
 }
 
 /** Lixeira do item (WF bTOSp0): apaga o item e, em cascata, os orçamentos dele (bTOSz0). */
-export async function excluirItem(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+export async function excluirItem(_anterior: EstadoAcao, form: FormData): Promise<EstadoCarrinho> {
   const usuario = await exigirAcesso('vendas')
   const itemId = form.get('item_id')
   if (!ehUuid(itemId)) return { erro: 'Item inválido. Recarregue a página.' }
@@ -235,8 +240,7 @@ export async function excluirItem(_anterior: EstadoAcao, form: FormData): Promis
     return { erro: traduzirErro('apagar item', error) }
   }
   if (!data || data.length === 0) return { erro: 'Não foi possível apagar este produto.' }
-  revalidatePath('/vendas')
-  return { ok: 'Produto removido do carrinho.', id: item.cotacao_id }
+  return { ok: 'Produto removido do carrinho.', id: item.cotacao_id, carrinho: await carrinhoAtual(supabase, item.cotacao_id) }
 }
 
 // -------------------------------------------------------------- orçamento
@@ -250,7 +254,7 @@ async function orcamentoDaCotacao(supabase: Awaited<ReturnType<typeof clienteSer
  * Edição inline do orçamento (auto-binding: bTOXZ0, bTOXg0, bTPGv, bTOSi0 → bTOSo0). Grava só
  * o que a pessoa digita; bruto, comissão, ICMS e PIS/COFINS se refazem nas colunas geradas.
  */
-export async function editarOrcamento(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+export async function editarOrcamento(_anterior: EstadoAcao, form: FormData): Promise<EstadoCarrinho> {
   const usuario = await exigirAcesso('vendas')
   const v = validarEdicaoOrcamento(form)
   if (!v.ok) return { erro: v.erro }
@@ -267,12 +271,11 @@ export async function editarOrcamento(_anterior: EstadoAcao, form: FormData): Pr
     .select('id')
   if (error) return { erro: traduzirErro('editar orçamento', error) }
   if (!data || data.length === 0) return { erro: 'Não foi possível gravar este orçamento.' }
-  revalidatePath('/vendas')
-  return { ok: 'Orçamento gravado.', id: orc.cotacao_id }
+  return { ok: 'Orçamento gravado.', id: orc.cotacao_id, carrinho: await carrinhoAtual(supabase, orc.cotacao_id) }
 }
 
 /** Lixeira do orçamento (WF bTOTH0). Orçamento já numa proposta não sai (FK da 008). */
-export async function excluirOrcamento(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+export async function excluirOrcamento(_anterior: EstadoAcao, form: FormData): Promise<EstadoCarrinho> {
   const usuario = await exigirAcesso('vendas')
   const id = form.get('orcamento_id')
   if (!ehUuid(id)) return { erro: 'Orçamento inválido. Recarregue a página.' }
@@ -287,8 +290,7 @@ export async function excluirOrcamento(_anterior: EstadoAcao, form: FormData): P
     return { erro: traduzirErro('apagar orçamento', error) }
   }
   if (!data || data.length === 0) return { erro: 'Não foi possível apagar este orçamento.' }
-  revalidatePath('/vendas')
-  return { ok: 'Orçamento apagado.', id: orc.cotacao_id }
+  return { ok: 'Orçamento apagado.', id: orc.cotacao_id, carrinho: await carrinhoAtual(supabase, orc.cotacao_id) }
 }
 
 // --------------------------------------------------------------- cabeçalho
@@ -319,7 +321,8 @@ export async function gravarCabecalho(_anterior: EstadoAcao, form: FormData): Pr
     .select('numero')
   if (error) return { erro: traduzirErro('gravar cabeçalho', error) }
   if (!data || data.length === 0) return { erro: 'Não foi possível gravar esta cotação.' }
-  revalidatePath('/vendas')
+  // Finalizar fecha a ficha (a navegação refaz o quadro); a amostra fica na tela aberta.
+  if (!finalizar) revalidatePath('/vendas')
   if (!finalizar) return { ok: dados.amostra ? 'Marcada como Pedido de Amostra.' : 'Desmarcado Pedido de Amostra.', id: cotacao_id }
   return {
     ok: atual?.rascunho ? `Cotação nº ${data[0]!.numero} gravada.` : `Cotação nº ${data[0]!.numero} salva.`,
@@ -335,6 +338,5 @@ export async function descartarRascunho(_anterior: EstadoAcao, form: FormData): 
   const supabase = await clienteServidor()
   const { error } = await supabase.from('cotacoes').delete().eq('id', id).eq('rascunho', true)
   if (error) return { erro: traduzirErro('descartar rascunho', error) }
-  revalidatePath('/vendas')
   return { ok: 'Cotação descartada.' }
 }

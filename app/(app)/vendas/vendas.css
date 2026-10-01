@@ -1716,6 +1716,30 @@ button.cot-icone[data-armado]:hover:not(:disabled) {
   margin: 0 auto var(--e2);
 }
 
+/* ------------------------------------------------ ficha carregada por partes */
+/* Parte que não carregou (lib/vendas-ficha): aviso com "Tentar de novo" na mesma linha. */
+.cot-aviso-falha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e2) var(--e4);
+  margin: 0 0 var(--e4);
+}
+.cot-aviso-falha p {
+  margin: 0;
+}
+/* Aba de propostas/pedidos enquanto as partes dela chegam do servidor. */
+.cot-carregando {
+  margin: 0;
+  padding: var(--e7) var(--e4);
+  text-align: center;
+  color: var(--texto-3);
+}
+.vendas-aviso p {
+  margin: 0 0 var(--e2);
+}
+
 /* --------------------------------------------------------------- rodapé */
 .cot-rodape {
   border-radius: 0 0 var(--raio-g) var(--raio-g);

@@ -261,8 +261,8 @@ export async function buscarPartes(
 }
 
 /** Carrinho relido depois de uma gravação: itens e orçamentos (os derivados vêm do banco). */
-export function carrinhoAtual(supabase: Supabase, cotacaoId: string): Promise<CarrinhoRelido> {
-  return buscarPartes(supabase, cotacaoId, ['itens', 'orcamentos'])
+export async function carrinhoAtual(supabase: Supabase, cotacaoId: string): Promise<CarrinhoRelido> {
+  return { cotacaoId, ...(await buscarPartes(supabase, cotacaoId, ['itens', 'orcamentos'])) }
 }
 
 const VAZIO: Record<ParteFicha, unknown> = {

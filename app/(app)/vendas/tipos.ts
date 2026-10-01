@@ -5,6 +5,8 @@
  * select usa `::text`): o navegador só formata (lib/dinheiro), nunca calcula.
  */
 
+import type { CarrinhoRelido } from '@/lib/vendas-ficha'
+
 type Nome = { nome: string } | null
 
 /** Foto (logo) do cliente no avatar do cartão: URL assinada curta, ou ausente → iniciais. */
@@ -346,6 +348,12 @@ export type EstadoAcao = {
   /** registro criado DENTRO da ficha (proposta nova) — a ficha abre o diálogo dele */
   alvo?: string
 }
+
+/**
+ * EstadoAcao + o carrinho RELIDO do banco (lib/vendas-ficha): as actions do carrinho não
+ * revalidam a página — a tela troca só itens e orçamentos.
+ */
+export type EstadoCarrinho = EstadoAcao & { carrinho?: CarrinhoRelido }
 
 export type Permissoes = {
   filtrarVendedor: boolean

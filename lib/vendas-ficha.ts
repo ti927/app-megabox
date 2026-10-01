@@ -1,8 +1,8 @@
-import type { Ficha, Item, Orcamento } from '@/app/(app)/vendas/tipos'
+import type { Ficha, Orcamento } from '@/app/(app)/vendas/tipos'
 
 /*
- * A ficha da cotação na TELA: carregada por partes, remendada pelas actions e pela atualização
- * otimista. Puro (sem React nem Supabase) para o teste.
+ * A ficha da cotação na TELA: carregada por partes, remendada pelas actions (carrinho relido) e
+ * pelo troféu otimista. Puro (sem React nem Supabase) para o teste.
  *
  * Por que por partes: com o banco carregado, a consulta de propostas/pedidos (embeds com RLS
  * em cascata) passava de 8 s e caía em 57014; a ficha inteira virava "Parte desta cotação não
@@ -92,24 +92,6 @@ export function aplicarPartes(f: FichaTela, partes: PartesFicha, falhouAgora: re
 
 // ------------------------------------------------------------------ otimista
 
-/** Item provisório: aparece no carrinho no clique; a resposta da action o substitui. */
-export function comItem(f: FichaTela, item: Item): FichaTela {
-  return { ...f, itens: [...f.itens, item] }
-}
-
-/** Tira o item e os orçamentos dele (a action apaga em cascata). */
-export function semItem(f: FichaTela, itemId: string): FichaTela {
-  return {
-    ...f,
-    itens: f.itens.filter((i) => i.id !== itemId),
-    orcamentos: f.orcamentos.filter((o) => o.cotacao_item_id !== itemId),
-  }
-}
-
-export function semOrcamento(f: FichaTela, orcamentoId: string): FichaTela {
-  return { ...f, orcamentos: f.orcamentos.filter((o) => o.id !== orcamentoId) }
-}
-
 /**
  * Troféu (bTOUP0/bTOUI0): marcar desmarca o vencedor atual DO MESMO ITEM; desmarcar só
  * desmarca. É a mesma regra de fn_definir_vencedor — a resposta do banco confirma ou desfaz.
@@ -129,14 +111,7 @@ export function comVencedor(f: FichaTela, orcamentoId: string, marcar: boolean):
   }
 }
 
-/** Os vencedores de um item, para desfazer o troféu otimista exatamente como estava. */
-export function vencedoresDoItem(f: FichaTela, orcamentoId: string): Map<string, boolean> {
-  const alvo = f.orcamentos.find((o) => o.id === orcamentoId)
-  return new Map(
-    f.orcamentos.filter((o) => alvo && o.cotacao_item_id === alvo.cotacao_item_id).map((o) => [o.id, o.vencedor]),
-  )
-}
-
+/** Desfaz o troféu otimista: `antes` = vencedor de cada orçamento do item antes do clique. */
 export function restaurarVencedores(f: FichaTela, antes: Map<string, boolean>): FichaTela {
   return { ...f, orcamentos: f.orcamentos.map((o) => (antes.has(o.id) ? { ...o, vencedor: antes.get(o.id)! } : o)) }
 }
@@ -146,4 +121,14 @@ export function restaurarVencedores(f: FichaTela, antes: Map<string, boolean>): 
  * (itens + orçamentos com os derivados de dinheiro) — a tela troca só isso, sem re-renderizar a
  * página inteira (antes: revalidatePath → layout + página + ficha inteira a cada clique).
  */
-export type CarrinhoRelido = { partes: PartesFicha; falhas: ParteFicha[] }
+export type CarrinhoRelido = { cotacaoId: string; partes: PartesFicha; falhas: ParteFicha[] }
+
+/** O carrinho relido sobre a ficha da tela — só se for a MESMA cotação (a pessoa pode ter trocado). */
+export function aplicarCarrinho(f: FichaTela, c: CarrinhoRelido): FichaTela {
+  return f.cotacao.id === c.cotacaoId ? aplicarPartes(f, c.partes, c.falhas) : f
+}
+
+/** Partes do fluxo (propostas, pedidos…) que a aba precisa e ainda não chegaram. */
+export function fluxoPendente(f: FichaTela): boolean {
+  return PARTES_FLUXO.some((p) => f.pendentes.includes(p))
+}

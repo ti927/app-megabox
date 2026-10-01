@@ -66,7 +66,7 @@
 --       linha do trimestre; sem ela, a do último trimestre anterior que tiver linha; antes da
 --       primeira, a primeira. Semente: 1º tri/2026 com os números do dono. Pesos somam 100.
 --   D12. SIGILO. A colaboradora vê os dela; perfil ≤ 2 vê todos. Oportunidades: RLS própria.
---       Chamados: acrescenta-se a policy de LEITURA para perfil ≤ 2 com a página sac (a 013
+--       Chamados: a policy de LEITURA da 013 é trocada: perfil ≤ 2 com a página sac lê todos (a 013
 --       só dava ao perfil 1) — o gestor precisa enxergar o que avalia. Alterar continua perfil
 --       1 ou responsável (013 D4). Nas funções de indicador, quem não é perfil ≤ 2 recebe
 --       SEMPRE o próprio painel, qualquer que seja o p_responsavel pedido.
@@ -763,16 +763,22 @@ comment on policy sac_apoio_parametros_update on public.sac_apoio_parametros is
   'Metas, pesos e X dias: só perfil 1 (030 D11). Leitura: quem tem a página sac.';
 
 -- ------------------------------------------ sac_protocolos: leitura para perfil ≤ 2 (D12)
-create policy sac_protocolos_leitura_gestao on public.sac_protocolos
+-- Troca a policy da 013 em vez de somar outra: duas policies permissivas de SELECT na mesma
+-- tabela são avaliadas as duas em toda linha (advisor `multiple_permissive_policies`).
+drop policy sac_protocolos_leitura on public.sac_protocolos;
+create policy sac_protocolos_leitura on public.sac_protocolos
   for select to authenticated
   using (
     (select public.fn_pode_acessar_pagina('sac'))
-    and (select public.fn_hierarquia()) <= 2
+    and ((select public.fn_hierarquia()) <= 2
+         or responsavel_id = (select auth.uid())
+         or criado_por     = (select auth.uid()))
   );
 
-comment on policy sac_protocolos_leitura_gestao on public.sac_protocolos is
-  'Soma-se a sac_protocolos_leitura (013 D4): perfil ≤ 2 com a página sac LÊ todos os '
-  'chamados, para avaliar o Apoio Comercial (030 D12). Alterar segue perfil 1 ou responsável.';
+comment on policy sac_protocolos_leitura on public.sac_protocolos is
+  'Página sac + (perfil ≤ 2, OU responsável, OU quem abriu). 013 D4 ampliada pela 030 D12: o '
+  'gestor (perfil 2) LÊ todos os chamados para avaliar o Apoio Comercial. Alterar segue perfil 1 '
+  'ou responsável. Excluídos continuam legíveis; a lista filtra excluido_em is null.';
 
 
 -- =====================================================================================
@@ -787,7 +793,7 @@ insert into public.sac_apoio_parametros (ano, trimestre) values (2026, 1);
 -- CONFERÊNCIA
 --   2 tabelas novas, 2 com RLS, 2 com `revoke all ... from anon`. ZERO policy para anon.
 --   Policies novas: sac_oportunidades (leitura, insert, update, delete); sac_apoio_parametros
---   (leitura, insert, update); sac_protocolos_leitura_gestao.
+--   (leitura, insert, update); sac_protocolos_leitura TROCADA (perfil ≤ 2 lê todos).
 --   Colunas novas: sac_protocolos (prazo_em, depende_fornecedor, motivo_pendencia),
 --   sac_interacoes (tipo_acao), pesquisa_convites (protocolo_id, com GRANT de coluna).
 --   Funções novas, todas security invoker e search_path '': 3 de trigger (execute revogado),

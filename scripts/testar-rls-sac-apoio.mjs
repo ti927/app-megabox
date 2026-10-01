@@ -133,7 +133,7 @@ async function preparar(idDir, idOp) {
         prot('A9', { aberto_em: sp('2019-07-15'), prazo_em: '2019-07-20', fechado_em: sp('2019-07-18'), responsavel_id: idDir }),
         prot('A10', { aberto_em: sp('2019-10-02') }),
         prot('A11', { aberto_em: sp('2019-09-20'), prazo_em: '2019-09-25', fechado_em: sp('2019-10-03') }),
-      ])
+      ], { defaultToNull: false })
       .select('id, descricao'),
     'protocolos',
   )
@@ -178,7 +178,7 @@ async function preparar(idDir, idOp) {
         conv({ enviado_em: sp('2019-10-05') }),
         conv({ criado_por: idDir }),
         conv({ criado_por: idDir }),
-      ])
+      ], { defaultToNull: false })
       .select('id, criado_por, cancelado_em, enviado_em'),
     'convites NPS',
   )
@@ -260,7 +260,7 @@ async function preparar(idDir, idOp) {
       { prospect_nome: NOME, responsavel_id: idOp, categoria: 'interesse', identificada_em: '2019-06-30' },
       { prospect_nome: NOME, responsavel_id: idDir, categoria: 'interesse', identificada_em: '2019-08-01' },
       { prospect_nome: NOME, responsavel_id: idDir, categoria: 'qualificada', identificada_em: '2019-08-02' },
-    ]),
+    ], { defaultToNull: false }),
     'oportunidades',
   )
 

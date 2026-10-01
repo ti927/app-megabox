@@ -16,13 +16,15 @@ import type { EntregaFicha, EstadoAcao, Opcao, PropostaItem } from './tipos'
 import type { SaldoItem } from './tipos-fluxo'
 
 /*
- * ENTREGAS de um item do pedido (vendas.md §2.9 `rpg pedido OrçFornecedores` + sub-tabela de
- * entregas; §2.10/vendas-reusables §2.1 pop.AnexaNf; §4.9 cancelamento). Tudo NA LINHA:
- *   - data e quantidade se editam no próprio campo (grava ao sair do campo — bUEti, bTbPN);
- *   - "+ Entrega" lança de uma vez o que FALTA (bTbOt) e "Dividir" parte uma entrega em duas;
- *   - o caminhão abre a NF/saída logo abaixo da linha, sem pop-up sobre a ficha;
- *   - a barra e o rodapé mostram o distribuído e o que falta, em qtd e em R$ (v_pedido_item_saldo,
- *     db/029). A tela só formata: a única conta local é de QUANTIDADE (lib/fluxo-tela).
+ * ENTREGAS de um item do pedido como CAMINHÕES (vendas.md §2.9 `rpg pedido OrçFornecedores` +
+ * sub-tabela de entregas; §2.10/vendas-reusables §2.1 pop.AnexaNf; §4.9 cancelamento):
+ *   - cada entrega é um caminhão: data e quantidade se editam na própria cabine (grava ao sair
+ *     do campo — bUEti, bTbPN), e a barrinha de carga mostra quanto do vendido ele leva;
+ *   - o caminhão TRACEJADO é o que falta: um clique programa a carga inteira (bTbOt, que no
+ *     Bubble nascia sem qtd) e "Dividir" parte um caminhão em dois;
+ *   - "Registrar saída" abre NF/boletos/saída logo abaixo do comboio, sem pop-up;
+ *   - o rodapé mostra o que já está nos caminhões e o que falta, em qtd e em R$
+ *     (v_pedido_item_saldo, db/029). A tela só formata: a única conta local é de QUANTIDADE.
  */
 
 /** Limite de corpo de server action do Next (1 MB padrão, next.config sem bodySizeLimit). */
@@ -62,9 +64,10 @@ export function EntregasDoItem({
   const [painel, setPainel] = useState<Painel>(null)
   const falta = faltaQuantidade(item.qtd, entregas.map((e) => e.qtd))
   const faltaPositiva = quantidadePositiva(falta)
-  const barra = larguras(item.qtd, entregas.map((e) => e.qtd))
+  const carga = larguras(item.qtd, entregas.map((e) => e.qtd))
   const nomeEtapa = (id: number) => etapas.find((e) => e.id === id)?.nome ?? '—'
   const produto = item.orcamento?.produto?.nome ?? '—'
+  const aberta = painel ? entregas.find((e) => e.id === painel.id) : undefined
 
   const aoOk = (r: EstadoAcao) => {
     aoResultado(r)
@@ -80,16 +83,8 @@ export function EntregasDoItem({
         </div>
         <dl className="ent-numeros">
           <div>
-            <dt>Qtd</dt>
+            <dt>Qtd vendida</dt>
             <dd>{formatarQuantidade(item.qtd)}</dd>
-          </div>
-          <div>
-            <dt>Comissão</dt>
-            <dd>{saldo ? formatarReais(saldo.valor_comissao) : '…'}</dd>
-          </div>
-          <div>
-            <dt>Frete</dt>
-            <dd>{formatarReais(item.valor_frete)}</dd>
           </div>
           <div>
             <dt>Bruto</dt>
@@ -103,133 +98,122 @@ export function EntregasDoItem({
             <dt>Líquido</dt>
             <dd>{saldo ? formatarReais(saldo.valor_liquido) : '…'}</dd>
           </div>
+          <div>
+            <dt>Comissão</dt>
+            <dd>{saldo ? formatarReais(saldo.valor_comissao) : '…'}</dd>
+          </div>
         </dl>
       </header>
 
-      <div className="ent-barra" role="img" aria-label={`Distribuído ${formatarQuantidade(saldo?.qtd_entregas ?? '0')} de ${formatarQuantidade(item.qtd)}; falta ${formatarQuantidade(falta)}`}>
+      {/* O COMBOIO: cada entrega é um caminhão com a sua carga; o que falta é o caminhão tracejado. */}
+      <ol className="comboio" aria-label={`Entregas de ${produto}`} data-teste="tabela-entregas">
         {entregas.map((e, k) => (
-          <span key={e.id} className="ent-segmento" data-status={e.status_id} style={{ width: `${barra.entregas[k]}%` }} title={`${formatarData(e.dt_prev_entrega)}: ${formatarQuantidade(e.qtd)}`} />
+          <Caminhao
+            key={`${e.id}:${e.qtd}:${e.dt_prev_entrega}`}
+            e={e}
+            numero={k + 1}
+            carga={carga.entregas[k] ?? 0}
+            ativo={ativo}
+            etapa={nomeEtapa(e.status_id)}
+            painel={painel}
+            setPainel={setPainel}
+            aoResultado={aoResultado}
+          />
         ))}
-        {barra.falta > 0 ? <span className="ent-segmento ent-falta" style={{ width: `${barra.falta}%` }} /> : null}
-      </div>
-
-      <div className="ent-rolagem">
-        <table className="ent-tabela" data-teste="tabela-entregas">
-          <thead>
-            <tr>
-              <th scope="col">Data prevista</th>
-              <th scope="col">Qtd</th>
-              <th scope="col">Comissão</th>
-              <th scope="col">Bruto</th>
-              <th scope="col">Líquido</th>
-              <th scope="col">NF / boletos</th>
-              <th scope="col">Etapa</th>
-              <th scope="col">
-                <span className="so-leitor">Ações</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {entregas.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="ent-vazio">
-                  Nenhuma entrega programada. Use “Programar entrega” para lançar tudo numa entrega e divida se o cliente
-                  receber em partes.
-                </td>
-              </tr>
+        {faltaPositiva ? (
+          <li className="caminhao caminhao-vazio" data-teste="caminhao-falta">
+            <span className="caminhao-cabine" aria-hidden="true">
+              <Icone icone={Truck} tamanho={24} />
+            </span>
+            <p className="caminhao-falta">
+              Falta {entregas.length ? 'programar' : 'carregar'} <b>{formatarQuantidade(falta)}</b>
+            </p>
+            {ativo ? (
+              <button
+                type="button"
+                className="botao-secundario"
+                disabled={acao.pendente}
+                aria-busy={acao.pendente}
+                onClick={() =>
+                  acao.executar(adicionarEntrega, { pedido_id: pedidoId, orcamento_fornecedor_id: orc, qtd: falta, dt_prev_entrega: '' }, 'Programando…', aoResultado)
+                }
+                data-teste="nova-entrega"
+              >
+                <Icone icone={Plus} tamanho={16} />
+                {acao.pendente ? 'Programando…' : entregas.length === 0 ? 'Programar caminhão' : 'Mais um caminhão'}
+              </button>
             ) : null}
-            {entregas.map((e) => (
-              <LinhaEntrega
-                key={`${e.id}:${e.qtd}:${e.dt_prev_entrega}`}
-                e={e}
-                ativo={ativo}
-                etapa={nomeEtapa(e.status_id)}
-                painel={painel}
-                setPainel={setPainel}
-                aoResultado={aoResultado}
-                emailCliente={emailCliente}
-                emailFornecedor={emailFornecedor}
-                prazosTexto={prazosTexto}
-                produto={produto}
-                aoOk={aoOk}
-              />
-            ))}
-          </tbody>
-          {saldo && entregas.length > 0 ? (
-            <tfoot>
-              <tr>
-                <th scope="row">Distribuído</th>
-                <td>{formatarQuantidade(saldo.qtd_entregas)}</td>
-                <td>{formatarReais(saldo.comissao_entregas)}</td>
-                <td>{formatarReais(saldo.bruto_entregas)}</td>
-                <td>{formatarReais(saldo.liquido_entregas)}</td>
-                <td colSpan={3} />
-              </tr>
-              <tr className="ent-falta-linha" data-zerado={zero(saldo.falta_qtd) || undefined} data-teste="falta-item">
-                <th scope="row">Falta</th>
-                <td>{formatarQuantidade(saldo.falta_qtd)}</td>
-                <td>{formatarReais(saldo.falta_comissao)}</td>
-                <td>{formatarReais(saldo.falta_bruto)}</td>
-                <td>{formatarReais(saldo.falta_liquido)}</td>
-                <td colSpan={3}>
-                  {zero(saldo.falta_qtd)
-                    ? 'As entregas somam o pedido.'
-                    : saldo.falta_qtd.startsWith('-')
-                      ? 'As entregas passam do pedido.'
-                      : 'Ainda falta programar.'}
-                </td>
-              </tr>
-            </tfoot>
-          ) : null}
-        </table>
-      </div>
+            {acao.estado.erro ? <Mensagem estado={acao.estado} /> : null}
+          </li>
+        ) : null}
+      </ol>
 
-      {ativo && faltaPositiva ? (
-        <div className="ent-rodape">
-          <button
-            type="button"
-            className="botao-secundario"
-            disabled={acao.pendente}
-            aria-busy={acao.pendente}
-            onClick={() =>
-              acao.executar(adicionarEntrega, { pedido_id: pedidoId, orcamento_fornecedor_id: orc, qtd: falta, dt_prev_entrega: '' }, 'Programando…', aoResultado)
-            }
-            data-teste="nova-entrega"
-          >
-            <Icone icone={Plus} tamanho={16} />
-            {acao.pendente ? 'Programando…' : entregas.length === 0 ? `Programar entrega (${formatarQuantidade(falta)})` : `Programar o que falta (${formatarQuantidade(falta)})`}
-          </button>
-          {acao.estado.erro ? <Mensagem estado={acao.estado} /> : null}
+      {aberta && painel?.tipo === 'saida' ? (
+        <PainelSaida e={aberta} temContatoCliente={!!emailCliente} prazosTexto={prazosTexto} aoOk={aoOk} fechar={() => setPainel(null)} />
+      ) : null}
+      {aberta && painel?.tipo === 'cancelar' ? (
+        <PainelCancelar e={aberta} produto={produto} emailCliente={emailCliente} emailFornecedor={emailFornecedor} aoOk={aoOk} fechar={() => setPainel(null)} />
+      ) : null}
+
+      {saldo && entregas.length > 0 ? (
+        <div className="ent-saldo" data-teste="falta-item" data-zerado={zero(saldo.falta_qtd) || undefined} data-excesso={saldo.falta_qtd.startsWith('-') || undefined}>
+          <dl>
+            <div>
+              <dt>Nos caminhões</dt>
+              <dd>
+                {formatarQuantidade(saldo.qtd_entregas)} de {formatarQuantidade(item.qtd)}
+              </dd>
+            </div>
+            <div>
+              <dt>Falta</dt>
+              <dd>{formatarQuantidade(saldo.falta_qtd)}</dd>
+            </div>
+            <div>
+              <dt>Bruto que falta</dt>
+              <dd>{formatarReais(saldo.falta_bruto)}</dd>
+            </div>
+            <div>
+              <dt>Líquido que falta</dt>
+              <dd>{formatarReais(saldo.falta_liquido)}</dd>
+            </div>
+            <div>
+              <dt>Comissão que falta</dt>
+              <dd>{formatarReais(saldo.falta_comissao)}</dd>
+            </div>
+          </dl>
+          <p>
+            {zero(saldo.falta_qtd)
+              ? 'Os caminhões levam o pedido inteiro.'
+              : saldo.falta_qtd.startsWith('-')
+                ? 'Os caminhões levam mais do que o pedido.'
+                : 'Ainda falta carga para programar.'}
+          </p>
         </div>
       ) : null}
     </section>
   )
 }
 
-function LinhaEntrega({
+/** Uma entrega = um caminhão: data e quantidade editáveis na própria cabine (bUEti, bTbPN). */
+function Caminhao({
   e,
+  numero,
+  carga,
   ativo,
   etapa,
   painel,
   setPainel,
   aoResultado,
-  aoOk,
-  emailCliente,
-  emailFornecedor,
-  prazosTexto,
-  produto,
 }: {
   e: EntregaFicha
+  numero: number
+  /** % do vendido que este caminhão leva (só desenho) */
+  carga: number
   ativo: boolean
   etapa: string
   painel: Painel
   setPainel: (p: Painel) => void
   aoResultado: (r: EstadoAcao) => void
-  aoOk: (r: EstadoAcao) => void
-  emailCliente: string | null
-  emailFornecedor: string | null
-  prazosTexto: string
-  produto: string
 }) {
   const acao = useAcao()
   const [qtd, setQtd] = useState(formatarQuantidade(e.qtd))
@@ -239,6 +223,7 @@ function LinhaEntrega({
   const nf = e.arquivos.find((a) => a.tipo === 'nf_fornecedor')
   const boletos = e.arquivos.filter((a) => a.tipo === 'boleto')
   const aberto = painel?.id === e.id ? painel.tipo : null
+  const cancelada = e.status_id === ETAPA.CANCELADO
 
   function gravar(novaQtd: string, novaData: string) {
     if (novaQtd === formatarQuantidade(e.qtd) && novaData === (e.dt_prev_entrega ?? '')) return
@@ -246,30 +231,42 @@ function LinhaEntrega({
   }
 
   return (
-    <>
-      <tr data-status={e.status_id} data-aberta={aberto || undefined} aria-busy={acao.pendente || undefined} data-teste="linha-entrega">
-        <td>
+    <li className="caminhao" data-status={e.status_id} data-aberta={aberto || undefined} aria-busy={acao.pendente || undefined} data-teste="linha-entrega">
+      <div className="caminhao-topo">
+        <span className="caminhao-cabine" aria-hidden="true">
+          <Icone icone={Truck} tamanho={24} />
+        </span>
+        <strong>Caminhão {numero}</strong>
+        <span className="selo" data-tom={cancelada ? 'erro' : e.status_id >= ETAPA.EM_ENTREGA ? 'ok' : undefined}>
+          {etapa}
+        </span>
+      </div>
+      <span className="caminhao-carga" aria-hidden="true">
+        <span style={{ width: `${Math.min(carga, 100)}%` }} />
+      </span>
+
+      <div className="caminhao-campos">
+        <label>
+          <span>Previsão</span>
           {editavel ? (
             <input
               type="date"
               className="ent-campo"
-              aria-label="Data prevista da entrega"
               value={data}
               onChange={(x) => setData(x.target.value)}
               onBlur={() => gravar(qtd, data)}
               data-teste="campo-data-entrega"
             />
           ) : (
-            formatarData(e.dt_prev_entrega)
+            <b>{formatarData(e.dt_prev_entrega)}</b>
           )}
-          {e.vendedor_substituto_id ? <small>com substituto de férias</small> : null}
-        </td>
-        <td>
+        </label>
+        <label>
+          <span>Quantidade</span>
           {editavel ? (
             <input
               className="ent-campo ent-qtd"
               inputMode="decimal"
-              aria-label="Quantidade da entrega"
               value={qtd}
               onChange={(x) => setQtd(x.target.value)}
               onBlur={() => gravar(qtd, data)}
@@ -277,112 +274,96 @@ function LinhaEntrega({
               data-teste="campo-qtd-entrega"
             />
           ) : (
-            formatarQuantidade(e.qtd)
+            <b>{formatarQuantidade(e.qtd)}</b>
           )}
-        </td>
-        <td className="ent-valor">{formatarReais(e.valor_comissao)}</td>
-        <td className="ent-valor">{formatarReais(e.valor_venda_bruto)}</td>
-        <td className="ent-valor">{formatarReais(e.valor_venda_liquido)}</td>
-        <td>
-          {nf ? (
-            <button type="button" className="botao-texto" onClick={() => abrirArquivo(nf.path, (m) => aoResultado({ erro: m }))}>
-              <Icone icone={Paperclip} tamanho={14} />
-              NF {e.nf_fornecedor_numero ?? nf.nome_arquivo}
-            </button>
+        </label>
+      </div>
+      {e.vendedor_substituto_id ? <small className="caminhao-nota">com substituto de férias</small> : null}
+
+      <dl className="caminhao-valores" data-cancelada={cancelada || undefined}>
+        <div>
+          <dt>Bruto</dt>
+          <dd>{formatarReais(e.valor_venda_bruto)}</dd>
+        </div>
+        <div>
+          <dt>Comissão</dt>
+          <dd>{formatarReais(e.valor_comissao)}</dd>
+        </div>
+      </dl>
+
+      <p className="caminhao-nf">
+        {nf ? (
+          <button type="button" className="botao-texto" onClick={() => abrirArquivo(nf.path, (m) => aoResultado({ erro: m }))}>
+            <Icone icone={Paperclip} tamanho={14} />
+            NF {e.nf_fornecedor_numero ?? nf.nome_arquivo}
+          </button>
+        ) : (
+          <span>{e.nao_emite_nf ? 'Não emite NF' : e.nf_fornecedor_numero ? `NF ${e.nf_fornecedor_numero}` : 'Sem NF'}</span>
+        )}
+        <small>
+          {boletos.length} {boletos.length === 1 ? 'boleto' : 'boletos'}
+        </small>
+      </p>
+      {e.motivo_cancelamento ? <small className="fluxo-motivo">{e.motivo_cancelamento}</small> : null}
+
+      <div className="caminhao-acoes">
+        {ativo && podeGravarSaida(e.status_id) ? (
+          <button
+            type="button"
+            className="botao-secundario caminhao-saida"
+            data-destaque={e.saiu_entrega || undefined}
+            aria-expanded={aberto === 'saida'}
+            onClick={() => setPainel(aberto === 'saida' ? null : { tipo: 'saida', id: e.id })}
+            data-teste="abrir-saida"
+          >
+            <Icone icone={Truck} tamanho={16} />
+            {e.saiu_entrega ? 'NF e saída' : 'Registrar saída'}
+          </button>
+        ) : null}
+        {editavel ? (
+          <button
+            type="button"
+            className="ent-icone"
+            aria-label="Dividir em dois caminhões"
+            title="Dividir em dois caminhões"
+            disabled={acao.pendente}
+            onClick={() => acao.executar(dividirEntrega, { entrega_id: e.id }, 'Dividindo…', aoResultado)}
+            data-teste="dividir-entrega"
+          >
+            <Icone icone={Split} tamanho={18} />
+          </button>
+        ) : null}
+        {ativo && podeApagarEntrega(e) && e.arquivos.length === 0 ? (
+          apagando ? (
+            <span className="fluxo-confirma">
+              <button type="button" className="botao-perigo" onClick={() => acao.executar(apagarEntrega, { entrega_id: e.id }, 'Apagando…', aoResultado)} data-teste="apagar-entrega-sim">
+                Apagar
+              </button>
+              <button type="button" className="botao-secundario" onClick={() => setApagando(false)}>
+                Não
+              </button>
+            </span>
           ) : (
-            <span>{e.nao_emite_nf ? 'Não emite NF' : e.nf_fornecedor_numero ? `NF ${e.nf_fornecedor_numero}` : '—'}</span>
-          )}
-          <small>
-            {boletos.length} {boletos.length === 1 ? 'boleto' : 'boletos'}
-          </small>
-        </td>
-        <td>
-          <span className="selo" data-tom={e.status_id === ETAPA.CANCELADO ? 'erro' : e.status_id >= ETAPA.EM_ENTREGA ? 'ok' : undefined}>
-            {etapa}
-          </span>
-          {e.motivo_cancelamento ? <small className="fluxo-motivo">{e.motivo_cancelamento}</small> : null}
-        </td>
-        <td>
-          <div className="ent-acoes">
-            {ativo && podeGravarSaida(e.status_id) ? (
-              <button
-                type="button"
-                className="ent-icone"
-                data-destaque={e.saiu_entrega || undefined}
-                aria-expanded={aberto === 'saida'}
-                aria-label={e.saiu_entrega ? 'NF e saída (já saiu)' : 'Registrar NF e saída'}
-                title={e.saiu_entrega ? 'NF e saída (já saiu)' : 'Registrar NF e saída'}
-                onClick={() => setPainel(aberto === 'saida' ? null : { tipo: 'saida', id: e.id })}
-                data-teste="abrir-saida"
-              >
-                <Icone icone={Truck} tamanho={20} />
-              </button>
-            ) : null}
-            {editavel ? (
-              <button
-                type="button"
-                className="ent-icone"
-                aria-label="Dividir em duas entregas"
-                title="Dividir em duas entregas"
-                disabled={acao.pendente}
-                onClick={() => acao.executar(dividirEntrega, { entrega_id: e.id }, 'Dividindo…', aoResultado)}
-                data-teste="dividir-entrega"
-              >
-                <Icone icone={Split} tamanho={18} />
-              </button>
-            ) : null}
-            {ativo && podeApagarEntrega(e) && e.arquivos.length === 0 ? (
-              apagando ? (
-                <span className="fluxo-confirma">
-                  <button
-                    type="button"
-                    className="botao-perigo"
-                    onClick={() => acao.executar(apagarEntrega, { entrega_id: e.id }, 'Apagando…', aoResultado)}
-                    data-teste="apagar-entrega-sim"
-                  >
-                    Apagar
-                  </button>
-                  <button type="button" className="botao-secundario" onClick={() => setApagando(false)}>
-                    Não
-                  </button>
-                </span>
-              ) : (
-                <button type="button" className="ent-icone" aria-label="Apagar entrega" title="Apagar entrega" onClick={() => setApagando(true)} data-teste="apagar-entrega">
-                  <Icone icone={Trash2} tamanho={18} />
-                </button>
-              )
-            ) : ativo && podeCancelarEntrega(e.status_id) ? (
-              <button
-                type="button"
-                className="ent-icone"
-                aria-expanded={aberto === 'cancelar'}
-                aria-label="Cancelar entrega"
-                title="Cancelar entrega"
-                onClick={() => setPainel(aberto === 'cancelar' ? null : { tipo: 'cancelar', id: e.id })}
-                data-teste="cancelar-entrega"
-              >
-                <Icone icone={Ban} tamanho={18} />
-              </button>
-            ) : null}
-          </div>
-          {acao.estado.erro ? <small className="ent-erro">{acao.estado.erro}</small> : null}
-        </td>
-      </tr>
-      {aberto === 'saida' ? (
-        <tr className="ent-painel">
-          <td colSpan={8}>
-            <PainelSaida e={e} temContatoCliente={!!emailCliente} prazosTexto={prazosTexto} aoOk={aoOk} fechar={() => setPainel(null)} />
-          </td>
-        </tr>
-      ) : null}
-      {aberto === 'cancelar' ? (
-        <tr className="ent-painel">
-          <td colSpan={8}>
-            <PainelCancelar e={e} produto={produto} emailCliente={emailCliente} emailFornecedor={emailFornecedor} aoOk={aoOk} fechar={() => setPainel(null)} />
-          </td>
-        </tr>
-      ) : null}
-    </>
+            <button type="button" className="ent-icone" aria-label="Apagar caminhão" title="Apagar caminhão" onClick={() => setApagando(true)} data-teste="apagar-entrega">
+              <Icone icone={Trash2} tamanho={18} />
+            </button>
+          )
+        ) : ativo && podeCancelarEntrega(e.status_id) ? (
+          <button
+            type="button"
+            className="ent-icone"
+            aria-expanded={aberto === 'cancelar'}
+            aria-label="Cancelar entrega"
+            title="Cancelar entrega"
+            onClick={() => setPainel(aberto === 'cancelar' ? null : { tipo: 'cancelar', id: e.id })}
+            data-teste="cancelar-entrega"
+          >
+            <Icone icone={Ban} tamanho={18} />
+          </button>
+        ) : null}
+      </div>
+      {acao.estado.erro ? <small className="ent-erro">{acao.estado.erro}</small> : null}
+    </li>
   )
 }
 

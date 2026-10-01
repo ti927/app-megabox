@@ -62,7 +62,7 @@ import {
   gravarCabecalho,
   opcoesDaCotacaoNova,
 } from './acoes-cotacao'
-import { AbaPedidos, AbaPropostas } from './fluxo'
+import { FluxoVenda } from './fluxo'
 import type {
   Destino,
   EstadoAcao,
@@ -1303,8 +1303,8 @@ export function TelaCotacao({
   const abas: { id: Aba; rotulo: string }[] = ficha
     ? [
         { id: 'cotacao', rotulo: `Cotação (${ficha.itens.length})` },
-        { id: 'propostas', rotulo: `Propostas (${ficha.propostas.length})` },
-        { id: 'pedidos', rotulo: `Pedidos (${ficha.pedidos.length})` },
+        // Proposta → pedido → entregas é UMA aba (fluxo.tsx); 'pedidos' quando já há pedido.
+        { id: ficha.pedidos.length ? 'pedidos' : 'propostas', rotulo: 'Proposta e pedido' },
       ]
     : []
 
@@ -1355,10 +1355,10 @@ export function TelaCotacao({
                 key={a.id}
                 type="button"
                 role="tab"
-                id={`aba-${a.id}`}
-                aria-selected={aba === a.id}
-                aria-controls={`painel-${a.id}`}
-                onClick={() => setAba(a.id)}
+                id={`aba-${a.id === 'cotacao' ? 'cotacao' : 'venda'}`}
+                aria-selected={a.id === 'cotacao' ? aba === 'cotacao' : aba !== 'cotacao'}
+                aria-controls={`painel-${a.id === 'cotacao' ? 'cotacao' : 'venda'}`}
+                onClick={() => (a.id === 'cotacao' || aba === 'cotacao' ? setAba(a.id) : undefined)}
               >
                 {a.rotulo}
               </button>
@@ -1370,7 +1370,7 @@ export function TelaCotacao({
         </button>
       </header>
 
-      <div className="cot-corpo" role={abas.length > 0 && !nova ? 'tabpanel' : undefined} id={`painel-${aba}`} aria-labelledby={abas.length > 0 && !nova ? `aba-${aba}` : undefined}>
+      <div className="cot-corpo" role={abas.length > 0 && !nova ? 'tabpanel' : undefined} id={`painel-${aba === 'cotacao' ? 'cotacao' : 'venda'}`} aria-labelledby={abas.length > 0 && !nova ? `aba-${aba === 'cotacao' ? 'cotacao' : 'venda'}` : undefined}>
         {ficha?.incompleta ? (
           <p className="aviso" data-tom="erro" role="alert">
             Parte desta cotação não carregou agora. Recarregue a página antes de alterar.
@@ -1430,10 +1430,16 @@ export function TelaCotacao({
             />
           </>
         ) : null}
-        {ficha && aba === 'propostas' ? (
-          <AbaPropostas ficha={ficha} editavel={!ficha.cotacao.arquivado || permissoes.ehDiretor} irParaPedidos={() => setAba('pedidos')} />
+        {ficha && aba !== 'cotacao' ? (
+          <FluxoVenda
+            ficha={ficha}
+            aba={aba}
+            mudarAba={setAba}
+            editavel={!ficha.cotacao.arquivado || permissoes.ehDiretor}
+            etapas={opcoes.etapas}
+            opcoesFicha={opcoesFicha ?? vazias}
+          />
         ) : null}
-        {ficha && aba === 'pedidos' ? <AbaPedidos ficha={ficha} etapas={opcoes.etapas} opcoesFicha={opcoesFicha ?? vazias} /> : null}
       </div>
 
       <footer className="dialogo-rodape cot-rodape">

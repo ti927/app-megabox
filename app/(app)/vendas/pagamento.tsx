@@ -1,10 +1,11 @@
 'use client'
 
-import { X } from 'lucide-react'
+import { CircleAlert, Check, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { Icone } from '@/componentes/icone'
 import { formatarReais } from '@/lib/dinheiro'
-import { atalhosDePrazo, diasDoPrazo, mesmosPrazos, ordenarPrazos } from '@/lib/fluxo-tela'
+import { atalhosDePrazo, diasDoPrazo, frasePagamento, mesmosPrazos, ordenarPrazos, sugerirPrazos } from '@/lib/fluxo-tela'
 
 import { rateioPrazos } from './acoes-fluxo'
 import type { Opcao } from './tipos'
@@ -13,12 +14,18 @@ import type { Parcela } from './tipos-fluxo'
 /*
  * CONDIÇÕES DE PAGAMENTO do pedido (vendas.md §2.9: `Opt.FormaPgto` + multi-seleção de
  * `Opt.ParcelasReceber` → pedidos.forma_pagamento_id + pedido_prazos). No Bubble era um
- * multi-select de 21 opções ao lado de um dropdown — o vendedor não via o que estava montando.
- * Aqui: a forma é um botão de cada (um clique), os prazos vêm dos atalhos de sempre
- * ("30/60/90") ou um a um, e a LINHA DO TEMPO mostra as parcelas com o valor de cada uma.
+ * multi-select de 21 opções ao lado de um dropdown, e o vendedor não via o que estava montando
+ * — nem a diferença entre o que o CLIENTE paga e o que a MegaBox RECEBE.
  *
- * O valor das parcelas é do BANCO (fn_rateio_prazos, db/029: mesma ordem e mesmo rateio de
- * fn_gerar_contas_receber), sobre o total do pedido. A tela não soma nem divide nada.
+ * Aqui, de cima para baixo:
+ *   1. a FRASE da condição, em português ("O cliente paga em 3 parcelas, 30, 60 e 90 dias
+ *      depois de cada entrega, por boleto") — é ela que vai ao documento;
+ *   2. a forma (um botão de cada) e os prazos (atalhos "30/60/90" ou um a um);
+ *   3. a tabela das parcelas: quando vence, quanto da VENDA o cliente paga e quanto de
+ *      COMISSÃO a MegaBox recebe. Valores do BANCO (fn_rateio_prazos, db/029: mesma ordem e
+ *      mesmo rateio de fn_gerar_contas_receber), sobre o total do pedido. A tela não soma nada;
+ *   4. a comparação com a condição ESCRITA na proposta (texto livre), para o vendedor ver na
+ *      hora se o pedido diz o mesmo que o cliente aceitou.
  */
 
 export function CondicoesPagamento({
@@ -31,6 +38,7 @@ export function CondicoesPagamento({
   aoMudarPrazos,
   desabilitado,
   sugeridos,
+  condicaoProposta,
 }: {
   pedidoId: string
   formas: Opcao[]
@@ -42,19 +50,22 @@ export function CondicoesPagamento({
   desabilitado: boolean
   /** os prazos vieram da condição da proposta e ainda não foram gravados */
   sugeridos: boolean
+  /** a condição de pagamento escrita na proposta (texto livre, 008) */
+  condicaoProposta: string | null
 }) {
   const atalhos = atalhosDePrazo(prazos)
   const ordenados = ordenarPrazos(selecionados, prazos)
   const restantes = prazos.filter((p) => !selecionados.includes(p.id))
   const chave = ordenados.join(',')
+  const nomeForma = formas.find((f) => f.id === forma)?.nome ?? null
+  const frase = frasePagamento(ordenados, prazos, nomeForma)
+  const daProposta = sugerirPrazos(condicaoProposta, prazos)
+  const confere = daProposta.length > 0 && mesmosPrazos(daProposta, ordenados)
 
   const [parcelas, setParcelas] = useState<Parcela[] | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   useEffect(() => {
-    if (!chave) {
-      setParcelas([])
-      return
-    }
+    if (!chave) return
     let vivo = true
     // Pequena espera: vários cliques seguidos pedem um rateio só.
     const t = setTimeout(() => {
@@ -75,11 +86,14 @@ export function CondicoesPagamento({
     }
   }, [pedidoId, chave])
 
-  const maxDias = Math.max(30, ...ordenados.map((id) => diasDoPrazo(prazos.find((p) => p.id === id)?.nome ?? '') ?? 0))
   const nome = (id: number) => prazos.find((p) => p.id === id)?.nome ?? '?'
 
   return (
     <div className="pgto" data-teste="condicoes-pagamento">
+      <p className="pgto-frase" data-vazio={!frase || undefined} data-teste="frase-pagamento">
+        {frase ?? 'Escolha a forma e os prazos: cada entrega confirmada vira uma parcela por prazo.'}
+      </p>
+
       <div className="pgto-linha">
         <span className="pgto-rotulo" id="pgto-forma">
           Forma
@@ -136,47 +150,62 @@ export function CondicoesPagamento({
         </div>
       </div>
 
-      {ordenados.length === 0 ? (
-        <p className="pgto-vazio">Escolha os prazos. Cada entrega confirmada vira uma parcela por prazo.</p>
-      ) : (
-        <div className="pgto-tempo" aria-label="Parcelas previstas">
-          <ol className="pgto-trilho">
-            <li className="pgto-marco pgto-marco-inicio" style={{ left: '0%' }}>
-              <span>Entrega</span>
-            </li>
+      {ordenados.length > 0 ? (
+        <table className="pgto-tabela" aria-label="Parcelas previstas" data-teste="tabela-parcelas">
+          <thead>
+            <tr>
+              <th scope="col">Parcela</th>
+              <th scope="col">Vence</th>
+              <th scope="col" className="pgto-num">
+                Cliente paga ao fornecedor
+              </th>
+              <th scope="col" className="pgto-num">
+                MegaBox recebe (comissão)
+              </th>
+              <th scope="col">
+                <span className="so-leitor">Tirar</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
             {ordenados.map((id, k) => {
-              const dias = diasDoPrazo(nome(id)) ?? 0
               const p = parcelas?.find((x) => x.prazo_id === id)
+              const dias = diasDoPrazo(nome(id))
               return (
-                <li key={id} className="pgto-marco" style={{ left: `${(dias / maxDias) * 100}%` }} data-teste="parcela">
-                  <span className="pgto-prazo">
-                    {nome(id)}
+                <tr key={id} data-teste="parcela">
+                  <td>{k + 1}ª</td>
+                  <td>{dias === null ? nome(id) : dias === 0 ? 'na entrega' : `${dias} dias após a entrega`}</td>
+                  <td className="pgto-num">{p ? formatarReais(p.valor) : '…'}</td>
+                  <td className="pgto-num pgto-comissao">{p ? formatarReais(p.comissao) : '…'}</td>
+                  <td>
                     {!desabilitado ? (
-                      <button
-                        type="button"
-                        className="pgto-tira"
-                        aria-label={`Tirar o prazo ${nome(id)}`}
-                        onClick={() => aoMudarPrazos(selecionados.filter((x) => x !== id))}
-                      >
-                        <X size={12} aria-hidden="true" />
+                      <button type="button" className="pgto-tira" aria-label={`Tirar o prazo ${nome(id)}`} title="Tirar este prazo" onClick={() => aoMudarPrazos(selecionados.filter((x) => x !== id))}>
+                        <Icone icone={X} tamanho={14} />
                       </button>
                     ) : null}
-                  </span>
-                  <strong>{p?.valor ? formatarReais(p.valor) : '…'}</strong>
-                  <small>{k + 1}ª parcela</small>
-                </li>
+                  </td>
+                </tr>
               )
             })}
-          </ol>
-          <p className="pgto-nota">
-            {erro ??
-              `${ordenados.length} ${ordenados.length === 1 ? 'parcela' : 'parcelas'} sobre o total do pedido, vencendo ${ordenados
-                .map((id) => nome(id))
-                .join(', ')} após a data de cada entrega. Na confirmação, cada entrega é rateada do mesmo jeito.`}
-            {sugeridos ? ' Sugerido pela condição da proposta — confira e grave.' : ''}
-          </p>
-        </div>
-      )}
+          </tbody>
+        </table>
+      ) : null}
+
+      <p className="pgto-nota">
+        {erro ??
+          (ordenados.length
+            ? 'Valores sobre o pedido inteiro. Na confirmação de cada entrega (tela Financeiro) a mesma divisão é feita sobre o valor daquela entrega, com vencimento contado da data real.'
+            : '')}
+      </p>
+
+      {condicaoProposta ? (
+        <p className="pgto-proposta" data-tom={ordenados.length === 0 ? undefined : confere ? 'ok' : 'alerta'} data-teste="pgto-proposta">
+          <Icone icone={ordenados.length && !confere ? CircleAlert : Check} tamanho={14} />
+          Na proposta o cliente aceitou: <b>“{condicaoProposta}”</b>
+          {ordenados.length === 0 ? '' : confere ? ' — o pedido diz o mesmo.' : daProposta.length ? ' — os prazos do pedido são outros.' : ' — confira com o financeiro.'}
+          {sugeridos ? ' Prazos pré-marcados por ela: confira e grave.' : ''}
+        </p>
+      ) : null}
     </div>
   )
 }

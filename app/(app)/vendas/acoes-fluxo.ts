@@ -1180,10 +1180,11 @@ export async function rateioPrazos(pedidoId: string, prazos: number[]): Promise<
     console.error('vendas (fluxo): rateio', error)
     return { erro: 'Não foi possível mostrar o rateio agora.' }
   }
-  type Linha = { parcela: number; prazo_id: number; prazo_nome: string; dias_prazo: number; valor: string | number | null }
+  type Linha = Omit<Parcela, 'valor' | 'comissao'> & { valor: string | number | null; comissao: string | number | null }
+  const texto = (v: string | number | null) => (v === null ? null : String(v))
   return {
     // numeric chega como número do PostgREST: vira texto sem conta nenhuma (só formatação depois).
-    parcelas: ((data ?? []) as Linha[]).map((r) => ({ ...r, valor: r.valor === null ? null : String(r.valor) })),
+    parcelas: ((data ?? []) as Linha[]).map((r) => ({ ...r, valor: texto(r.valor), comissao: texto(r.comissao) })),
   }
 }
 
@@ -1239,4 +1240,36 @@ export async function dividirEntrega(_anterior: EstadoAcao, form: FormData): Pro
   }
   revalidatePath(PAGINA)
   return { ok: `Entrega dividida em ${formatarQuantidade(partes[0])} + ${formatarQuantidade(partes[1])}.` }
+}
+
+/**
+ * "Duplicar pedido" (pop.DuplicarPedido, WF bTzte + backend bUAeU): cotação NOVA na etapa
+ * Cotação, com cópia dos itens/orçamentos vencedores escolhidos, para o endereço de entrega
+ * escolhido. Tudo numa transação no banco (fn_duplicar_pedido, db/029), com a RLS da sessão.
+ * Não copia pedido, prazos, entregas nem contas: o financeiro só nasce de entrega confirmada.
+ */
+export async function duplicarPedido(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  await exigirAcesso('vendas')
+  const pedidoId = id(form, 'pedido_id')
+  const destino = id(form, 'endereco_destino_id')
+  if (!pedidoId) return { erro: 'Pedido inválido. Recarregue a página.' }
+  if (!destino) return { erro: 'Escolha o endereço de entrega da nova cotação.' }
+  const orcamentos = form.getAll('orcamentos').filter(ehUuid).map((x) => String(x).toLowerCase())
+  if (orcamentos.length === 0) return { erro: 'Marque ao menos um item para duplicar.' }
+  const validade = form.get('data_validade')
+  const data = typeof validade === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(validade) ? validade : null
+  const supabase = await clienteServidor()
+  const { data: nova, error } = await supabase.rpc('fn_duplicar_pedido', {
+    p_pedido: pedidoId,
+    p_destino: destino,
+    p_orcamentos: orcamentos,
+    p_data_validade: data,
+  })
+  if (error) {
+    if (error.code === '22023') return { erro: error.message }
+    if (error.code === 'P0002') return { erro: 'Este pedido não existe mais ou você não tem acesso a ele.' }
+    return { erro: traduzirErro('duplicar pedido', error) }
+  }
+  revalidatePath(PAGINA)
+  return { ok: 'Pedido duplicado como nova cotação. Abrindo…', alvo: String(nova) }
 }

@@ -133,3 +133,26 @@ export function sugerirPrazos(condicao: string | null | undefined, prazos: Prazo
   if (!ids.every((x): x is number => x !== undefined)) return []
   return ordenarPrazos(ids, prazos)
 }
+
+function listaPt(itens: string[]): string {
+  return itens.length <= 1 ? (itens[0] ?? '') : `${itens.slice(0, -1).join(', ')} e ${itens[itens.length - 1]}`
+}
+
+/**
+ * A condição de pagamento em português, para o vendedor (e o documento) lerem sem decifrar
+ * "30/60/90 dd": "O cliente paga em 3 parcelas: 30, 60 e 90 dias depois de cada entrega, por
+ * Boleto." Sem prazos, null. A forma vem do nome em `formas_pagamento` (003).
+ */
+export function frasePagamento(ids: number[], prazos: PrazoOpcao[], forma: string | null): string | null {
+  const dias = ordenarPrazos(ids, prazos).map((id) => {
+    const nome = prazos.find((p) => p.id === id)?.nome ?? ''
+    return { nome, dias: diasDoPrazo(nome) }
+  })
+  if (dias.length === 0) return null
+  const porForma = forma ? `, por ${forma === 'Transferencia' ? 'Transferência' : forma}` : ''
+  if (dias.length === 1 && dias[0]!.dias === 0) return `O cliente paga à vista, na entrega${porForma}.`
+  const quando = listaPt(dias.map((d) => (d.dias === null ? d.nome : String(d.dias))))
+  const todosNumeros = dias.every((d) => d.dias !== null)
+  const parcelas = dias.length === 1 ? 'em 1 parcela' : `em ${dias.length} parcelas`
+  return `O cliente paga ${parcelas}: ${quando}${todosNumeros ? ' dias' : ''} depois de cada entrega${porForma}.`
+}

@@ -62,4 +62,16 @@ export type ExtrasPedido = {
 }
 
 /** Linha de fn_rateio_prazos (db/029). */
-export type Parcela = { parcela: number; prazo_id: number; prazo_nome: string; dias_prazo: number; valor: string | null }
+export type Parcela = {
+  parcela: number
+  prazo_id: number
+  prazo_nome: string
+  dias_prazo: number
+  /** parte da VENDA (o que o cliente paga ao fornecedor nesse prazo) */
+  valor: string | null
+  /** parte da COMISSÃO (o que a MegaBox recebe nesse prazo) */
+  comissao: string | null
+}
+
+/** Âncora das entregas na mesa do pedido: o passo "Entregas" da trilha rola até aqui. */
+export const ANCORA_ENTREGAS = 'pedido-entregas'

@@ -4,6 +4,7 @@ import {
   atalhosDePrazo,
   diasDoPrazo,
   dividirQuantidade,
+  frasePagamento,
   larguras,
   mesmosPrazos,
   ordenarPrazos,
@@ -96,5 +97,22 @@ describe('sugerirPrazos (condição da proposta → prazos do pedido)', () => {
     expect(sugerirPrazos('', PRAZOS)).toEqual([])
     expect(sugerirPrazos(null, PRAZOS)).toEqual([])
     expect(sugerirPrazos('pedido 30', PRAZOS)).toEqual([])
+  })
+})
+
+describe('frasePagamento', () => {
+  it('sem prazos não diz nada', () => {
+    expect(frasePagamento([], PRAZOS, 'Boleto')).toBeNull()
+  })
+  it('à vista', () => {
+    expect(frasePagamento([1], PRAZOS, null)).toBe('O cliente paga à vista, na entrega.')
+  })
+  it('uma parcela, com a forma', () => {
+    expect(frasePagamento([11], PRAZOS, 'Boleto')).toBe('O cliente paga em 1 parcela: 30 dias depois de cada entrega, por Boleto.')
+  })
+  it('várias parcelas na ordem dos dias, sem repetir, com acento na transferência', () => {
+    expect(frasePagamento([20, 11, 18, 11], PRAZOS, 'Transferencia')).toBe(
+      'O cliente paga em 3 parcelas: 30, 60 e 90 dias depois de cada entrega, por Transferência.',
+    )
   })
 })

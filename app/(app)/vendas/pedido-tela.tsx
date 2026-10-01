@@ -1,6 +1,7 @@
 'use client'
 
-import { Check, CircleAlert, Send, ShoppingCart, Trash2 } from 'lucide-react'
+import { Check, CircleAlert, Copy, Send, ShoppingCart, Trash2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 
 import { Icone } from '@/componentes/icone'
@@ -9,13 +10,13 @@ import { sugerirPrazos, textoDosPrazos } from '@/lib/fluxo-tela'
 import { ETAPA } from '@/lib/vendas'
 import { montarEmailVendas, produtosDistintos } from '@/lib/vendas-fluxo'
 
-import { descartarPedido, extrasPedido, salvarPedido } from './acoes-fluxo'
+import { descartarPedido, duplicarPedido, extrasPedido, salvarPedido } from './acoes-fluxo'
 import { DocumentoPedido, type VistaPedido } from './documento'
 import { EntregasDoItem } from './entregas'
 import { contatoPadrao, Mensagem, OpcoesContato, useAcao } from './fluxo-comum'
 import { CondicoesPagamento } from './pagamento'
 import type { EstadoAcao, Ficha, Opcao, OpcoesFicha, Pedido, PropostaItem } from './tipos'
-import type { ExtrasPedido } from './tipos-fluxo'
+import { ANCORA_ENTREGAS, type ExtrasPedido } from './tipos-fluxo'
 
 /*
  * Aba Pedidos em UMA tela (vendas.md §2.9, decisão 30/09 — ver §2.9 "Tela única"): o DOCUMENTO
@@ -206,6 +207,7 @@ function PainelPedido({
   const c = ficha.cotacao
   const acao = useAcao()
   const [confirmaDescarte, setConfirmaDescarte] = useState(false)
+  const [duplicando, setDuplicando] = useState(false)
   const ativo = p.etapa_id !== ETAPA.CANCELADO && !p.finalizado
   const itens = itensDoPedido(ficha, p)
   const entregas = ficha.entregas.filter((e) => e.pedido_id === p.id)
@@ -292,7 +294,18 @@ function PainelPedido({
             {p.formalizado ? `Enviado ${formatarData(p.formalizado_em)}` : 'Não enviado'}
           </span>
           {p.finalizado ? <span className="selo">Finalizado</span> : null}
+          <button
+            type="button"
+            className="botao-texto mesa-duplicar"
+            aria-expanded={duplicando}
+            onClick={() => setDuplicando((x) => !x)}
+            data-teste="duplicar-pedido"
+          >
+            <Icone icone={Copy} tamanho={16} />
+            Duplicar pedido
+          </button>
         </div>
+        {duplicando ? <DuplicarPedido ficha={ficha} pedido={p} itens={itens} fechar={() => setDuplicando(false)} /> : null}
         {p.motivo_cancelamento ? <p className="aviso" data-tom="erro">Cancelado: {p.motivo_cancelamento}</p> : null}
 
         <fieldset className="mesa-grupo" disabled={!ativo}>
@@ -333,10 +346,11 @@ function PainelPedido({
             aoMudarPrazos={(ids) => mudar('prazos', ids)}
             desabilitado={!ativo}
             sugeridos={p.prazos.length === 0 && r.prazos.length > 0}
+            condicaoProposta={proposta?.condicao_pagamento ?? null}
           />
         </fieldset>
 
-        <fieldset className="mesa-grupo mesa-grupo-entregas">
+        <fieldset className="mesa-grupo mesa-grupo-entregas" id={ANCORA_ENTREGAS}>
           <legend>Produtos e entregas</legend>
           {itens.map((i) => (
             <EntregasDoItem
@@ -461,6 +475,95 @@ function PainelPedido({
           </div>
         </footer>
       ) : null}
+    </div>
+  )
+}
+
+/** Validade padrão da cotação duplicada: hoje + 2 dias (bUALM), no fuso do navegador. */
+function validadePadrao(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 2)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/**
+ * "Duplicar pedido" (pop.DuplicarPedido, WF bTzte; no Bubble o ícone nunca aparecia): vira uma
+ * COTAÇÃO nova, com os itens marcados e os mesmos fornecedores e valores, para o endereço de
+ * entrega escolhido. Não leva entregas nem nada do financeiro (fn_duplicar_pedido, db/029).
+ * Decisão 01/10: só endereços do MESMO cliente ([DÚVIDA] em specs/04 — o Bubble deixava trocar).
+ */
+function DuplicarPedido({ ficha, pedido, itens, fechar }: { ficha: Ficha; pedido: Pedido; itens: PropostaItem[]; fechar: () => void }) {
+  const router = useRouter()
+  const acao = useAcao()
+  // Padrão: o destino da cotação original (o do 1º item), se ainda está ativo; senão o principal.
+  const original = ficha.itens[0]?.endereco_destino_id
+  const [destino, setDestino] = useState(ficha.destinos.some((d) => d.id === original) ? original! : (ficha.destinos[0]?.id ?? ''))
+  const [marcados, setMarcados] = useState<string[]>(itens.map((i) => i.orcamento?.id ?? '').filter(Boolean))
+  const [validade, setValidade] = useState(validadePadrao)
+  return (
+    <div className="mesa-duplicar-painel" role="group" aria-label="Duplicar pedido" data-teste="painel-duplicar">
+      <p className="vendas-nota">
+        Vira uma <b>cotação nova</b> com os itens marcados, os mesmos fornecedores e valores. Entregas, parcelas e comissões
+        <b> não</b> são copiadas: o financeiro só nasce quando uma entrega é confirmada.
+      </p>
+      <div className="mesa-duas">
+        <label className="campo">
+          <span>Entregar em</span>
+          <select value={destino} onChange={(e) => setDestino(e.target.value)} data-teste="campo-destino-duplicar">
+            {ficha.destinos.length === 0 ? <option value="">Cliente sem endereço ativo</option> : null}
+            {ficha.destinos.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.nome_endereco} — {[d.municipio, d.uf].filter(Boolean).join('/')}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="campo">
+          <span>Validade da cotação</span>
+          <input type="date" value={validade} onChange={(e) => setValidade(e.target.value)} />
+        </label>
+      </div>
+      <ul className="mesa-duplicar-itens">
+        {itens.map((i) => {
+          const id = i.orcamento?.id ?? ''
+          return (
+            <li key={i.id}>
+              <label className="caixa">
+                <input
+                  type="checkbox"
+                  checked={marcados.includes(id)}
+                  onChange={(e) => setMarcados((m) => (e.target.checked ? [...m, id] : m.filter((x) => x !== id)))}
+                />
+                {i.orcamento?.produto?.nome ?? '—'} <small>({i.orcamento?.fornecedor?.nome ?? '—'})</small>
+              </label>
+            </li>
+          )
+        })}
+      </ul>
+      <Mensagem estado={acao.estado} teste="duplicar" />
+      <div className="mesa-botoes">
+        <button type="button" className="botao-texto" onClick={fechar}>
+          Voltar
+        </button>
+        <button
+          type="button"
+          className="botao-primario"
+          disabled={acao.pendente || !destino || marcados.length === 0}
+          aria-busy={acao.pendente}
+          onClick={() =>
+            acao.executar(
+              duplicarPedido,
+              { pedido_id: pedido.id, endereco_destino_id: destino, orcamentos: marcados, data_validade: validade },
+              'Duplicando…',
+              (r) => r.alvo && router.push(`/vendas?sel=${r.alvo}`),
+            )
+          }
+          data-teste="confirmar-duplicar"
+        >
+          <Icone icone={Copy} tamanho={16} />
+          {acao.pendente ? 'Duplicando…' : 'Duplicar como nova cotação'}
+        </button>
+      </div>
     </div>
   )
 }

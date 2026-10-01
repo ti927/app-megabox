@@ -22,15 +22,31 @@ import {
   temFiltro,
 } from '@/lib/sac'
 
+import type { FiltrosApoio } from '@/lib/sac-apoio'
 import { ABAS_SAC, type AbaSac, type FiltrosPosVenda, type FiltrosRelatorioSac, hrefAba, type IndicadoresSac } from '@/lib/sac-paineis'
 
 import { adicionarConvidado, buscarClifor, cancelarConvite, emitirConvite, listarContatos } from './acoes'
 import { BotaoEnviar, FichaProtocolo, Mensagem, NovaPesquisa, NovoProtocolo, SeloPrioridade, SeloStatus } from './dialogo'
 import { PosVenda } from './painel-pos-venda'
+import { ApoioComercial } from './painel-apoio'
+import { Oportunidades } from './painel-oportunidades'
 import { RelatoriosSac } from './painel-relatorios'
-import type { CliforEncontrado, Contato, Convite, Ficha, LinhaProtocolo, Opcoes, PainelNps, PainelPosVenda } from './tipos'
+import type {
+  CliforEncontrado,
+  Contato,
+  Convite,
+  DadosApoio,
+  DadosOportunidades,
+  Ficha,
+  LinhaProtocolo,
+  Opcoes,
+  PainelNps,
+  PainelPosVenda,
+} from './tipos'
 
-type UsuarioTela = { id: string; ehDiretor: boolean }
+type UsuarioTela = { id: string; nome: string; ehDiretor: boolean; ehGestor: boolean }
+/** Sinalização de parados (db/030 D4): dias sem ação por protocolo parado da página e o total. */
+type Parados = { mapa: Record<string, number>; total: number; limite: number | null }
 type Navegar = (mudancas: Partial<FiltrosSac>) => void
 
 function Paginacao({
@@ -84,11 +100,14 @@ function LinhaChamado({
   linha,
   opcoes,
   selecionada,
+  diasParado,
   aoAbrir,
 }: {
   linha: LinhaProtocolo
   opcoes: Opcoes
   selecionada: boolean
+  /** dias sem ação, se o chamado está parado (030 D4) */
+  diasParado: number | undefined
   aoAbrir: () => void
 }) {
   const tipo = opcoes.tipos.find((t) => t.id === linha.tipo_ocorrencia_id)?.nome ?? '—'
@@ -100,6 +119,7 @@ function LinhaChamado({
         aria-current={selecionada ? 'true' : undefined}
         data-excluido={linha.excluido_em ? true : undefined}
         data-prioridade={linha.prioridade_id}
+        data-parado={diasParado !== undefined || undefined}
         onClick={aoAbrir}
       >
         <span className="sac-col-numero">
@@ -130,6 +150,11 @@ function LinhaChamado({
         <span className="sac-col-selos">
           <small className="sac-rotulo">Status</small>
           <SeloStatus id={linha.status_id} opcoes={opcoes.status} />
+          {diasParado !== undefined ? (
+            <span className="selo" data-tom="erro" title={`Sem ação registrada há ${diasParado} dias`} data-teste="flag-parado">
+              Parado {diasParado}d
+            </span>
+          ) : null}
           {linha.excluido_em ? (
             <span className="selo" data-tom="erro">
               Excluído
@@ -150,6 +175,7 @@ function Chamados({
   usuario,
   opcoes,
   abertos,
+  parados,
   lista,
   ficha,
   navegar,
@@ -159,6 +185,7 @@ function Chamados({
   usuario: UsuarioTela
   opcoes: Opcoes
   abertos: number
+  parados: Parados
   lista: { linhas: LinhaProtocolo[]; total: number; falhou: boolean }
   ficha: Ficha | null
   navegar: Navegar
@@ -188,6 +215,14 @@ function Chamados({
         </div>
         <p className="sac-contador" data-teste="contador">
           Não resolvidos: <strong>{abertos.toLocaleString('pt-BR')}</strong>
+          {' · '}
+          <span
+            data-alerta={parados.total > 0 || undefined}
+            title={parados.limite ? `Sem ação registrada há mais de ${parados.limite} dias` : undefined}
+            data-teste="contador-parados"
+          >
+            Parados: <strong>{parados.total.toLocaleString('pt-BR')}</strong>
+          </span>
         </p>
         <button type="button" className="botao-primario" onClick={() => setNovo(true)} data-teste="novo-chamado">
           <Icone icone={Plus} tamanho={16} />
@@ -316,6 +351,7 @@ function Chamados({
                     linha={l}
                     opcoes={opcoes}
                     selecionada={filtros.sel === l.id}
+                    diasParado={parados.mapa[l.id]}
                     aoAbrir={() => navegar({ sel: l.id })}
                   />
                 ))}
@@ -811,12 +847,21 @@ export function TelaSac({
   painel,
   relatorio,
   posVenda,
+  parados,
+  apoio,
 }: {
   aba: AbaSac
   filtros: FiltrosSac
   usuario: UsuarioTela
   opcoes: Opcoes
   abertos: number | null
+  parados?: Parados
+  apoio?: {
+    filtros: FiltrosApoio
+    hoje: string
+    dados: DadosApoio | null
+    oportunidades: DadosOportunidades | null
+  } | null
   lista: { linhas: LinhaProtocolo[]; total: number; falhou: boolean } | null
   ficha: Ficha | null
   painel: PainelNps | null
@@ -858,7 +903,11 @@ export function TelaSac({
         ))}
       </nav>
 
-      {aba === 'relatorios' && relatorio ? (
+      {aba === 'apoio' && apoio?.dados ? (
+        <ApoioComercial filtros={apoio.filtros} hoje={apoio.hoje} dados={apoio.dados} opcoes={opcoes} usuario={usuario} />
+      ) : aba === 'oportunidades' && apoio?.oportunidades ? (
+        <Oportunidades filtros={apoio.filtros} hoje={apoio.hoje} dados={apoio.oportunidades} opcoes={opcoes} usuario={usuario} />
+      ) : aba === 'relatorios' && relatorio ? (
         <RelatoriosSac {...relatorio} opcoes={opcoes} />
       ) : aba === 'posvenda' && posVenda ? (
         <PosVenda filtros={posVenda.filtros} painel={posVenda.painel} opcoes={opcoes} />
@@ -870,6 +919,7 @@ export function TelaSac({
           usuario={usuario}
           opcoes={opcoes}
           abertos={abertos}
+          parados={parados ?? { mapa: {}, total: 0, limite: null }}
           lista={lista}
           ficha={ficha}
           navegar={navegar}

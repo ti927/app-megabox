@@ -5,6 +5,8 @@ import { useFormStatus } from 'react-dom'
 import { X } from 'lucide-react'
 
 import { Icone } from '@/componentes/icone'
+import { formatarData } from '@/lib/datas'
+import { SITUACOES, TIPOS_ACAO, type TipoAcao } from '@/lib/sac-apoio'
 import {
   camposEditaveis,
   formatarDataHora,
@@ -25,6 +27,7 @@ import {
   restaurarProtocolo,
   salvarProtocolo,
 } from './acoes'
+import { emitirAvaliacao, salvarAcompanhamento } from './acoes-apoio'
 import type {
   CliforEncontrado,
   Entrega,
@@ -36,7 +39,7 @@ import type {
   PedidoEncontrado,
 } from './tipos'
 
-type UsuarioTela = { id: string; ehDiretor: boolean }
+type UsuarioTela = { id: string; ehDiretor: boolean; ehGestor?: boolean }
 
 // ------------------------------------------------------------------------- peças
 
@@ -319,6 +322,11 @@ export function FichaProtocolo({
           <p className="sf-selos">
             <SeloStatus id={p.status_id} opcoes={opcoes.status} />
             <SeloPrioridade id={p.prioridade_id} opcoes={opcoes.prioridades} />
+            {ficha.acompanhamento?.parado ? (
+              <span className="selo" data-tom="erro" data-teste="ficha-parado">
+                Parado há {ficha.acompanhamento.dias_sem_acao} dias
+              </span>
+            ) : null}
             {p.excluido_em ? (
               <span className="selo" data-tom="erro">
                 Excluído
@@ -483,6 +491,8 @@ export function FichaProtocolo({
             </dl>
           </form>
 
+          <Acompanhamento ficha={ficha} usuario={usuario} editavel={pode !== 'nenhum'} />
+
           {excluindo && diretoria && !p.excluido_em ? (
             <form action={excluir} className="sf-excluir" data-teste="form-excluir">
               <input type="hidden" name="id" value={p.id} />
@@ -546,6 +556,140 @@ export function FichaProtocolo({
   )
 }
 
+/**
+ * Acompanhamento do chamado (db/030): a foto de agora (prazo efetivo, última ação, cliente
+ * informado, fornecedor cobrado, situação), os campos que tornam um atraso "acompanhado"
+ * (prazo, depende do fornecedor, motivo da pendência) e a avaliação do atendimento.
+ */
+function Acompanhamento({ ficha, usuario, editavel }: { ficha: Ficha; usuario: UsuarioTela; editavel: boolean }) {
+  const [estado, salvar] = useActionState(salvarAcompanhamento, {})
+  const p = ficha.protocolo
+  const a = ficha.acompanhamento
+  const prazoTravado = Boolean(p.prazo_em) && !usuario.ehGestor
+  const ativo = editavel && !p.excluido_em
+  return (
+    <section className="sf-secao sf-acompanhamento" aria-labelledby="sf-acomp" data-teste="acompanhamento">
+      <h3 id="sf-acomp">Acompanhamento</h3>
+      {a ? (
+        <dl className="sf-dados sf-acomp-dados">
+          <div>
+            <dt>Situação</dt>
+            <dd>
+              <span className="selo" data-tom={SITUACOES[a.situacao].tom}>
+                {SITUACOES[a.situacao].rotulo}
+              </span>
+            </dd>
+          </div>
+          <div>
+            <dt>Prazo</dt>
+            <dd>
+              {formatarData(a.prazo)}
+              {a.prazo_definido ? '' : ' (padrão)'}
+            </dd>
+          </div>
+          <div>
+            <dt>Última ação</dt>
+            <dd>
+              {a.acoes === 0 ? 'nenhuma (abertura)' : formatarDataHora(a.ultima_acao_em)}
+              {a.fechado_em ? '' : ` · há ${a.dias_sem_acao} dia(s), limite ${a.dias_limite}`}
+            </dd>
+          </div>
+          <div>
+            <dt>Cliente informado</dt>
+            <dd>{a.cliente_informado ? 'Sim' : 'Ainda não'}</dd>
+          </div>
+          {a.aplica_fornecedor ? (
+            <div>
+              <dt>Fornecedor cobrado</dt>
+              <dd>{a.fornecedor_cobrado ? 'Sim' : 'Ainda não'}</dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
+      {ativo ? (
+        <form action={salvar} className="sf-form" data-teste="form-acompanhamento">
+          <input type="hidden" name="id" value={p.id} />
+          <div className="sf-campos">
+            <label className="campo">
+              <span>Prazo de solução{prazoTravado ? ' (só a gerência altera)' : ''}</span>
+              <input type="date" name="prazo_em" defaultValue={p.prazo_em ?? ''} readOnly={prazoTravado} data-teste="campo-prazo" />
+            </label>
+            <label className="caixa sf-caixa-campo">
+              <input type="checkbox" name="depende_fornecedor" defaultChecked={p.depende_fornecedor} />
+              A solução depende do fornecedor
+            </label>
+          </div>
+          <label className="campo">
+            <span>Motivo da pendência (por que ainda não foi resolvido)</span>
+            <textarea name="motivo_pendencia" rows={2} maxLength={2000} defaultValue={p.motivo_pendencia ?? ''} data-teste="campo-motivo" />
+          </label>
+          <div className="sf-linha-botoes">
+            <p className="sf-nota">
+              Atraso com motivo, cliente informado e fornecedor cobrado (se depender dele) conta como acompanhado. Registre os
+              contatos na aba Interações, com o tipo da ação.
+            </p>
+            <BotaoEnviar className="botao-secundario empurra" teste="gravar-acompanhamento">
+              Gravar acompanhamento
+            </BotaoEnviar>
+          </div>
+          <Mensagem estado={estado} />
+        </form>
+      ) : null}
+      {p.fechado_em && p.cliente?.tipo === 'cliente' && !p.excluido_em ? <Avaliacao ficha={ficha} /> : null}
+    </section>
+  )
+}
+
+/** Avaliação do atendimento (030 D8): convite tipo SAC ligado ao protocolo, link para copiar. */
+function Avaliacao({ ficha }: { ficha: Ficha }) {
+  const [estado, emitir] = useActionState(emitirAvaliacao, {})
+  const [link, setLink] = useState<string | null>(null)
+  useEffect(() => {
+    if (estado.link) setLink(estado.link)
+  }, [estado])
+  const av = ficha.avaliacao
+  const comEmail = ficha.contatos.filter((c) => c.email)
+  const url = link && typeof window !== 'undefined' ? `${window.location.origin}${link}` : link
+  return (
+    <div className="sf-avaliacao" data-teste="avaliacao-atendimento">
+      <p className="sf-nota">
+        <strong>Avaliação do atendimento: </strong>
+        {av?.usado_em
+          ? `respondida em ${formatarData(av.usado_em)}${av.nota !== null ? `, nota ${av.nota}` : ''}.`
+          : av?.enviado_em
+            ? `link emitido em ${formatarDataHora(av.enviado_em)}, ainda sem resposta.`
+            : 'ainda não pedida.'}
+      </p>
+      {av?.usado_em ? null : (
+        <form action={emitir} className="sf-linha-botoes">
+          <input type="hidden" name="protocolo_id" value={ficha.protocolo.id} />
+          <label className="campo sf-contato">
+            <span className="so-leitor">Contato que recebe</span>
+            <select name="contato_id" defaultValue={comEmail[0]?.id ?? ''}>
+              <option value="">Sem contato</option>
+              {comEmail.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome} ({c.email})
+                </option>
+              ))}
+            </select>
+          </label>
+          <BotaoEnviar className="botao-secundario" teste="emitir-avaliacao">
+            {av?.enviado_em ? 'Emitir novo link' : 'Pedir avaliação'}
+          </BotaoEnviar>
+        </form>
+      )}
+      {url ? (
+        <label className="campo">
+          <span>Link da avaliação: copie agora, ele não aparece de novo</span>
+          <input readOnly value={url} onFocus={(e) => e.currentTarget.select()} data-teste="link-avaliacao" />
+        </label>
+      ) : null}
+      {estado.erro ? <Mensagem estado={{ erro: estado.erro }} /> : null}
+    </div>
+  )
+}
+
 function rotuloFilial(f: Filial) {
   // "NOME / CNPJ", como `dd qualfilial` (bUDLM0).
   return `${f.nome_endereco}${f.documento ? ` / ${f.documento}` : ''} · ${f.uf}${f.ativo ? '' : ' (inativa)'}`
@@ -561,6 +705,7 @@ function mesclarEntregas(doPedido: Entrega[], ligadas: Entrega[]) {
 function AbaInteracoes({ ficha }: { ficha: Ficha }) {
   const [estado, registrar, registrando] = useActionState(registrarInteracao, {})
   const [visivel, setVisivel] = useState(false)
+  const [tipo, setTipo] = useState<TipoAcao>('atualizacao_interna')
   const formRef = useRef<HTMLFormElement>(null)
   const comEmail = ficha.contatos.filter((c) => c.email)
 
@@ -569,6 +714,7 @@ function AbaInteracoes({ ficha }: { ficha: Ficha }) {
     if (estado.ok) {
       formRef.current?.reset()
       setVisivel(false)
+      setTipo('atualizacao_interna')
     }
   }, [estado])
 
@@ -583,6 +729,9 @@ function AbaInteracoes({ ficha }: { ficha: Ficha }) {
               <p className="sf-interacao-cabeca">
                 <strong>{i.autor?.nome ?? 'Usuário'}</strong>
                 <span>{formatarDataHora(i.criado_em)}</span>
+                <span className="selo" data-tom={i.tipo_acao === 'atualizacao_interna' ? undefined : 'info'}>
+                  {TIPOS_ACAO[i.tipo_acao]?.rotulo ?? 'Atualização interna'}
+                </span>
                 {i.visivel_cliente ? (
                   <span className="selo" data-tom="ok">
                     Visível ao cliente
@@ -615,9 +764,21 @@ function AbaInteracoes({ ficha }: { ficha: Ficha }) {
         }}
       >
         <input type="hidden" name="protocolo_id" value={ficha.protocolo.id} />
+        <div className="sf-campos sf-acao">
+          <label className="campo">
+            <span>Tipo da ação</span>
+            <select name="tipo_acao" value={tipo} onChange={(e) => setTipo(e.target.value as TipoAcao)} data-teste="tipo-acao">
+              {(Object.keys(TIPOS_ACAO) as TipoAcao[]).map((t) => (
+                <option key={t} value={t}>
+                  {TIPOS_ACAO[t].rotulo}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <label className="campo">
-          <span>Nova interação</span>
-          <textarea name="descricao" rows={3} maxLength={10000} data-teste="nova-interacao" />
+          <span>Nova interação{tipo === 'atualizacao_interna' ? '' : ' (opcional: vazio grava a frase padrão do tipo)'}</span>
+          <textarea name="descricao" rows={3} maxLength={10000} placeholder={TIPOS_ACAO[tipo].padrao} data-teste="nova-interacao" />
         </label>
         <div className="sf-linha-botoes">
           <label className="caixa">

@@ -1,48 +1,47 @@
 # Estado do projeto e onde retomar
 
-Atualizado em 29/09/2026, fim da sessão. Este arquivo existe para que a próxima sessão comece sem reler nada.
+Atualizado em 30/09/2026, fim da sessão. Este arquivo existe para que a próxima sessão comece sem reler nada.
 
 ---
 
-## 0. RETOMAR AQUI (fim da sessão de 29/09/2026)
+## 0. RETOMAR AQUI (fim da sessão de 30/09/2026)
 
-**No ar:** https://app-megabox-1qwe.vercel.app (Vercel, Lure TI's projects; push no `main` = deploy).
-Login do dono: `fabiomirandago@gmail.com` com senha provisória (trocar). Versão nova publicada:
-tema claro/escuro (escuro preto + roxo da logo), logos oficiais em `public/marca/`, escala de 75% como
-padrão no desktop, cotação em tela cheia, cadastros e produtos em painel lateral, metas com pódio,
-relatórios refeitos do HTML original do Bubble com gráficos. `main` verificado: 461 testes, RLS
-49 + 77 + 120 + 105, build de produção ok.
+**No ar:** https://app-megabox-1qwe.vercel.app (push no `main` = deploy). Logins de teste de todos os
+usuários ativos em `.env` (`LOGIN_<NOME>`, fora do git). `main` verificado: 549+ testes, suítes de RLS
+verdes (vendas 100, financeiro 120, relatórios 105, início 16, histórico-SAC 95, metas-relatórios 26),
+build ok. Já no `main`: menu em branco, escala 75% como 100%, seletor de período em PT em todas as
+telas, relatórios de metas (Análise de Entregas, Relatório Anual) e popup de entregas com Excel/PDF,
+financeiro denso (17 linhas visíveis em 1920×1080), correção de open-redirect no login.
 
-**Cargas em andamento, interrompidas no fim da sessão** — carregadores no branch
-`wip/cargas-financeiro-historico` (NÃO revisados; revisar e fazer merge no `main`). As cargas são
-idempotentes por `bubble_id`: rodar de novo continua de onde parou. Estado no banco agora:
+**Branches WIP — interrompidos no fim da sessão, NÃO revisados, não fazer merge sem checar**
+(`tsc`, `eslint`, `vitest`, suítes de RLS, migration em `--seco` + `get_advisors` contra `specs/05`):
 
-| Tabela | No banco | No Bubble |
-|---|---:|---:|
-| niveis_vendedor | 10 | 10 |
-| metas_mensais | 105 | 112 |
-| metas_fechadas | 93 | 119 |
-| contas_receber | 1.400 | 3.032 (+372 importadas) |
-| contas_pagar / baixas / cobrancas | 0 | 3.457 / — / 565 |
-| historicos | 9.401 | 44.612 |
-| sac_protocolos / pesquisas / respostas | 2 / 4 / 20 | 2 / 3 / 463 |
+| Branch | Commit | Conteúdo |
+|---|---|---|
+| `w/perf` | aae93e5 | aviso global de carregamento (`componentes/aviso-acao*`), `lib/vendas-ficha.ts`, lentidão de carrinho/vencedor/envio de proposta, erro "Parte desta cotação não carregou", lista de cotações sumindo após enviar proposta. Migration 028 reservada. |
+| `w/proposta` | c09bb63 | tela única proposta → pedido → entregas (caminhões), prazos de pagamento claros; `db/029_pedido_saldo_rateio.sql` |
+| `w/sac2` | 1ef6728 | metas trimestrais do Apoio Comercial (4 indicadores 25/25/30/20; item 4 = 10/5/5), ocorrências, alertas de chamado parado; `db/030_sac_apoio_comercial.sql`, `lib/sac-apoio.ts`, `scripts/testar-rls-sac-apoio.mjs`. Falta tela e relatório trimestral. |
+| `w/fin2` | 66fbb61 | cores do financeiro (sem mover elementos) |
+| `w/e2e` | 37304e2 | `scripts/e2e-fluxo-completo.mjs` com LURE CLIENTE / LURE FORNECEDOR, tempos por etapa, duplicar pedido sem duplicar financeiro |
+| `cargas-final` | 6f97bd0 | carregadores finais (worktree `../wt-cargas`, 5 commits à frente do `main`) |
 
-Próximos passos, nesta ordem:
-1. Revisar os dois carregadores do branch WIP (decisões: baixas implícitas nas contas pagas, escala da
-   comissão, colisão das duas origens de conta a pagar, contas importadas, preservação de autor/data
-   do histórico em modo réplica) e terminar as cargas **uma por vez**; depois `testar-rls-financeiro`
-   e `testar-rls-historico-sac`.
-2. Retomar a cópia dos arquivos de entrega (~4.800 faltando):
-   `node tools/copiar-arquivos-bubble.mjs --so entregas --paralelo 1 --lote 200 --pausa-lote 60`.
-3. **Supabase Micro → Small** (dono). Ainda há rajadas de timeout sob carga.
-4. Pendências de tela registradas em `specs/04-duvidas.md`: limpeza de cotação em rascunho abandonada;
-   clique fora do painel de produto novo descarta o digitado; contorno de foco no painel lateral.
-5. Conferências da Diretoria em `specs/04`: meta diária, pódio só Regular, números de Cotação/Prospecção
-   e o frete somado no orçamento.
-6. `app-megabox.vercel.app` ainda 404: adicionar o domínio em Settings → Domains do projeto.
+Ordem sugerida de merge: perf → proposta → fin2 → sac2 → e2e (roda por último, contra tudo) → cargas-final.
+Migration 031 livre.
 
-Worktrees locais que podem ser removidos: `../app-megabox-v2` (branch `v2`, já no `main`) e os de
-`.claude/worktrees/` (branches `vis/*`, já no `main`).
+**Cargas** (idempotentes por `bubble_id`, rodar de novo continua): historicos 22.802 / 44.612;
+contas_pagar 3.367; baixas 2.611; cobrancas 551; pesquisa_respostas 20 / 463. Depois do histórico:
+`fn_historico_espelho_recalcular` (alimenta "Última conversa"), respostas SAC/NPS e a cópia dos
+arquivos de entrega (`node tools/copiar-arquivos-bubble.mjs --so entregas --paralelo 1 --lote 200 --pausa-lote 60`).
+
+**Investigar:** 4.443 de 10.790 `proposta_itens` apontam para orçamentos com ICMS/PIS = 0 (provável
+artefato da carga); entregas antigas com comissão absurda (até R$ 19,6 mi) distorcem o Relatório Anual.
+
+**Decisão do dono:** estilo do pódio de metas (A/B/C/D).
+
+**Com o usuário:** Supabase Micro → Small; domínio `app-megabox.vercel.app` em Settings → Domains;
+rotacionar segredos (chave do Bubble colada no chat, Gmail etc.); Vercel Pro para o cron de e-mail;
+configurar Resend (hoje `EMAIL_MODO=registro`, nada é enviado). Celular fica para a fase posterior
+(`specs/03` §10).
 
 ## 1. Onde o projeto está (~80%)
 

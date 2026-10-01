@@ -433,6 +433,10 @@ mesma regra, e toda FK é uuid lido do banco.
 | conta_pagar_entregas | — | 3.170 | 3.159 de CP de entrega, 11 de CP de meta; ver a colisão abaixo |
 | cobrancas | 575 | 551 | 24 sem fornecedor determinável (18 sem fornecedor e sem conta nenhuma; 6 com contas não carregadas) |
 | cobranca_contas | 2.463 | 2.409 | 54 ponteiros para CR não carregada. `seq_cobranca_numero` → próximo 576 |
+| historicos (01/10) | 44.703 | 42.909 (+3 da app) | 1.794: 1.057 sem cliente no Bubble, 363 autor (`Created By`) sem usuário carregado, 354 descrição vazia, 19 cliente não carregado, 1 sem `Created By`. Espelho "Última conversa" recalculado: 4.075 grupos |
+| pesquisas / pesquisa_convites | 3 / 463 | 3 (+1 Pós-Venda) / 444 | 19 convites vazios (sem campanha, sem tipo, sem resposta) |
+| pesquisa_respostas | 20 | 20 | — : só 20 das 463 linhas têm `Respondida = true`; o resto é convite |
+| sac_protocolos / sac_interacoes | 2 / 3 | 2 / 3 | — (1 anexo de protocolo ainda URL do CDN) |
 
 **Conferência de dinheiro** (só linhas carregadas, Bubble × banco):
 

@@ -409,6 +409,138 @@ ambos Lucro Real/Presumido, caso em que as alíquotas hoje ficam vazias e os tri
 
 ---
 
+### Carga do financeiro, metas, histórico e SAC (30/09/2026)
+
+Carregadores: `tools/carregar-supabase.mjs` (metas, CR, CP, cobranças) e
+`tools/carregar-historico-sac.mjs` (histórico, SAC, NPS). Dados frescos da Data API em 30/09 (o
+Bubble segue em produção: os números do Bubble abaixo são desse dia). Tudo idempotente por
+`bubble_id`, uma carga por vez, lotes de 200. Financeiro e metas gravam em **modo réplica**
+(`session_replication_role = replica`, ver o comentário das fatias 7–8 no carregador): os triggers
+recalculariam ou recusariam valores históricos; o que eles derivariam é derivado no carregador com a
+mesma regra, e toda FK é uuid lido do banco.
+
+| Tabela | Bubble | Banco | Fora, e por quê |
+|---|---:|---:|---|
+| niveis_vendedor | 10 | 10 | — (+ 37 vigências em `vendedor_nivel_historico`, reconstruídas do nível congelado nas metas) |
+| metas_mensais | 112 | 105 | 7 repetidas em (vendedor, competência, tipo): fica a com fechamento/TipoMeta/mais recente |
+| metas_fechadas | 119 | 93 | 26 sem meta mensal que as aponte (quase todas antes da 1ª meta, 05–07/2025) |
+| meta_fechada_entregas | — | 1.516 | 73 entregas já em fechada mais antiga (índice `entrega_em_uma_meta_so`); 44 ponteiros para entrega fora da carga |
+| Tbl.MetaAdicional | 2 | — | não migra (011, metas [DÚVIDA 11]) |
+| contas_receber | 3.035 | 2.957 | 70 com entrega fora da carga (62 entregas), 8 sem entrega |
+| Tbl.ContasReceberImportado | 372 | — | não migra (02 §9) — ver abaixo |
+| baixas (CR) | — | 2.611 | implícitas; ver abaixo |
+| contas_pagar | 3.464 | 3.367 | 79 com entrega fora da carga, 17 sem entrega nem meta, 1 de meta sem fechada carregada |
+| conta_pagar_entregas | — | 3.170 | 3.159 de CP de entrega, 11 de CP de meta; ver a colisão abaixo |
+| cobrancas | 575 | 551 | 24 sem fornecedor determinável (18 sem fornecedor e sem conta nenhuma; 6 com contas não carregadas) |
+| cobranca_contas | 2.463 | 2.409 | 54 ponteiros para CR não carregada. `seq_cobranca_numero` → próximo 576 |
+| historicos (01/10) | 44.703 | 42.909 (+3 da app) | 1.794: 1.057 sem cliente no Bubble, 363 autor (`Created By`) sem usuário carregado, 354 descrição vazia, 19 cliente não carregado, 1 sem `Created By`. Espelho "Última conversa" recalculado: 4.075 grupos |
+| pesquisas / pesquisa_convites | 3 / 463 | 3 (+1 Pós-Venda) / 444 | 19 convites vazios (sem campanha, sem tipo, sem resposta) |
+| pesquisa_respostas | 20 | 20 | — : só 20 das 463 linhas têm `Respondida = true`; o resto é convite |
+| sac_protocolos / sac_interacoes | 2 / 3 | 2 / 3 | — (1 anexo de protocolo ainda URL do CDN) |
+
+**Conferência de dinheiro** (só linhas carregadas, Bubble × banco):
+
+- Metas fechadas: comissão MegaBox 847.581,09 = 847.581,09; comissão do vendedor 44.997,02 × 44.997,03
+  (+0,01: uma fechada em que o Bubble truncou um `,xx5` em float e o check `comissao_coerente` exige o
+  arredondamento do banco). Valor das metas mensais 1.578.300,00 = 1.578.300,00. As 26 fechadas fora
+  somam 306.469,86 de realizado e 12.437,64 de comissão do vendedor.
+- Contas a receber: comissão 1.602.780,35 = 1.602.780,35. Venda: 54.145.670,71 no Bubble × 47.464.150,94
+  no banco — a diferença é o rateio D3 da 010 (o Bubble grava a venda CHEIA em cada parcela; o banco
+  rateia, e a soma bate com a venda bruta das 2.700 entregas ao centavo). Em 281 entregas a soma da
+  comissão das parcelas ≠ comissão da entrega (líquido 3.108,19): entram como o Bubble tem, visíveis em
+  `v_conferencia_comissao_entrega` (D4). As 78 CR fora somam 36.402,57 de comissão (34.352,57 das 70 com
+  entrega fora + 2.050,00 das 8 sem entrega).
+- Situação da CR: 2.611 recebidas (1.411.161,59, = Σ das baixas) e 346 a receber (saldo 191.618,76 em
+  `v_contas_receber`).
+- Contas a pagar: comissão 7.475.693,94 × 7.475.693,95 (+0,01: a mesma fechada). Ativas: 3.159 de entrega
+  (7.411.332,17) e 93 de meta (44.997,03); canceladas pela carga: 115 (19.364,75). As 97 fora somam
+  152.145,50 (151.167,00 das 79 com entrega fora).
+
+**Decisões da carga — [DÚVIDA] para o negócio conferir:**
+
+1. **Baixa implícita.** O Bubble não tem baixa: carimba a conta. Há baixa quando o status é "Recebido"
+   (ou vazio com `DataBaixaSistema`), com o valor inteiro da comissão, `dt_baixa = DataBaixaSistema`,
+   `dt_credito = DataRecebimentoBancocaixa` e a NF MegaBox (2.428 das 2.611 com número). "A receber" com
+   carimbo (4) não tem baixa: vale o status. "Recebido" com comissão 0 (4) fica A receber (baixa exige
+   valor > 0). Quem baixou: `QuemBaixou`, e o criador da CR em 7 casos sem ele. Os 1.684 anexos de NF
+   MegaBox ainda são URL do CDN (passo de arquivos).
+2. **Estornos não são reconstruídos.** 71 CR têm `DataEstorno`, todas hoje "Recebido" e com o estorno
+   ANTES da baixa atual: o estorno do Bubble (bTrtf) não apaga a baixa, e a seguinte a sobrescreveu
+   (`financeiro-reusables` §4.7, "irrecuperável"). Inventar a baixa estornada (data e NF perdidas) seria
+   pior; a data do estorno ficou na `observacao` da baixa atual (66 — as outras 5 são de CR fora da
+   carga). `estornos` fica vazia. Contas a pagar: nenhuma está "Pago" no Bubble (3.268 "A pagar", 194
+   vazias, 2 "A receber") → nenhuma baixa nem estorno de CP.
+3. **`Tbl.ContasReceberImportado` não migra** (02 §9: rotina antiga, já cumprida). Medido: as 372 linhas
+   casam por número de NF com entregas do Bubble (371 delas no banco), e as 163 CR com `Importado` têm
+   todas a entrega carregada — o conteúdo da tabela já está nas entregas/CR que o importador (bTmHH) gerou.
+4. **As duas origens de conta a pagar — COLISÃO MEDIDA.** 1.578 das entregas das fechadas (71 CP de
+   meta) também têm CP de 3% da confirmação (bToYh) para o MESMO vendedor. Somam 849.749,20 de comissão
+   MegaBox. Como `ComissaoPadrao` = 3% nos 10 níveis, a CP de meta sem meta batida paga exatamente o que
+   as CP de 3% já pagam: com as duas, o vendedor receberia em dobro. O Bubble não mostra qual foi paga
+   (nenhuma CP está "Pago"). *Decisão da carga:* **as duas contas entram** (é o que o Bubble registra
+   como "A pagar"), e a ligação em `conta_pagar_entregas` (única por entrega e vendedor) fica com a CP de
+   ENTREGA — é o ponteiro 1:1 que o Bubble tem (`QualEntrega`); a lista da meta é derivada. Por isso as
+   CP de meta têm só 11 ligações. *Recomendação padrão:* a Diretoria decide a regra (`p_gerar_conta_pagar`
+   em `fn_confirmar_entrega`/`fn_fechar_meta`); se for "o fechamento consolida", um script cancela as CP
+   de 3% das entregas fechadas (cancelamento lógico, com motivo) e passa as ligações para a CP de meta.
+5. **CP de entrega repetida** (mesma entrega e vendedor, 115): fica a mais antiga; as outras entram
+   CANCELADAS com motivo (o índice `contas_pagar_entrega_uidx` recusaria duas ativas).
+6. **Valor da CP de entrega é o do Bubble, ao centavo.** Percentual 0,0300 (B4) e a base que reproduz a
+   `ValorComissao`: 3.022 pela comissão da entrega, 6 pelo `ValorTotal` da CP, 246 pela base implícita
+   `ValorComissao ÷ 0,03` (comissão alterada à mão, ou entrega alterada depois).
+7. **[DÚVIDA] 19 CP de entrega ativas acima de R$ 5.000 somam 7.308.577,93** — 98% de todo o "a pagar" de
+   entrega. São dado corrompido no Bubble. No Bubble há 21 acima de R$ 5.000 (19 ativas no banco: 1 tem
+   entrega fora da carga e 1 é repetida, cancelada): 2 de 22/07/2025 somam 6.295.374,01 sozinhas (valor
+   sem relação nenhuma com a entrega, sem motivo); 15 vêm da importação de 16/04/2025 (1.019.494,53), em
+   que a comissão da ENTREGA saiu maior que a própria venda; e 4 de 08–09/2025 (161.085,39) têm valor
+   muitas vezes maior que 3% da comissão da entrega, também sem motivo gravado. Entraram fiéis ao Bubble (lá também aparecem
+   "A pagar").
+   *Recomendação padrão:* o Financeiro revisa pela tela e cancela com motivo; nenhum relatório de comissão
+   deve ser lido antes disso. Critério para achar: `v_contas_pagar where origem = 'entrega' and
+   valor_comissao > 5000`. Nas 15 importadas a ENTREGA de origem também tem a comissão corrompida (e
+   o realizado de meta ou relatório que a somar) — conferir na página vendas.
+8. **Contas cujas entregas não estão no banco.** 106 entregas antigas do Bubble ficaram fora da carga de
+   vendas de 29/09 (73 com orçamento não carregado, 32 sem pedido, 1 os dois) e 15 foram criadas depois
+   dela. Isso leva junto 70 CR e 79 CP. Voltam sozinhas numa recarga das vendas + financeiro no corte.
+9. **[DÚVIDA] Orçamentos com ICMS e PIS/COFINS = 0 (investigado em 01/10, sem alterar dado).**
+   4.432 dos 10.790 `proposta_itens` (4.428 orçamentos, de 12/2024 a 09/2026, espalhados no tempo)
+   apontam para orçamento com `aliquota_icms = 0` e `aliquota_pis_cofins = 0`. **É dado real do
+   Bubble, não artefato da carga:** 38 de 38 amostras aleatórias lidas na Data API têm
+   `TributosICMS`/`TributoPISCOFINS` vazios (omitidos pela API) ou 0, e o próprio Bubble calculou
+   `ValorICMS = 0`, `ValorPISCOFINS = 0` e líquido = bruto. Controle: os orçamentos com alíquota no
+   banco têm o mesmo valor no Bubble (0,18/0,0925; 0,07/0,0925). No mapa as alíquotas são campos
+   DIGITADOS (`ip icms` bThsE e `ip piscofins` bThry em pagina-vendas, auto-binding, sem valor
+   padrão): vazio = ninguém digitou. O carregador grava vazio → 0 de propósito (com nulo o trigger
+   consultaria a tabela de ICMS de HOJE para uma linha histórica).
+   *Recomendação padrão:* manter como está (histórico fiel). Para orçamento NOVO, a tela deve sugerir a
+   alíquota da tabela `icms_aliquotas` (comportamento do trigger com nulo) em vez de começar em 0;
+   relatório de margem deve sinalizar "sem tributo informado" em vez de tratar como isento. Se o
+   Comercial disser que 0 era sempre esquecimento, um script pode preencher pela tabela — decisão do
+   negócio, não da carga.
+10. **[DÚVIDA] Entregas importadas com comissão absurda (investigado em 01/10, sem alterar dado).**
+    As maiores: R$ 19.600.000,00 (venda de R$ 2.800,00), 2.592.000,00 (venda 720,00), 1.461.681,00,
+    1.026.432,00… **22 entregas da importação de 14/03/2025** (`Importado = true`, bubble_id `17419…`)
+    somam R$ 29.717.065,75 de comissão, centenas a milhares de vezes a venda bruta (uma 23ª do mesmo lote tem
+    venda 0 e comissão 340,00 — escala plausível, fora desta conta). **A causa está no Bubble,
+    não no carregador:** a Data API devolve `ValorComissaoBruto = 19.600.000` para a entrega de 7.000 un
+    × R$ 0,40. O padrão é **quantidade aplicada duas vezes**: `ValorComissaoBruto = QtdEntrega × X`,
+    em que X já era um TOTAL — em 17 das 22, X é a própria venda bruta (19.600.000 = 7.000 × 2.800);
+    em 4, X fica a menos de 1% da venda bruta (ex.: 445,05 × 446,70); em 1, X = qtd × comissão
+    unitária do orçamento (189.843,75 = 375 × 506,25 = 375 × 375 × 1,35).
+    O carregador preserva o total do Bubble (`unitarioQueFecha`) e por isso o unitário no banco
+    (`valor_comissao_unit`) ficou = X. Fora desse lote há 57 entregas com comissão > venda, somando só
+    R$ 37.206,19 (escala plausível, provavelmente comissão alterada à mão — conferir caso a caso).
+    Alcance: nenhuma está em meta fechada nem tem conta a receber (as 3 CR do lote são da 23ª, a de
+    comissão 340,00); todas têm conta a pagar — são as CP "da importação" do item 7.
+    *Recomendação padrão:* não corrigir na carga (o carregador é fiel e não é bug dele). Correção
+    proposta, para o Financeiro aprovar: nas 22 entregas `Importado` de 14/03/2025 com comissão > venda,
+    `valor_comissao_unit := valor_comissao_unit ÷ qtd` (desfaz a 2ª multiplicação; nas 17 em que o
+    resultado é o preço de venda unitário, isso ainda é comissão de 100% — então nessas a comissão
+    correta deve vir da CR/contrato, não de fórmula), por script com motivo em
+    `motivo_alteracao_valores`, e as CP derivadas canceladas/refeitas como no item 7.
+
+---
+
 ## 2. Respondidas pela referência visual
 
 `specs/bubble/02-telas-e-design.md` (Claude in Chrome) viu as telas renderizadas e fechou dúvidas

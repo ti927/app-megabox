@@ -38,7 +38,12 @@ import { join } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import pg from 'pg'
 
-const LOTE = 500
+/** 200, não 500: a instância é Micro e caiu por carga (lote grande = transação longa). */
+const LOTE = 200
+/** Tabela com mais linhas que isto é "grande": entre um lote e outro dela, `pausaMs` de respiro. */
+const GRANDE = 1000
+/** Pausa entre lotes de tabela grande; `--pausa <segundos>` troca (padrão 60 s). */
+let pausaMs = 60_000
 /** Marca, no modo relatório, o bubble_id que ESTA rodada gravaria (ver `traduzir` em `main`). */
 const PREVISTO = '(previsto)'
 
@@ -569,6 +574,210 @@ const MAPA = {
     validar: entregaDaMesmaCotacao,
     posCarga: preservarSubstituto,
   },
+
+  // ------------------------------------------------------ fatias 7–8: metas e financeiro
+  // Ordem de dependência: níveis → metas mensais → metas fechadas → CR → CP → cobranças.
+  //
+  // MODO RÉPLICA (`replica: true`): a gravação vai por SQL direto (`pg`), em transação com
+  // `session_replication_role = replica`, como o `preservarSubstituto` das entregas. Motivo: são
+  // valores HISTÓRICOS que os triggers recalculariam ou recusariam — o rateio da CR (D4 da 010
+  // manda exatamente isto: "carregar com replica e medir a divergência pela view"), o status
+  // derivado das baixas (D5), a CR/CP de entrega hoje cancelada (recusada no INSERT), o
+  // `fechada_em = now()` da meta fechada. CUSTO, assumido e compensado aqui:
+  //   - FK também não é conferida em réplica (é trigger interno). Por isso toda FK destas tabelas
+  //     é uuid lido do BANCO (tradução por bubble_id ou `entregaDb`), nunca montado à mão;
+  //   - o que os triggers derivariam é derivado aqui, com a mesma regra (identidade da entrega,
+  //     competência, status das baixas, retrato da meta);
+  //   - `auditoria` não recebe linha da carga, e `alterado_em` fica o do Bubble;
+  //   - check e unique continuam valendo (não são trigger).
+  // Documentado em specs/04-duvidas.md ("Carga de financeiro e metas").
+
+  'tbl.niveisvendedores': {
+    tabela: 'niveis_vendedor',
+    obrigatorias: ['nome', 'ordem', 'meta_venda', 'comissao_padrao', 'comissao_meta_batida'],
+    unicos: [['nome'], ['ordem']],
+    col: {
+      nome: (r) => texto(r['cpo.NomeNivel']),
+      ordem: (r) => num(r['cpo.Ordem']),
+      meta_venda: (r) => num(r['cpo.MetaVenda']),
+      // B3 MEDIDA (29/09): FRAÇÃO. ComissaoPadrao = 0.03 nos 10 níveis (os mesmos 3% fixos da CP de
+      // entrega) e ComissaoMetaBatida 0.05–0.10; e 70 de 72 metas fechadas com realizado reproduzem
+      // TotalComissaoVendedor = round(TotalComissaoMegabox × fator, 2) com o valor CRU. Nada de ÷ 100.
+      // Fora de 0..1 → nulo → descartada e contada (o check recusaria).
+      comissao_padrao: (r) => fracao(r['cpo.ComissaoPadrao']),
+      comissao_meta_batida: (r) => fracao(r['cpo.ComissaoMetaBatida']),
+      qtd_meta_batida: (r) => numOu0(r['cpo.QtdMetaBatida']),
+    },
+    // `QuaisVendedores` não vem na API (e a FK é o lado do usuário); `old_ValorBonus` não migra.
+    posCarga: nivelDosUsuarios,
+  },
+
+  'tbl.metasmensais': {
+    tabela: 'metas_mensais',
+    obrigatorias: ['vendedor_id', 'competencia', 'tipo_meta_id', 'valor_meta', 'periodo_inicio', 'periodo_fim'],
+    // unique (vendedor, competência, tipo) com PREFERÊNCIA (não "a mais antiga"): ver metaRepetida.
+    preparar: prepararMetasMensais,
+    validar: metaRepetida,
+    col: {
+      valor_meta: (r) => num(r['cpo.ValorMeta']),
+      periodo_inicio: (r) => data(r['cpo.DataInicio']),
+      periodo_fim: (r) => data(r['cpo.DataFim']),
+      // O trigger deriva igual (dia 1 do mês do início); vai aqui porque é `not null`.
+      competencia: (r) => primeiroDoMes(data(r['cpo.DataInicio'])),
+      observacao: (r) => texto(r['cpo.Observacao']),
+    },
+    dom: {
+      // 6 metas sem TipoMeta (as primeiras, de 07/2025): Regular, que é o tipo de todas as outras
+      // daquele mês e o default de bTwBh.
+      tipo_meta_id: { de: 'cpo.TipoMeta', tabela: 'tipos_meta', padrao: 1 },
+    },
+    ref: {
+      vendedor_id: { de: 'cpo.QualVendedor', tabela: 'usuarios' },
+      nivel_id: { de: 'cpo.QualNivel', tabela: 'niveis_vendedor' },
+    },
+    // `RankingVendas` vira view (D2 da 011); `QualMetaFechada` é o lado N de metas_fechadas (D6).
+    posCarga: historicoDeNivel,
+  },
+
+  'tbl.metasfechadas': {
+    tabela: 'metas_fechadas',
+    replica: true, // fechada_em/fechada_por históricos; o trigger poria now() e auth.uid()
+    obrigatorias: [
+      'meta_mensal_id',
+      'vendedor_id',
+      'tipo_meta_id',
+      'competencia',
+      'periodo_inicio',
+      'periodo_fim',
+      'nivel_id',
+      'valor_meta',
+      'total_comissao_megabox',
+      'fator_comissao',
+      'total_comissao_vendedor',
+      'fechada_por',
+    ],
+    // Liga a fechada à meta (o ponteiro do Bubble é o CONTRÁRIO: MetasMensais.QualMetaFechada) e
+    // copia o retrato da META, como o trigger fn_meta_fechada_derivados faria (campos `_mm.*`).
+    preparar: prepararMetasFechadas,
+    col: {
+      competencia: (r) => primeiroDoMes(data(r['_mm.DataInicio'])),
+      periodo_inicio: (r) => data(r['_mm.DataInicio']),
+      periodo_fim: (r) => data(r['_mm.DataFim']),
+      valor_meta: (r) => num(r['_mm.ValorMeta']),
+      total_comissao_megabox: (r) => fatoMeta(r, (f) => reais(f.realizado)),
+      percentual_atingido: (r) => fatoMeta(r, (f) => f.percentual),
+      fator_comissao: (r) => fatoMeta(r, (f) => f.fator),
+      total_comissao_vendedor: (r) => fatoMeta(r, (f) => reais(f.comissao)),
+      fechada_em: (r) => texto(r['Created Date']),
+    },
+    dom: {
+      tipo_meta_id: { de: '_mm.TipoMeta', tabela: 'tipos_meta', padrao: 1 },
+    },
+    ref: {
+      meta_mensal_id: { de: '_mm', tabela: 'metas_mensais' },
+      vendedor_id: { de: '_mm.QualVendedor', tabela: 'usuarios' },
+      nivel_id: { de: '_mm.QualNivel', tabela: 'niveis_vendedor' },
+      fechada_por: { de: 'Created By', tabela: 'usuarios' },
+    },
+    // MesNome/MesNumero/AnoNumero derivam da competência (D7); QuaisContasPagar é o lado N;
+    // QuaisContasReceber não tem destino no modelo novo (a fechada liga ENTREGAS).
+    posCarga: ligarEntregasDaMeta,
+  },
+
+  'tbl.contasreceber': {
+    tabela: 'contas_receber',
+    replica: true, // rateio histórico ≠ entrega (D4) e CR de entrega hoje cancelada
+    obrigatorias: [
+      'entrega_id',
+      'pedido_id',
+      'cotacao_id',
+      'orcamento_fornecedor_id',
+      'cliente_id',
+      'fornecedor_id',
+      'vendedor_id',
+      'parcela',
+      'parcelas_total',
+      'valor_total',
+      'valor_comissao',
+      'dt_vencimento',
+    ],
+    preparar: prepararContasReceber,
+    col: {
+      // D7: identidade SEMPRE da entrega (o trigger sobrescreveria do mesmo jeito).
+      ...identidadeDaEntrega(['pedido_id', 'cotacao_id', 'proposta_id', 'orcamento_fornecedor_id', 'cliente_id', 'fornecedor_id', 'vendedor_id']),
+      parcela: (r) => parcelaCR.get(r._id)?.i ?? null,
+      parcelas_total: (r) => parcelaCR.get(r._id)?.n ?? null,
+      // D3: VENDA RATEADA (o Bubble grava a venda cheia em cada parcela — [DÚVIDA 3]).
+      valor_total: (r) => parcelaCR.get(r._id)?.valor_total ?? null,
+      // Comissão: a do Bubble, por parcela (é o dinheiro que foi cobrado e recebido).
+      valor_comissao: (r) => dinheiro(r['cpo.ValorComissao']),
+      motivo_altera_comissao: (r) => texto(r['cpo.MotivoAlteraComissao']),
+      dt_vencimento: (r) => data(r['cpo.DataVencimento']),
+      // D5: espelho das baixas — 2 só se a carga grava a baixa implícita (ver gravarBaixasCR).
+      status_id: (r) => (baixaImplicitaCR(r) && (num(r['cpo.ValorComissao']) ?? 0) > 0 ? 2 : 1),
+      arquivado: (r) => bool(r['cpo.Arquivado']),
+    },
+    dom: {
+      prazo_id: { de: 'cpo.QualPrazo', tabela: 'prazos_recebimento' },
+    },
+    ref: {
+      entrega_id: { de: 'cpo.QualEntrega', tabela: 'entregas' },
+    },
+    // Não migram (D7 da 010: vêm por join da entrega): datas, NF do fornecedor, qtd, unitários,
+    // origem/destino, NumeroPedido. `QualCobranca`/`CobrancaNum`/`QuaisCobrancas` = cobranca_contas.
+    // `Importado`/`QdtParcelas` (flag e resto da rotina antiga, 02 §9). `QuaisHistoricos`: fatia 9.
+    posCarga: gravarBaixasCR,
+  },
+
+  'tbl.contaspagar': {
+    tabela: 'contas_pagar',
+    replica: true, // CP de entrega hoje cancelada seria recusada no INSERT; valores históricos
+    obrigatorias: ['origem', 'vendedor_id', 'valor_base', 'percentual', 'dt_vencimento'],
+    preparar: prepararContasPagar,
+    col: {
+      origem: (r) => cpInfo.get(r._id)?.origem ?? null,
+      ...identidadeDaEntrega(['pedido_id', 'cotacao_id', 'orcamento_fornecedor_id', 'cliente_id', 'fornecedor_id'], (r) =>
+        cpInfo.get(r._id)?.origem === 'entrega' ? r['cpo.QualEntrega'] : null,
+      ),
+      // Reserva: o vendedor da entrega (3 CPs sem QualVendedor). O `ref` abaixo sobrescreve quando
+      // o ponteiro do Bubble resolve — é a quem o Bubble paga.
+      vendedor_id: (r) => (cpInfo.get(r._id)?.origem === 'entrega' ? (entregaDb.get(r['cpo.QualEntrega'])?.vendedor_id ?? null) : null),
+      valor_base: (r) => cpInfo.get(r._id)?.base ?? null,
+      percentual: (r) => cpInfo.get(r._id)?.pct ?? null,
+      motivo_altera_comissao: (r) => texto(r['cpo.MotivoAlteraComissao']),
+      dt_vencimento: (r) =>
+        data(r['cpo.DataVencimento']) ??
+        (cpInfo.get(r._id)?.origem === 'entrega' ? dia5MesSeguinte(entregaDb.get(r['cpo.QualEntrega'])?.dt_entrega) : null),
+      // Nenhuma CP do Bubble está "Pago" (medido: 3.261 "A pagar", 194 vazias, 2 "A receber"):
+      // nenhuma baixa implícita, todas 3 "A pagar".
+      status_id: () => 3,
+      // Preenchidos por `cancelarRepetidasCP` (sempre presentes: a recarga desfaz o que mudou).
+      cancelada_em: () => null,
+      motivo_cancelamento: () => null,
+    },
+    ref: {
+      entrega_id: { de: 'cpo.QualEntrega', tabela: 'entregas', se: (l) => l.origem === 'entrega' },
+      meta_fechada_id: { de: 'cpo.QualMetaFechada', tabela: 'metas_fechadas', se: (l) => l.origem === 'meta' },
+      vendedor_id: { de: 'cpo.QualVendedor', tabela: 'usuarios' },
+    },
+    validar: origemCoerenteCP,
+    antesDeGravar: cancelarRepetidasCP,
+    posCarga: ligarEntregasDaCP,
+  },
+
+  'tbl.cobrancas': {
+    tabela: 'cobrancas',
+    obrigatorias: ['numero', 'fornecedor_id'],
+    preparar: prepararCobrancas,
+    col: {
+      numero: (r) => num(r['cpo.NumeroCobranca']),
+      fornecedor_id: (r) => fornecedorCobranca.get(r._id) ?? null,
+      // bTpUa cria a cobrança e manda o e-mail no mesmo workflow: criada = enviada.
+      enviada_em: (r) => texto(r['Created Date']),
+    },
+    // `AnexoLink`/`AnexoFile` são URL do CDN → passo de arquivos (contados no posCarga).
+    posCarga: ligarContasDaCobranca,
+  },
 }
 
 // ------------------------------------------------------------- apoio das fatias 4–6
@@ -891,6 +1100,820 @@ function contarArquivos(linhas) {
   )
 }
 
+// ------------------------------------------------------------- apoio das fatias 7–8
+// DINHEIRO: tudo em CENTAVOS INTEIROS e gravado como TEXTO numeric ("1234.50"), que o Postgres
+// converte sem passar por float (CLAUDE.md regra 10). Só a leitura do Bubble é float (é o que ele
+// guarda); ela é arredondada ao centavo uma vez, na entrada.
+
+/** Número do Bubble em FRAÇÃO 0..1, ou null (o check `between 0 and 1` recusaria). */
+const fracao = (v) => {
+  const x = num(v)
+  return x !== null && x >= 0 && x <= 1 ? x : null
+}
+/** Float do Bubble → centavos inteiros. */
+const centavosDe = (v) => (num(v) === null ? null : Math.round(num(v) * 100))
+/** Texto numeric do banco ("1234.50") → centavos inteiros, exato. */
+function centavosDoBanco(t) {
+  if (t === null || t === undefined) return null
+  const s = String(t)
+  const [i, d = ''] = s.replace('-', '').split('.')
+  const c = Number(i) * 100 + Number(`${d}00`.slice(0, 2))
+  return s.startsWith('-') ? -c : c
+}
+/** Centavos → texto numeric exato. */
+const reais = (c) => (c === null || c === undefined ? null : (c / 100).toFixed(2))
+/** Dinheiro do Bubble → texto com 2 casas; negativo → null (checks `>= 0`). */
+const dinheiro = (v) => {
+  const c = centavosDe(v)
+  return c === null || c < 0 ? null : reais(c)
+}
+/** `round(centavos/100 × fator, 2)` do Postgres, em centavos e exato (fator com 4 casas). */
+const comissaoDe = (centavos, fator) => Math.round((centavos * Math.round(fator * 10000)) / 10000)
+/**
+ * fn_valor_parcela (D3 da 010) em centavos: round(total/n) nas i < n, a sobra na última; com a
+ * mesma guarda (trunc) para a última nunca ficar negativa.
+ */
+function valorParcela(total, n, i) {
+  let base = Math.round(total / n)
+  if (base * (n - 1) > total) base = Math.trunc(total / n)
+  return i < n ? base : total - base * (n - 1)
+}
+const primeiroDoMes = (d) => (d ? `${d.slice(0, 8)}01` : null)
+/** fn_vencimento_conta_pagar (D10 da 010): dia 5 do mês seguinte. */
+function dia5MesSeguinte(d) {
+  if (!d) return null
+  const [a, m] = d.split('-').map(Number)
+  return m === 12 ? `${a + 1}-01-05` : `${a}-${String(m + 1).padStart(2, '0')}-05`
+}
+function diaSeguinte(d) {
+  const x = new Date(`${d}T12:00:00Z`)
+  x.setUTCDate(x.getUTCDate() + 1)
+  return x.toISOString().slice(0, 10)
+}
+const porAntiguidade = (a, b) =>
+  String(a.criado_em).localeCompare(String(b.criado_em)) || String(a.bubble_id).localeCompare(String(b.bubble_id))
+const porCriacaoBubble = (a, b) =>
+  String(a['Created Date']).localeCompare(String(b['Created Date'])) || String(a._id).localeCompare(String(b._id))
+
+/**
+ * Grava `linhas` em `tabela` por SQL, com os triggers de usuário DESLIGADOS (modo réplica; ver o
+ * comentário das fatias 7–8 no MAPA). Upsert por bubble_id: a recarga regrava a mesma linha.
+ * Toda linha do lote leva todas as colunas (chave ausente = null), então a lista de colunas é a
+ * união das chaves.
+ */
+async function upsertReplica(sql, tabela, linhas) {
+  const cols = [...new Set(linhas.flatMap((l) => Object.keys(l)))]
+  const lista = cols.map((c) => `"${c}"`).join(', ')
+  const set = cols
+    .filter((c) => c !== 'bubble_id')
+    .map((c) => `"${c}" = excluded."${c}"`)
+    .join(', ')
+  return sql(
+    `insert into public.${tabela} (${lista})
+     select ${lista} from jsonb_populate_recordset(null::public.${tabela}, $1::jsonb)
+     on conflict (bubble_id) do update set ${set}`,
+    [JSON.stringify(linhas)],
+    { replica: true },
+  )
+}
+
+/** Lotes de LOTE, com a mesma espera única de `comEspera` e pausa entre lotes de tabela grande. */
+async function gravarEmLotes(rotulo, itens, gravar) {
+  let n = 0
+  for (let i = 0; i < itens.length; i += LOTE) {
+    if (i > 0 && itens.length > GRANDE) await dormir(pausaMs)
+    const fatia = itens.slice(i, i + LOTE)
+    await comEspera(`${rotulo} lote ${i / LOTE + 1}`, async () => {
+      try {
+        n += (await gravar(fatia))?.rowCount ?? 0
+        return {}
+      } catch (error) {
+        return { error }
+      }
+    })
+    process.stdout.write(`\r  ${rotulo}: ${Math.min(i + LOTE, itens.length)}/${itens.length}`)
+  }
+  if (itens.length) process.stdout.write('\n')
+  return n
+}
+
+/** Entregas JÁ gravadas, por bubble_id: identidade (D7), valores e data real. Lidas uma vez. */
+const entregaDb = new Map()
+async function lerEntregasDoBanco(sql) {
+  if (entregaDb.size) return
+  const r = await sql(
+    `select bubble_id, id, pedido_id, cotacao_id, proposta_id, orcamento_fornecedor_id, cliente_id,
+            fornecedor_id, vendedor_id, status_id, dt_entrega::text as dt_entrega,
+            valor_comissao::text as vc, valor_venda_bruto::text as vb
+       from public.entregas where bubble_id is not null`,
+  )
+  for (const e of r.rows) entregaDb.set(e.bubble_id, e)
+}
+/** Colunas `col` que copiam a identidade da entrega do registro (a regra dos triggers, D7). */
+function identidadeDaEntrega(colunas, ponteiro = (r) => r['cpo.QualEntrega']) {
+  return Object.fromEntries(colunas.map((c) => [c, (r) => entregaDb.get(ponteiro(r))?.[c] ?? null]))
+}
+
+// ---------------------------------------------------------------------- níveis e metas
+
+/**
+ * METAS REPETIDAS (7 no Bubble, 07–08/2025): as primeiras metas nasceram sem TipoMeta e foram
+ * RECRIADAS depois como "Regular" para o mesmo mês — e o fechamento está na recriada. "Fica a mais
+ * antiga" (o `unicos`) descartaria justo a que tem fechamento. Preferência: a que tem meta
+ * fechada; depois a que tem TipoMeta explícito; depois a mais recente (a correção). As outras
+ * são descartadas e contadas.
+ */
+const metaComFechada = new Set()
+const metaComTipo = new Set()
+const metaGravada = new Set()
+async function prepararMetasMensais(linhas) {
+  metaComFechada.clear()
+  metaComTipo.clear()
+  for (const r of linhas) {
+    if (r['cpo.QualMetaFechada']) metaComFechada.add(r._id)
+    if (r['cpo.TipoMeta']) metaComTipo.add(r._id)
+  }
+  return null
+}
+async function metaRepetida(_db, linhas) {
+  const peso = (l) => (metaComFechada.has(l.bubble_id) ? 0 : 2) + (metaComTipo.has(l.bubble_id) ? 0 : 1)
+  const grupos = new Map()
+  for (const l of linhas) {
+    const k = `${l.vendedor_id}|${l.competencia}|${l.tipo_meta_id}`
+    grupos.set(k, [...(grupos.get(k) ?? []), l])
+  }
+  const motivo = new Map()
+  metaGravada.clear()
+  for (const g of grupos.values()) {
+    g.sort((a, b) => peso(a) - peso(b) || -porAntiguidade(a, b))
+    metaGravada.add(g[0].bubble_id)
+    for (const l of g.slice(1)) {
+      motivo.set(l.bubble_id, 'repetida em (vendedor, competência, tipo): fica a com fechamento/TipoMeta/mais recente')
+    }
+  }
+  return motivo
+}
+
+/** `usuarios.nivel_vendedor_id` ← `User.QualNivelVendedor` (o nível ATUAL; a história é abaixo). */
+async function nivelDosUsuarios(_db, { relatorio, sql, bruto, traduzir }) {
+  const users = (await bruto('user')) ?? []
+  if (!users.length) return 'usuarios.nivel_vendedor_id: tipo `user` não disponível (use --baixar) — nada feito'
+  const pares = users.filter((u) => u['cpo.QualNivelVendedor']).map((u) => [u._id, u['cpo.QualNivelVendedor']])
+  const us = await traduzir('usuarios', new Set(pares.map((p) => p[0])))
+  const nv = await traduzir('niveis_vendedor', new Set(pares.map((p) => p[1])))
+  const ok = pares.map(([u, n]) => [us.get(u), nv.get(n)]).filter(([u, n]) => u && n)
+  const resumo = `usuarios.nivel_vendedor_id: ${pares.length} usuário(s) com nível no Bubble, ${ok.length} resolvido(s)`
+  if (relatorio) return resumo
+  const r = await sql(
+    `with v(u, n) as (select * from unnest($1::uuid[], $2::uuid[]))
+     update public.usuarios x set nivel_vendedor_id = v.n from v
+      where x.id = v.u and x.nivel_vendedor_id is distinct from v.n`,
+    [ok.map((p) => p[0]), ok.map((p) => p[1])],
+  )
+  return `${resumo}; ${r.rowCount} atualizado(s)`
+}
+
+/**
+ * `vendedor_nivel_historico` NÃO existe no Bubble (o nível é um ponteiro no User, sem história).
+ * A evidência de história que há é o nível CONGELADO em cada meta mensal (`QualNivel`). Então:
+ * por vendedor, as metas Regulares em ordem de início; cada sequência de meses com o mesmo nível
+ * vira uma vigência [início da 1ª, início da próxima troca). A última fica aberta se é o nível
+ * atual do usuário; se não é, fecha no dia seguinte ao fim da última meta e o atual abre ali.
+ * Vendedor com nível e sem meta: uma vigência aberta desde a criação do usuário (é tudo o que o
+ * Bubble sabe). Sem sobreposição por construção (o exclude da 011 recusaria).
+ */
+async function historicoDeNivel(_db, { relatorio, sql, bruto, linhas, traduzir }) {
+  const users = new Map(((await bruto('user')) ?? []).map((u) => [u._id, u]))
+  const porVend = new Map()
+  for (const m of linhas) {
+    if (!metaGravada.has(m._id)) continue // a repetida descartada não conta como história
+    if (normalizar(m['cpo.TipoMeta']) === 'substituicao') continue
+    const ini = data(m['cpo.DataInicio'])
+    if (!ini || !m['cpo.QualNivel'] || !m['cpo.QualVendedor']) continue
+    const l = porVend.get(m['cpo.QualVendedor']) ?? []
+    if (!l.some((x) => x.ini === ini)) l.push({ ini, fim: data(m['cpo.DataFim']) ?? ini, nivel: m['cpo.QualNivel'] })
+    porVend.set(m['cpo.QualVendedor'], l)
+  }
+  const faixas = []
+  const MOTIVO_METAS = 'Carga: nível congelado nas metas mensais do Bubble'
+  for (const [u, lista] of porVend) {
+    lista.sort((a, b) => a.ini.localeCompare(b.ini))
+    let atual = null
+    for (const x of lista) {
+      if (atual?.nivel === x.nivel) {
+        if (x.fim > atual.ultimoFim) atual.ultimoFim = x.fim
+        continue
+      }
+      if (atual) atual.fim = x.ini
+      atual = { u, nivel: x.nivel, ini: x.ini, ultimoFim: x.fim, fim: null, motivo: MOTIVO_METAS }
+      faixas.push(atual)
+    }
+    const hoje = users.get(u)?.['cpo.QualNivelVendedor']
+    if (hoje && hoje !== atual.nivel) {
+      atual.fim = diaSeguinte(atual.ultimoFim)
+      faixas.push({ u, nivel: hoje, ini: atual.fim, fim: null, motivo: 'Carga: nível atual do usuário no Bubble' })
+    }
+  }
+  for (const [u, x] of users) {
+    if (porVend.has(u) || !x['cpo.QualNivelVendedor']) continue
+    const ini = data(x['Created Date'])
+    if (ini) faixas.push({ u, nivel: x['cpo.QualNivelVendedor'], ini, fim: null, motivo: 'Carga: nível atual do usuário no Bubble (sem histórico)' })
+  }
+  const us = await traduzir('usuarios', new Set(faixas.map((f) => f.u)))
+  const nv = await traduzir('niveis_vendedor', new Set(faixas.map((f) => f.nivel)))
+  const linhasH = faixas
+    .map((f) => ({
+      bubble_id: `nivel:${f.u}:${f.ini}`,
+      usuario_id: us.get(f.u),
+      nivel_id: nv.get(f.nivel),
+      vigencia_inicio: f.ini,
+      vigencia_fim: f.fim,
+      motivo: f.motivo,
+    }))
+    .filter((l) => l.usuario_id && l.nivel_id)
+  const resumo =
+    `vendedor_nivel_historico: ${linhasH.length} vigência(s) de ${new Set(linhasH.map((l) => l.usuario_id)).size} ` +
+    `vendedor(es) (${faixas.length - linhasH.length} sem usuário/nível no banco)`
+  if (relatorio) return resumo
+  const n = await gravarEmLotes('vendedor_nivel_historico', linhasH, (fatia) =>
+    sql(
+      `insert into public.vendedor_nivel_historico (bubble_id, usuario_id, nivel_id, vigencia_inicio, vigencia_fim, motivo)
+       select * from jsonb_to_recordset($1::jsonb)
+         as x(bubble_id text, usuario_id uuid, nivel_id uuid, vigencia_inicio date, vigencia_fim date, motivo text)
+       on conflict (bubble_id) do update
+         set nivel_id = excluded.nivel_id, vigencia_fim = excluded.vigencia_fim, motivo = excluded.motivo`,
+      [JSON.stringify(fatia)],
+    ),
+  )
+  return `${resumo}; ${n} gravada(s)`
+}
+
+/**
+ * Fatos de cada meta fechada: a meta mensal dela, o realizado, o fator e a comissão.
+ *
+ * LIGAÇÃO: o Bubble guarda `MetasMensais.QualMetaFechada` (93 ponteiros, todos coerentes em
+ * vendedor/período salvo 2); a fechada não aponta para a meta. Fechada sem meta que a aponte
+ * (26, quase todas de 05–07/2025, antes da primeira meta mensal existente) é DESCARTADA: sem meta
+ * não há nível, valor da meta nem fator — inventar seria pior (e metas_fechadas é 1:1, D6).
+ *
+ * FATOR (não existe campo no Bubble; a comissão veio do DOM, metas §7.5): o da faixa do nível da
+ * meta (batida se realizado ≥ meta > 0) quando ele REPRODUZ TotalComissaoVendedor ao centavo; senão
+ * o da outra faixa do mesmo nível; senão a razão vendedor/realizado com 4 casas, se reproduzir.
+ * Nada disso fechando → descartada (o check comissao_coerente recusaria).
+ * REALIZADO VAZIO (21 fechadas, todas com comissão do vendedor = 0): realizado 0.
+ */
+let fatosMeta = null
+async function calcularFatosMeta(bruto) {
+  if (fatosMeta) return fatosMeta
+  const niveis = new Map(((await bruto('tbl.niveisvendedores')) ?? []).map((n) => [n._id, n]))
+  const metas = (await bruto('tbl.metasmensais')) ?? []
+  const fechadas = (await bruto('tbl.metasfechadas')) ?? []
+  const metaDe = new Map()
+  for (const m of metas) if (m['cpo.QualMetaFechada']) metaDe.set(m['cpo.QualMetaFechada'], m)
+  const fato = new Map()
+  const c = { semMeta: 0, realizadoVazio: 0, faixa: 0, outraFaixa: 0, razao: 0, centavo: 0, naoFecha: 0 }
+  for (const f of fechadas) {
+    const m = metaDe.get(f._id)
+    if (!m) {
+      c.semMeta++
+      continue
+    }
+    const n = niveis.get(m['cpo.QualNivel'])
+    const vend = centavosDe(f['cpo.TotalComissaoVendedor'])
+    let real = centavosDe(f['cpo.TotalComissaoMegabox'])
+    if (real === null && vend === 0) {
+      real = 0
+      c.realizadoVazio++
+    }
+    const valorMeta = num(m['cpo.ValorMeta']) ?? 0
+    const batida = real !== null && valorMeta > 0 && real >= Math.round(valorMeta * 100)
+    const fecha = (fr) => fr != null && fr >= 0 && fr <= 1 && real !== null && vend !== null && comissaoDe(real, fr) === vend
+    const faixa = batida ? n?.['cpo.ComissaoMetaBatida'] : n?.['cpo.ComissaoPadrao']
+    const outra = batida ? n?.['cpo.ComissaoPadrao'] : n?.['cpo.ComissaoMetaBatida']
+    let fator = null
+    if (fecha(faixa)) {
+      fator = faixa
+      c.faixa++
+    } else if (fecha(outra)) {
+      fator = outra
+      c.outraFaixa++
+    } else if (real > 0 && fecha(arred(vend / real, 4))) {
+      fator = arred(vend / real, 4)
+      c.razao++
+    } else if (faixa != null && real !== null && vend !== null && Math.abs(comissaoDe(real, faixa) - vend) === 1) {
+      // O Bubble calculou em float e truncou um ...,xx5; o numeric arredonda para cima. O check
+      // comissao_coerente exige o arredondamento do banco: entra a comissão do banco (+/− 0,01),
+      // contada — e não a fechada inteira (com a CP dela) descartada por um centavo.
+      fator = faixa
+      c.centavo++
+    } else c.naoFecha++
+    fato.set(f._id, {
+      meta: m._id,
+      realizado: real,
+      comissao: fator === null ? vend : comissaoDe(real, fator),
+      fator: fator === null ? null : fator.toFixed(4),
+      fatorNum: fator,
+      percentual: real !== null && valorMeta > 0 ? arred(real / 100 / valorMeta, 4) : null,
+    })
+  }
+  fatosMeta = { fato, c }
+  return fatosMeta
+}
+function fatoMeta(r, f) {
+  const x = fatosMeta?.fato.get(r._id)
+  return x && x.fator !== null ? f(x) : null
+}
+
+async function prepararMetasFechadas(linhas, { bruto }) {
+  const { fato, c } = await calcularFatosMeta(bruto)
+  const metas = new Map(((await bruto('tbl.metasmensais')) ?? []).map((m) => [m._id, m]))
+  let outroVendedor = 0
+  for (const r of linhas) {
+    const m = metas.get(fato.get(r._id)?.meta)
+    if (!m) continue
+    r._mm = m._id
+    for (const k of ['QualVendedor', 'QualNivel', 'TipoMeta', 'DataInicio', 'DataFim', 'ValorMeta']) {
+      if (m[`cpo.${k}`] !== undefined) r[`_mm.${k}`] = m[`cpo.${k}`]
+    }
+    if (r['cpo.QualVendedor'] !== m['cpo.QualVendedor']) outroVendedor++
+  }
+  return (
+    `${c.semMeta} fechada(s) SEM meta mensal que a aponte (descartadas); fator: ${c.faixa} pela faixa do nível, ` +
+    `${c.outraFaixa} pela outra faixa do nível, ${c.razao} pela razão vendedor/realizado, ${c.centavo} pela faixa com ajuste de 1 centavo (float do Bubble), ${c.naoFecha} não fecham ` +
+    `(descartadas); ${c.realizadoVazio} com realizado vazio e comissão 0 → realizado 0; ` +
+    `${outroVendedor} com vendedor ≠ o da meta (vale o da meta: retrato, D6/D7)`
+  )
+}
+
+/**
+ * `meta_fechada_entregas` ← `MetasFechadas.QuaisEntregas`. A mesma entrega em duas fechadas
+ * (índice entrega_em_uma_meta_so, D8 da 011): fica na fechada MAIS ANTIGA; as outras, contadas.
+ */
+async function ligarEntregasDaMeta(_db, { relatorio, sql, linhas, gravar, traduzir }) {
+  await lerEntregasDoBanco(sql)
+  const cru = new Map(linhas.map((r) => [r._id, r]))
+  const usada = new Set()
+  const pares = []
+  let repetida = 0
+  let fora = 0
+  for (const l of [...gravar].sort(porAntiguidade)) {
+    for (const eb of cru.get(l.bubble_id)?.['cpo.QuaisEntregas'] ?? []) {
+      const e = entregaDb.get(eb)
+      if (!e) {
+        fora++
+        continue
+      }
+      if (usada.has(e.id)) {
+        repetida++
+        continue
+      }
+      usada.add(e.id)
+      pares.push({ b: l.bubble_id, entrega_id: e.id, criado_em: l.criado_em })
+    }
+  }
+  const resumo =
+    `meta_fechada_entregas: ${pares.length} ligação(ões); ${repetida} entrega(s) já em fechada mais antiga ` +
+    `(descartadas, D8 da 011); ${fora} ponteiro(s) para entrega fora da carga`
+  if (relatorio) return resumo
+  const ids = await traduzir('metas_fechadas', new Set(pares.map((p) => p.b)))
+  const rows = pares.map((p) => ({ meta_fechada_id: ids.get(p.b), entrega_id: p.entrega_id, criado_em: p.criado_em }))
+  const n = await gravarEmLotes(
+    'meta_fechada_entregas',
+    rows.filter((x) => x.meta_fechada_id),
+    (fatia) =>
+      sql(
+        `insert into public.meta_fechada_entregas (meta_fechada_id, entrega_id, criado_em)
+         select * from jsonb_to_recordset($1::jsonb) as x(meta_fechada_id uuid, entrega_id uuid, criado_em timestamptz)
+         on conflict do nothing`,
+        [JSON.stringify(fatia)],
+      ),
+  )
+  return `${resumo}; ${n} gravada(s)`
+}
+
+// ------------------------------------------------------------------- contas a receber
+
+/**
+ * BAIXA IMPLÍCITA (D5/D6 da 010: a baixa é a verdade). O Bubble não tem baixa: carimba na conta
+ * DataBaixaSistema/QuemBaixou/DataRecebimentoBancocaixa/NumNfMegabox/DataNfMegabox e põe o status
+ * "Recebido". Regra da carga: há baixa quando o status é "Recebido", ou quando o status está VAZIO
+ * mas a conta tem DataBaixaSistema. "A receber" NÃO tem baixa mesmo com carimbo (4 casos: o status
+ * é o que a tela do Bubble mostra). A baixa leva o valor INTEIRO da comissão (o Bubble não baixa
+ * parcial), dt_baixa = DataBaixaSistema, dt_credito = DataRecebimentoBancocaixa, e a NF MegaBox.
+ */
+const baixaImplicitaCR = (r) => {
+  const s = normalizar(r['cpo.StatusFinanceiro'])
+  return s === 'recebido' || (s === '' && Boolean(r['cpo.DataBaixaSistema']))
+}
+
+/**
+ * PARCELAS: o Bubble não numera. Parcela = ordem por vencimento (depois criação) entre as CRs da
+ * mesma entrega; parcelas_total = quantas são. VENDA RATEADA pela regra de fn_valor_parcela.
+ */
+const parcelaCR = new Map()
+async function prepararContasReceber(linhas, { sql }) {
+  await lerEntregasDoBanco(sql)
+  parcelaCR.clear()
+  const grupos = new Map()
+  let semEntrega = 0
+  let fora = 0
+  let canceladas = 0
+  for (const r of linhas) {
+    const b = r['cpo.QualEntrega']
+    const e = b ? entregaDb.get(b) : null
+    if (!e) {
+      if (b) fora++
+      else semEntrega++
+      continue
+    }
+    if (e.status_id === 7) canceladas++
+    grupos.set(b, [...(grupos.get(b) ?? []), r])
+  }
+  let divergentes = 0
+  let dif = 0
+  let semVenda = 0
+  for (const [b, ps] of grupos) {
+    const e = entregaDb.get(b)
+    ps.sort(
+      (x, y) => String(x['cpo.DataVencimento'] ?? '').localeCompare(String(y['cpo.DataVencimento'] ?? '')) || porCriacaoBubble(x, y),
+    )
+    const total = centavosDoBanco(e.vb)
+    if (total === null) semVenda++
+    ps.forEach((r, k) =>
+      parcelaCR.set(r._id, {
+        i: k + 1,
+        n: ps.length,
+        valor_total: total === null ? null : reais(valorParcela(total, ps.length, k + 1)),
+      }),
+    )
+    const soma = ps.reduce((s, r) => s + (centavosDe(r['cpo.ValorComissao']) ?? 0), 0)
+    const alvo = centavosDoBanco(e.vc) ?? 0
+    if (soma !== alvo) {
+      divergentes++
+      dif += soma - alvo
+    }
+  }
+  return (
+    `${grupos.size} entrega(s) com CR; ${semEntrega} CR sem entrega e ${fora} com entrega fora da carga ` +
+    `(descartadas); ${canceladas} CR de entrega hoje cancelada (entram: histórico); ${semVenda} entrega(s) sem venda; ` +
+    `RATEIO (D4): em ${divergentes} entrega(s) Σ comissão das parcelas ≠ comissão da entrega ` +
+    `(diferença líquida ${reais(dif)}) — entram como o Bubble tem; ver v_conferencia_comissao_entrega`
+  )
+}
+
+async function gravarBaixasCR(_db, { relatorio, sql, linhas, traduzir }) {
+  const alvo = linhas.filter(baixaImplicitaCR)
+  const comValor = alvo.filter((r) => (num(r['cpo.ValorComissao']) ?? 0) > 0)
+  const contas = await traduzir('contas_receber', new Set(comValor.map((r) => r._id)))
+  const usuarios = await traduzir(
+    'usuarios',
+    new Set(comValor.flatMap((r) => [r['cpo.QuemBaixou'], r['Created By']]).filter(Boolean).map(String)),
+  )
+  let semConta = 0
+  let semUsuario = 0
+  let reserva = 0
+  let soma = 0
+  const baixas = []
+  for (const r of comValor) {
+    const conta = contas.get(r._id)
+    if (!conta) {
+      semConta++
+      continue
+    }
+    let u = usuarios.get(String(r['cpo.QuemBaixou'] ?? ''))
+    if (!u) {
+      u = usuarios.get(String(r['Created By'] ?? ''))
+      if (u) reserva++
+    }
+    if (!u) {
+      semUsuario++
+      continue
+    }
+    const quando = r['cpo.DataBaixaSistema'] ?? r['Modified Date']
+    soma += centavosDe(r['cpo.ValorComissao'])
+    baixas.push({
+      bubble_id: `${r._id}#baixa`,
+      conta_receber_id: conta,
+      valor: dinheiro(r['cpo.ValorComissao']),
+      dt_baixa: data(quando),
+      dt_credito: data(r['cpo.DataRecebimentoBancocaixa']),
+      nf_megabox_numero: texto(r['cpo.NumNfMegabox']),
+      dt_nf_megabox: data(r['cpo.DataNfMegabox']),
+      usuario_id: u,
+      // Estorno ANTERIOR (bTrtf não apaga a baixa; a seguinte a sobrescreveu — financeiro-reusables
+      // §4.7, "irrecuperável"): a baixa estornada não é inventada (data e NF perdidas); o fato do
+      // estorno fica registrado aqui, com a data que o Bubble guardou.
+      observacao: r['cpo.DataEstorno']
+        ? `Carga: baixa implícita da conta "Recebido" no Bubble; houve estorno anterior em ${data(r['cpo.DataEstorno'])} (a baixa estornada não existe mais no Bubble)`
+        : 'Carga: baixa implícita da conta "Recebido" no Bubble',
+      criado_em: texto(quando),
+      criado_por: u,
+    })
+  }
+  const estornadas = linhas.filter((r) => r['cpo.DataEstorno']).length
+  const aReceberCarimbadas = linhas.filter((r) => !baixaImplicitaCR(r) && r['cpo.DataBaixaSistema']).length
+  const anexos = alvo.filter((r) => r['cpo.AnexoNfMegabox']).length
+  const resumo =
+    `baixas: ${baixas.length} implícita(s) (Σ ${reais(soma)}); ${alvo.length - comValor.length} "Recebido" com comissão 0 ` +
+    `(sem baixa: valor > 0; ficam A receber pelo D5); ${semConta} de CR não gravada; ${semUsuario} sem usuário ` +
+    `(${reserva} pelo criador da CR na falta de QuemBaixou); ${aReceberCarimbadas} "A receber" com carimbo de baixa ` +
+    `(sem baixa: vale o status); ${estornadas} com estorno ANTERIOR no Bubble (a baixa estornada foi sobrescrita lá: ` +
+    `não há o que reconstruir, entra só a baixa atual); ${anexos} anexo(s) de NF MegaBox (URL do CDN → passo de arquivos)`
+  if (relatorio) return resumo
+  const n = await gravarEmLotes('baixas', baixas, (fatia) => upsertReplica(sql, 'baixas', fatia))
+  return `${resumo}; ${n} gravada(s)`
+}
+
+// --------------------------------------------------------------------- contas a pagar
+
+/**
+ * Origem e valor de cada CP.
+ *  - META (`QualMetaFechada`): valor_base = realizado da fechada, percentual = o fator dela; a
+ *    coluna gerada dá exatamente TotalComissaoVendedor (= ValorComissao da CP nas 94).
+ *  - ENTREGA (`QualEntrega` carregada): percentual 0.0300 (B4) e valor_base que REPRODUZ a
+ *    ValorComissao do Bubble ao centavo: a comissão da entrega, se 3% dela fecha; senão
+ *    `ValorTotal` da CP, se fecha; senão a base implícita round(ValorComissao ÷ 0,03) — comissão
+ *    alterada à mão (70 com motivo) ou entrega alterada depois. O dinheiro é o do Bubble.
+ *  - Nenhuma das duas (17): descartada — `origem_coerente` da 010 recusaria.
+ */
+const cpInfo = new Map()
+async function prepararContasPagar(linhas, { bruto, sql }) {
+  await lerEntregasDoBanco(sql)
+  const { fato } = await calcularFatosMeta(bruto)
+  const fechadas = new Map(((await bruto('tbl.metasfechadas')) ?? []).map((f) => [f._id, f]))
+  cpInfo.clear()
+  const c = { meta: 0, metaSem: 0, metaDiverge: 0, entrega: 0, pelaEntrega: 0, peloTotal: 0, implicita: 0, fixada: 0 }
+  const d = { semOrigem: 0, fora: 0, semValor: 0, canceladas: 0, pago: 0, statusAnomalo: 0 }
+  for (const r of linhas) {
+    const st = normalizar(r['cpo.StatusFinanceiro'])
+    if (st === 'pago') d.pago++
+    if (st && st !== 'apagar' && st !== 'pago') d.statusAnomalo++
+    const vc = centavosDe(r['cpo.ValorComissao'])
+    if (r['cpo.QualMetaFechada']) {
+      c.meta++
+      const f = fato.get(r['cpo.QualMetaFechada'])
+      if (!f || f.fator === null) {
+        c.metaSem++
+        continue
+      }
+      if (comissaoDe(f.realizado, f.fatorNum) !== vc) c.metaDiverge++
+      cpInfo.set(r._id, {
+        origem: 'meta',
+        base: reais(f.realizado),
+        pct: f.fator,
+        entregas: fechadas.get(r['cpo.QualMetaFechada'])?.['cpo.QuaisEntregas'] ?? r['cpo.QuaisEntregas'] ?? [],
+      })
+      continue
+    }
+    const b = r['cpo.QualEntrega']
+    const e = b ? entregaDb.get(b) : null
+    if (!e) {
+      if (b) d.fora++
+      else d.semOrigem++
+      continue
+    }
+    if (vc === null || vc < 0) {
+      d.semValor++
+      continue
+    }
+    c.entrega++
+    if (e.status_id === 7) d.canceladas++
+    const daEntrega = centavosDoBanco(e.vc)
+    const doTotal = centavosDe(r['cpo.ValorTotal'])
+    let base
+    let pct = 0.03
+    if (daEntrega !== null && daEntrega >= 0 && comissaoDe(daEntrega, pct) === vc) {
+      base = daEntrega
+      c.pelaEntrega++
+    } else if (doTotal !== null && doTotal >= 0 && comissaoDe(doTotal, pct) === vc) {
+      base = doTotal
+      c.peloTotal++
+    } else {
+      base = Math.round(vc / pct)
+      c.implicita++
+      if (comissaoDe(base, pct) !== vc) {
+        base = vc // nunca aconteceu na medição; guarda para não gravar valor errado
+        pct = 1
+        c.fixada++
+      }
+    }
+    cpInfo.set(r._id, { origem: 'entrega', base: reais(base), pct: pct.toFixed(4) })
+  }
+  return (
+    `origem meta: ${c.meta} (${c.metaSem} sem fechada carregável → descartadas; ${c.metaDiverge} com valor ≠ fechada); ` +
+    `origem entrega: ${c.entrega} (base: ${c.pelaEntrega} = comissão da entrega, ${c.peloTotal} = ValorTotal da CP, ` +
+    `${c.implicita} base implícita ValorComissao÷0,03, ${c.fixada} fixada a 100%; ${d.canceladas} de entrega hoje cancelada); ` +
+    `descartadas: ${d.semOrigem} sem entrega nem meta, ${d.fora} com entrega fora da carga, ${d.semValor} sem valor; ` +
+    `status: ${d.pago} "Pago" no Bubble (nenhuma baixa de CP), ${d.statusAnomalo} com status de CR ("A receber") → A pagar`
+  )
+}
+
+async function origemCoerenteCP(_db, linhas) {
+  const motivo = new Map()
+  for (const l of linhas) {
+    if (l.origem === 'entrega' && !l.entrega_id) motivo.set(l.bubble_id, 'origem entrega sem entrega gravada (origem_coerente)')
+    if (l.origem === 'meta' && !l.meta_fechada_id) motivo.set(l.bubble_id, 'origem meta sem meta fechada gravada (origem_coerente)')
+  }
+  return motivo
+}
+
+/**
+ * CP de entrega REPETIDA no Bubble (mesma entrega e mesmo vendedor, as duas ativas): o índice
+ * contas_pagar_entrega_uidx recusaria. Fica a mais antiga; as outras entram CANCELADAS (lógico,
+ * D8 da 010), com o motivo — o registro não some e não paga duas vezes.
+ */
+const MOTIVO_REPETIDA = 'Carga: conta a pagar repetida no Bubble para a mesma entrega e vendedor (fica a mais antiga)'
+async function cancelarRepetidasCP(_db, { gravar }) {
+  const vistos = new Set()
+  let n = 0
+  let soma = 0
+  for (const l of [...gravar].sort(porAntiguidade)) {
+    if (l.origem !== 'entrega') continue
+    const k = `${l.entrega_id}|${l.vendedor_id}`
+    if (!vistos.has(k)) {
+      vistos.add(k)
+      continue
+    }
+    l.cancelada_em = l.criado_em
+    l.motivo_cancelamento = MOTIVO_REPETIDA
+    soma += comissaoDe(centavosDoBanco(l.valor_base), Number(l.percentual))
+    n++
+  }
+  return `${n} CP de entrega REPETIDA(s) (mesma entrega e vendedor) entram CANCELADAS (Σ comissão ${reais(soma)})`
+}
+
+/**
+ * `conta_pagar_entregas` — AS DUAS ORIGENS (D1 da 010, D8 da 011). A CP de entrega declara a sua
+ * entrega; a CP de meta declara as entregas da fechada. Único por (entrega, vendedor): quando a
+ * entrega já é paga ao vendedor pela CP de ENTREGA, a ligação da META é a que sai (a CP de
+ * entrega é o ponteiro 1:1 que o Bubble tem na conta, `QualEntrega`; a lista da meta é derivada),
+ * contada como aviso. AS DUAS CONTAS ENTRAM (é dinheiro que o Bubble registra); a duplicidade de
+ * pagamento fica medida aqui para o negócio decidir (specs/04-duvidas.md).
+ */
+async function ligarEntregasDaCP(_db, { relatorio, sql, gravar, traduzir }) {
+  await lerEntregasDoBanco(sql)
+  const pares = []
+  const pagoEntrega = new Set()
+  const pagoMeta = new Set()
+  for (const l of gravar) {
+    if (l.origem !== 'entrega' || l.cancelada_em) continue
+    pagoEntrega.add(`${l.entrega_id}|${l.vendedor_id}`)
+    pares.push({ b: l.bubble_id, vendedor_id: l.vendedor_id, entrega_id: l.entrega_id, criado_em: l.criado_em })
+  }
+  const porId = new Map([...entregaDb.values()].map((e) => [e.id, e]))
+  let colisao = 0
+  let colisaoValor = 0
+  const metasComColisao = new Set()
+  let repetidaMeta = 0
+  let fora = 0
+  for (const l of gravar.filter((x) => x.origem === 'meta').sort(porAntiguidade)) {
+    for (const eb of cpInfo.get(l.bubble_id)?.entregas ?? []) {
+      const e = entregaDb.get(eb)
+      if (!e) {
+        fora++
+        continue
+      }
+      const k = `${e.id}|${l.vendedor_id}`
+      if (pagoEntrega.has(k)) {
+        colisao++
+        colisaoValor += centavosDoBanco(porId.get(e.id)?.vc) ?? 0
+        metasComColisao.add(l.bubble_id)
+        continue
+      }
+      if (pagoMeta.has(k)) {
+        repetidaMeta++
+        continue
+      }
+      pagoMeta.add(k)
+      pares.push({ b: l.bubble_id, vendedor_id: l.vendedor_id, entrega_id: e.id, criado_em: l.criado_em })
+    }
+  }
+  const resumo =
+    `conta_pagar_entregas: ${pares.length} ligação(ões) (${pagoEntrega.size} de CP de entrega, ${pagoMeta.size} de CP de meta); ` +
+    `COLISÃO DAS DUAS ORIGENS: ${colisao} entrega(s) de ${metasComColisao.size} CP(s) de meta já pagas ao mesmo ` +
+    `vendedor por CP de entrega (Σ comissão MegaBox dessas entregas ${reais(colisaoValor)}) — ligação da meta omitida; ` +
+    `${repetidaMeta} entrega(s) em mais de uma CP de meta; ${fora} ponteiro(s) para entrega fora da carga`
+  if (relatorio) return resumo
+  const ids = await traduzir('contas_pagar', new Set(pares.map((p) => p.b)))
+  const rows = pares
+    .map((p) => ({ conta_pagar_id: ids.get(p.b), vendedor_id: p.vendedor_id, entrega_id: p.entrega_id, criado_em: p.criado_em }))
+    .filter((x) => x.conta_pagar_id)
+  const n = await gravarEmLotes('conta_pagar_entregas', rows, (fatia) =>
+    sql(
+      `insert into public.conta_pagar_entregas (conta_pagar_id, vendedor_id, entrega_id, criado_em)
+       select * from jsonb_to_recordset($1::jsonb)
+         as x(conta_pagar_id uuid, vendedor_id uuid, entrega_id uuid, criado_em timestamptz)
+       on conflict do nothing`,
+      [JSON.stringify(fatia)],
+    ),
+  )
+  return `${resumo}; ${n} gravada(s) (${rows.length - n} já existiam)`
+}
+
+// ---------------------------------------------------------------------------- cobranças
+
+/**
+ * FORNECEDOR DA COBRANÇA (D14: derivado, não o filtro da tela). bTpUa grava `QualFornecedor` =
+ * filtro Grupo Fornecedor, que pode estar vazio (240 de 565). Regra: o fornecedor ÚNICO das
+ * contas da cobrança (o da entrega, D7) — é o que o trigger de cobranca_contas exige; na falta, o
+ * `QualFornecedor`. Sem nenhum dos dois (ou com contas de 2 fornecedores e sem o campo): descartada.
+ */
+const fornecedorCobranca = new Map()
+async function prepararCobrancas(linhas, { bruto, sql }) {
+  await lerEntregasDoBanco(sql)
+  const crs = new Map(((await bruto('tbl.contasreceber')) ?? []).map((r) => [r._id, r]))
+  const ids = [...new Set(linhas.map((r) => r['cpo.QualFornecedor']).filter(Boolean))]
+  const grupos = new Map(
+    (await sql('select bubble_id, id from public.grupos_clifor where bubble_id = any($1::text[])', [ids])).rows.map((g) => [
+      g.bubble_id,
+      g.id,
+    ]),
+  )
+  fornecedorCobranca.clear()
+  const c = { contas: 0, campo: 0, diverge: 0, sem: 0 }
+  for (const r of linhas) {
+    const fs = new Set()
+    for (const id of r['cpo.QuaisContasReceber'] ?? []) {
+      const e = entregaDb.get(crs.get(id)?.['cpo.QualEntrega'])
+      if (e) fs.add(e.fornecedor_id)
+    }
+    const direto = grupos.get(r['cpo.QualFornecedor'])
+    if (fs.size === 1) {
+      fornecedorCobranca.set(r._id, [...fs][0])
+      c.contas++
+      if (direto && direto !== [...fs][0]) c.diverge++
+    } else if (direto) {
+      fornecedorCobranca.set(r._id, direto)
+      c.campo++
+    } else c.sem++
+  }
+  return (
+    `fornecedor: ${c.contas} pelas contas (${c.diverge} ≠ QualFornecedor), ${c.campo} pelo QualFornecedor, ` +
+    `${c.sem} sem fornecedor determinável (descartadas)`
+  )
+}
+
+async function ligarContasDaCobranca(_db, { relatorio, sql, linhas, gravar, traduzir }) {
+  const porB = new Map(gravar.map((l) => [l.bubble_id, l]))
+  const crs = [...new Set(linhas.filter((r) => porB.has(r._id)).flatMap((r) => r['cpo.QuaisContasReceber'] ?? []))]
+  const anexos = linhas.filter((r) => r['cpo.AnexoLink'] || r['cpo.AnexoFile']).length
+  // As CR só são conferidas contra o BANCO (fornecedor derivado da entrega); no relatório, contagem.
+  const fornCR = relatorio
+    ? new Map()
+    : new Map(
+        (await sql('select bubble_id, id, fornecedor_id from public.contas_receber where bubble_id = any($1::text[])', [crs])).rows.map(
+          (x) => [x.bubble_id, x],
+        ),
+      )
+  const pares = []
+  let fora = 0
+  let outroFornecedor = 0
+  for (const r of linhas) {
+    const l = porB.get(r._id)
+    if (!l) continue
+    for (const id of r['cpo.QuaisContasReceber'] ?? []) {
+      if (relatorio) {
+        pares.push(id)
+        continue
+      }
+      const cr = fornCR.get(id)
+      if (!cr) {
+        fora++
+        continue
+      }
+      if (cr.fornecedor_id !== l.fornecedor_id) {
+        outroFornecedor++
+        continue
+      }
+      pares.push({ b: r._id, conta_receber_id: cr.id, criado_em: l.criado_em })
+    }
+  }
+  if (relatorio) {
+    return `cobranca_contas: até ${pares.length} ligação(ões) (conferidas contra as CR gravadas só na carga real); ${anexos} PDF(s) de cobrança (URL do CDN → passo de arquivos); seq_cobranca_numero seria ajustada`
+  }
+  const ids = await traduzir('cobrancas', new Set(pares.map((p) => p.b)))
+  const rows = pares.map((p) => ({ cobranca_id: ids.get(p.b), conta_receber_id: p.conta_receber_id, criado_em: p.criado_em }))
+  const n = await gravarEmLotes(
+    'cobranca_contas',
+    rows.filter((x) => x.cobranca_id),
+    (fatia) =>
+      sql(
+        `insert into public.cobranca_contas (cobranca_id, conta_receber_id, criado_em)
+         select * from jsonb_to_recordset($1::jsonb) as x(cobranca_id uuid, conta_receber_id uuid, criado_em timestamptz)
+         on conflict do nothing`,
+        [JSON.stringify(fatia)],
+      ),
+  )
+  const s = await sql(
+    `select setval('public.seq_cobranca_numero', greatest((select max(numero) from public.cobrancas), 1)) as v`,
+  )
+  return (
+    `cobranca_contas: ${n} gravada(s) de ${pares.length}; ${fora} ponteiro(s) para CR não gravada; ` +
+    `${outroFornecedor} CR de outro fornecedor (recusada pelo trigger, D14); ${anexos} PDF(s) → passo de arquivos; ` +
+    `seq_cobranca_numero: próximo = ${Number(s.rows[0].v) + 1}`
+  )
+}
+
 /**
  * Um endereço principal por grupo (02 §2.1.8; índice único parcial `um_principal_por_grupo`).
  *
@@ -960,16 +1983,17 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms))
 
 /**
  * Grava um lote com UMA espera em caso de sobrecarga. A instância é Micro e já caiu por carga:
- * timeout (57014), 522 do gateway ou conexão derrubada → espera 60 s e tenta o MESMO lote uma
- * única vez; se falhar de novo, para (a carga é idempotente, a próxima rodada continua). Nunca
+ * timeout (57014), 522 do gateway ou conexão derrubada → espera 2 min e tenta o MESMO lote uma
+ * única vez; se falhar de novo, PARA (a carga é idempotente, a próxima rodada continua). Nunca
  * repete em laço. Entre lotes, 300 ms de respiro para não disputar a CPU com quem usa o banco.
  */
-const SOBRECARGA = /57014|statement timeout|522|ECONNRESET|fetch failed|socket hang up|timed? ?out/i
+const SOBRECARGA =
+  /57014|statement timeout|522|ECONNRESET|fetch failed|socket hang up|timed? ?out|Connection terminated|not queryable/i
 async function comEspera(rotulo, gravar) {
   let { error } = await gravar()
   if (error && SOBRECARGA.test(`${error.code ?? ''} ${error.message ?? ''}`)) {
-    console.warn(`\n  ${rotulo}: sobrecarga (${error.code ?? error.message}); esperando 60 s e tentando UMA vez…`)
-    await dormir(60_000)
+    console.warn(`\n  ${rotulo}: sobrecarga (${error.code ?? error.message}); esperando 2 min e tentando UMA vez…`)
+    await dormir(120_000)
     ;({ error } = await gravar())
   }
   if (error) throw new Error(`${rotulo}: ${error.code ?? ''} ${error.message}`)
@@ -1047,8 +2071,9 @@ function conferirMapa(tipo, config, linhas) {
     }
   }
 
-  for (const [destino, d] of Object.entries(config.dom ?? {})) conferir(destino, d.de, d.reserva)
-  for (const [destino, d] of Object.entries(config.ref ?? {})) conferir(destino, d.de)
+  // Campo começando com `_` é SINTÉTICO (posto pelo `preparar`, que roda depois desta conferência).
+  for (const [destino, d] of Object.entries(config.dom ?? {})) if (!d.de.startsWith('_')) conferir(destino, d.de, d.reserva)
+  for (const [destino, d] of Object.entries(config.ref ?? {})) if (!d.de.startsWith('_')) conferir(destino, d.de)
   for (const [destino, d] of Object.entries(config.ligacoes ?? {})) conferir(destino, d.de)
   conferir('criado_em', 'Created Date')
   for (const destino of Object.keys(config.col ?? {})) {
@@ -1066,6 +2091,7 @@ async function main() {
   })
 
   const tipos = arg.tipos ? arg.tipos.split(',').map((s) => s.trim()) : Object.keys(MAPA)
+  if (arg.pausa !== undefined) pausaMs = Math.max(0, Number(arg.pausa)) * 1000
   const relatorio = []
 
   // Listas fixas, para traduzir chave_bubble → id, uma vez só.
@@ -1142,18 +2168,35 @@ async function main() {
   async function sql(texto, params = [], { replica = false } = {}) {
     if (!conexao) {
       if (!env.DATABASE_URL) throw new Error('DATABASE_URL não está no .env (precisa para setval/replica)')
-      conexao = new pg.Client({ connectionString: env.DATABASE_URL.trim(), ssl: { rejectUnauthorized: false } })
+      // query_timeout + keepAlive: conexão derrubada em silêncio pelo pooler vira erro "timeout"
+      // (espera única de comEspera) em vez de pendurar a carga para sempre (visto em 30/09).
+      conexao = new pg.Client({
+        connectionString: env.DATABASE_URL.trim(),
+        ssl: { rejectUnauthorized: false },
+        keepAlive: true,
+        query_timeout: 180_000,
+      })
       await conexao.connect()
     }
-    if (!replica) return conexao.query(texto, params)
     try {
-      await conexao.query('begin')
-      await conexao.query('set local session_replication_role = replica')
-      const r = await conexao.query(texto, params)
-      await conexao.query('commit')
-      return r
+      if (!replica) return await conexao.query(texto, params)
+      try {
+        await conexao.query('begin')
+        await conexao.query('set local session_replication_role = replica')
+        const r = await conexao.query(texto, params)
+        await conexao.query('commit')
+        return r
+      } catch (erro) {
+        await conexao.query('rollback').catch(() => {})
+        throw erro
+      }
     } catch (erro) {
-      await conexao.query('rollback').catch(() => {})
+      // Conexão caída não se reaproveita: a próxima chamada (a UMA nova tentativa de comEspera)
+      // abre outra. Erro de SQL comum mantém a conexão.
+      if (/Connection terminated|ECONNRESET|not queryable|terminat|timeout/i.test(String(erro?.message))) {
+        await conexao?.end().catch(() => {})
+        conexao = null
+      }
       throw erro
     }
   }
@@ -1217,7 +2260,7 @@ async function main() {
     }
 
     if (config.preparar) {
-      const msg = await config.preparar(linhas, { bruto })
+      const msg = await config.preparar(linhas, { bruto, sql, relatorio: !!arg.relatorio })
       if (msg) {
         if (arg.relatorio) relatorio.push(`${tipo} (preparo) ${msg}`)
         else console.log(`  ${config.tabela}: ${msg}`)
@@ -1379,7 +2422,8 @@ async function main() {
       ? `${adiados.length} linha(s) com ${config.renumerar} REPETIDO: a mais antiga fica com o valor legado, ` +
         `estas ganham valor novo da sequence`
       : ''
-    const contexto = { relatorio: !!arg.relatorio, sql, linhas, traduzir }
+    // `gravar` é a MESMA lista que vai ao banco: o `antesDeGravar` pode ajustar linhas nela.
+    const contexto = { relatorio: !!arg.relatorio, sql, linhas, traduzir, bruto, gravar: [...gravar, ...adiados] }
 
     if (arg.relatorio) {
       if (config.antesDeGravar) {
@@ -1400,10 +2444,19 @@ async function main() {
       }
 
       for (let i = 0; i < gravar.length; i += LOTE) {
+        if (i > 0 && gravar.length > GRANDE) await dormir(pausaMs)
         const fatia = gravar.slice(i, i + LOTE)
-        await comEspera(`${config.tabela} lote ${i / LOTE + 1}`, () =>
-          db.from(config.tabela).upsert(fatia, { onConflict: 'bubble_id', ignoreDuplicates: false }),
-        )
+        await comEspera(`${config.tabela} lote ${i / LOTE + 1}`, async () => {
+          if (!config.replica) {
+            return db.from(config.tabela).upsert(fatia, { onConflict: 'bubble_id', ignoreDuplicates: false })
+          }
+          try {
+            await upsertReplica(sql, config.tabela, fatia)
+            return {}
+          } catch (error) {
+            return { error }
+          }
+        })
         process.stdout.write(`\r  ${config.tabela}: ${Math.min(i + LOTE, gravar.length)}/${gravar.length}`)
       }
       console.log(`\r  ${config.tabela}: ${gravar.length} linha(s) gravada(s).           `)

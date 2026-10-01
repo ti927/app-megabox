@@ -10,7 +10,7 @@ import { lerData, problemaDoPeriodo } from '@/lib/relatorios'
 
 type Params = Record<string, string | string[] | undefined>
 
-export type AbaSac = 'chamados' | 'relatorios' | 'nps' | 'posvenda'
+export type AbaSac = 'chamados' | 'relatorios' | 'nps' | 'posvenda' | 'apoio' | 'oportunidades'
 
 /** A ordem do Bubble (`Group Nav Buttons` bUCux): Chamados, Relatórios, Gestão NPS, Pós-Venda. */
 export const ABAS_SAC: { id: AbaSac; rotulo: string }[] = [
@@ -18,6 +18,9 @@ export const ABAS_SAC: { id: AbaSac; rotulo: string }[] = [
   { id: 'relatorios', rotulo: 'Relatórios' },
   { id: 'nps', rotulo: 'Gestão NPS' },
   { id: 'posvenda', rotulo: 'Pós-Venda' },
+  // Apoio Comercial (db/030): funcionalidade nova, não existe no Bubble — vai depois das do Bubble.
+  { id: 'apoio', rotulo: 'Apoio Comercial' },
+  { id: 'oportunidades', rotulo: 'Oportunidades' },
 ]
 
 function um(p: Params, chave: string): string {
@@ -27,7 +30,7 @@ function um(p: Params, chave: string): string {
 
 export function lerAba(p: Params): AbaSac {
   const a = um(p, 'aba')
-  return a === 'relatorios' || a === 'nps' || a === 'posvenda' ? a : 'chamados'
+  return a === 'relatorios' || a === 'nps' || a === 'posvenda' || a === 'apoio' || a === 'oportunidades' ? a : 'chamados'
 }
 
 /** `?aba=` de cada aba (Chamados é a raiz). */

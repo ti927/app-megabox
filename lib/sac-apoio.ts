@@ -550,3 +550,83 @@ export function paraCsv(linhas: CelulaXlsx[][]): string {
   }
   return '﻿' + linhas.map((l) => l.map(celula).join(';')).join('\r\n')
 }
+
+// ------------------------------------------------------------------------ ocorrências
+
+/** Linha de `fn_sac_apoio_ocorrencias` / `fn_sac_acompanhamento` (db/030 D1–D5). */
+export type Ocorrencia = {
+  protocolo_id: string
+  responsavel_id: string | null
+  aberto_em: string
+  fechado_em: string | null
+  prazo: string
+  prazo_definido: boolean
+  ultima_acao_em: string
+  dias_sem_acao: number
+  acoes: number
+  cliente_informado: boolean
+  fornecedor_cobrado: boolean
+  aplica_fornecedor: boolean
+  motivo_registrado: boolean
+  atrasado: boolean
+  parado: boolean
+  situacao: Situacao
+  acoes_completas: boolean
+}
+
+export const SITUACOES = {
+  fora_prazo: { rotulo: 'Fora do prazo', tom: 'erro' },
+  acompanhada: { rotulo: 'Atrasada, acompanhada', tom: 'alerta' },
+  em_andamento: { rotulo: 'No prazo, em andamento', tom: 'info' },
+  no_prazo: { rotulo: 'Resolvida no prazo', tom: 'ok' },
+} as const
+export type Situacao = keyof typeof SITUACOES
+
+const ORDEM_SITUACAO: Record<Situacao, number> = { fora_prazo: 0, acompanhada: 1, em_andamento: 2, no_prazo: 3 }
+
+/** O que pede atenção primeiro: parados, depois fora do prazo, acompanhadas, em andamento, no prazo. */
+export function ordenarOcorrencias<T extends Pick<Ocorrencia, 'parado' | 'situacao' | 'dias_sem_acao' | 'aberto_em'>>(
+  lista: T[],
+): T[] {
+  return [...lista].sort(
+    (a, b) =>
+      Number(b.parado) - Number(a.parado) ||
+      ORDEM_SITUACAO[a.situacao] - ORDEM_SITUACAO[b.situacao] ||
+      b.dias_sem_acao - a.dias_sem_acao ||
+      a.aberto_em.localeCompare(b.aberto_em),
+  )
+}
+
+/**
+ * O que falta registrar para a ocorrência contar como acompanhada (D3) — a lista que a
+ * colaboradora lê para saber o que fazer. Resolvida no prazo não tem pendência.
+ */
+export function pendencias(o: Ocorrencia, diasLimite: number): string[] {
+  if (o.situacao === 'no_prazo') return []
+  const p: string[] = []
+  if (o.parado) p.push(`sem ação há ${o.dias_sem_acao} dias (limite ${diasLimite})`)
+  if (o.acoes === 0) p.push('nenhuma ação registrada')
+  if (!o.cliente_informado) p.push('cliente não informado')
+  if (o.aplica_fornecedor && !o.fornecedor_cobrado) p.push('fornecedor não cobrado')
+  if (o.atrasado && !o.motivo_registrado) p.push('sem motivo da pendência')
+  return p
+}
+
+/** Fração da nota no peso, 0–1, só para a largura da barra (desenho, não conta). */
+export function fracaoNota(nota: Num | undefined, peso: Num | undefined): number {
+  const n = Number(nota ?? 0)
+  const p = Number(peso ?? 0)
+  if (!Number.isFinite(n) || !Number.isFinite(p) || p <= 0) return 0
+  return Math.min(1, Math.max(0, n / p))
+}
+
+/** "apoio-comercial-2026-t3-maria" (sem acento, para nome de arquivo). */
+export function nomeArquivoRelatorio(t: Trimestre, responsavel: string): string {
+  const quem = responsavel
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+  return `apoio-comercial-${t.ano}-t${t.trimestre}${quem ? `-${quem}` : ''}`
+}

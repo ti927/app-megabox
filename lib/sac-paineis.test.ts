@@ -19,6 +19,8 @@ describe('abas', () => {
     expect(lerAba({ aba: 'relatorios' })).toBe('relatorios')
     expect(lerAba({ aba: 'posvenda' })).toBe('posvenda')
     expect(lerAba({ aba: 'nps' })).toBe('nps')
+    expect(lerAba({ aba: 'apoio' })).toBe('apoio')
+    expect(lerAba({ aba: 'oportunidades' })).toBe('oportunidades')
     expect(lerAba({ aba: 'xyz' })).toBe('chamados')
     expect(lerAba({})).toBe('chamados')
   })

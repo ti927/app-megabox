@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
   formatarDecimal,
+  fracaoNota,
+  nomeArquivoRelatorio,
+  type Ocorrencia,
+  ordenarOcorrencias,
+  pendencias,
   formatarPct,
   type IndicadoresApoio,
   lerFiltrosApoio,
@@ -247,5 +252,63 @@ describe('relatório', () => {
     expect(p.at(-1)).toEqual(['Total', { numero: '100' }, '', '', { numero: '50' }, '', ''])
     const csv = paraCsv([['a;b', { numero: '9.23' }, null]])
     expect(csv).toBe('﻿"a;b";9,23;')
+  })
+})
+
+describe('ocorrências', () => {
+  const base: Ocorrencia = {
+    protocolo_id: UUID,
+    responsavel_id: UUID2,
+    aberto_em: '2026-07-01T10:00:00-03:00',
+    fechado_em: null,
+    prazo: '2026-07-06',
+    prazo_definido: false,
+    ultima_acao_em: '2026-07-01T10:00:00-03:00',
+    dias_sem_acao: 0,
+    acoes: 0,
+    cliente_informado: false,
+    fornecedor_cobrado: false,
+    aplica_fornecedor: false,
+    motivo_registrado: false,
+    atrasado: false,
+    parado: false,
+    situacao: 'em_andamento',
+    acoes_completas: false,
+  }
+  it('ordena: parados, fora do prazo, acompanhadas, em andamento, no prazo', () => {
+    const l = ordenarOcorrencias([
+      { ...base, protocolo_id: 'np', situacao: 'no_prazo' },
+      { ...base, protocolo_id: 'ea', situacao: 'em_andamento' },
+      { ...base, protocolo_id: 'ac', situacao: 'acompanhada' },
+      { ...base, protocolo_id: 'fp', situacao: 'fora_prazo' },
+      { ...base, protocolo_id: 'pa', situacao: 'em_andamento', parado: true, dias_sem_acao: 4 },
+      { ...base, protocolo_id: 'pb', situacao: 'fora_prazo', parado: true, dias_sem_acao: 9 },
+    ])
+    expect(l.map((o) => o.protocolo_id)).toEqual(['pb', 'pa', 'fp', 'ac', 'ea', 'np'])
+  })
+  it('pendências dizem o que falta registrar', () => {
+    expect(pendencias({ ...base, situacao: 'no_prazo' }, 3)).toEqual([])
+    expect(
+      pendencias({ ...base, situacao: 'fora_prazo', atrasado: true, parado: true, dias_sem_acao: 8, aplica_fornecedor: true }, 3),
+    ).toEqual([
+      'sem ação há 8 dias (limite 3)',
+      'nenhuma ação registrada',
+      'cliente não informado',
+      'fornecedor não cobrado',
+      'sem motivo da pendência',
+    ])
+    expect(
+      pendencias({ ...base, situacao: 'acompanhada', atrasado: true, acoes: 2, cliente_informado: true, motivo_registrado: true }, 3),
+    ).toEqual([])
+  })
+  it('fração da nota para a barra', () => {
+    expect(fracaoNota('12.5', '25')).toBe(0.5)
+    expect(fracaoNota(30, 25)).toBe(1)
+    expect(fracaoNota(null, 25)).toBe(0)
+    expect(fracaoNota(5, 0)).toBe(0)
+  })
+  it('nome do arquivo sem acento', () => {
+    expect(nomeArquivoRelatorio({ ano: 2026, trimestre: 3 }, 'Ana Conceição')).toBe('apoio-comercial-2026-t3-ana-conceicao')
+    expect(nomeArquivoRelatorio({ ano: 2026, trimestre: 1 }, '')).toBe('apoio-comercial-2026-t1')
   })
 })

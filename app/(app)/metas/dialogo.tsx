@@ -1,7 +1,8 @@
 'use client'
 
 import { X } from 'lucide-react'
-import { startTransition, useActionState, useEffect, useId, useRef, useState } from 'react'
+import { startTransition, useEffect, useId, useRef, useState } from 'react'
+import { useActionStateComAviso } from '@/componentes/aviso-acao'
 
 import { Icone } from '@/componentes/icone'
 
@@ -115,8 +116,8 @@ export function DialogoMeta({
   niveis: Nivel[]
   aoFechar: () => void
 }) {
-  const [estado, salvar, salvando] = useActionState(salvarMeta, {})
-  const [estadoApagar, apagar, apagando] = useActionState(apagarMeta, {})
+  const [estado, salvar, salvando] = useActionStateComAviso(salvarMeta, 'Salvando meta…')
+  const [estadoApagar, apagar, apagando] = useActionStateComAviso(apagarMeta, 'Apagando meta…')
   useFecharAoConcluir(estado, aoFechar)
   useFecharAoConcluir(estadoApagar, aoFechar)
 
@@ -280,7 +281,7 @@ export function DialogoFechar({
   nome: string
   aoFechar: () => void
 }) {
-  const [estado, fechar, fechando] = useActionState(fecharMeta, {})
+  const [estado, fechar, fechando] = useActionStateComAviso(fecharMeta, 'Fechando meta…')
   const [calc, setCalc] = useState<{ calculo: Calculo } | { erro: string } | null>(null)
   useFecharAoConcluir(estado, aoFechar)
 
@@ -411,7 +412,7 @@ export function DialogoCancelar({
   nome: string
   aoFechar: () => void
 }) {
-  const [estado, cancelar, cancelando] = useActionState(cancelarFechamento, {})
+  const [estado, cancelar, cancelando] = useActionStateComAviso(cancelarFechamento, 'Cancelando fechamento…')
   useFecharAoConcluir(estado, aoFechar)
   return (
     <Dialogo
@@ -470,7 +471,7 @@ export function DialogoCancelar({
  * nomeia as colunas uma vez só, e cada campo leva o nome completo em `aria-label`.
  */
 function LinhaNivel({ nivel, aoGravar }: { nivel: Nivel | null; aoGravar: () => void }) {
-  const [estado, salvar, salvando] = useActionState(salvarNivel, {})
+  const [estado, salvar, salvando] = useActionStateComAviso(salvarNivel, 'Salvando nível…')
   const formId = useId()
   useEffect(() => {
     if (estado.ok) aoGravar()
@@ -528,7 +529,7 @@ function LinhaNivel({ nivel, aoGravar }: { nivel: Nivel | null; aoGravar: () => 
 }
 
 function FormHistorico({ niveis, vendedores }: { niveis: Nivel[]; vendedores: Vendedor[] }) {
-  const [estado, registrar, registrando] = useActionState(registrarNivel, {})
+  const [estado, registrar, registrando] = useActionStateComAviso(registrarNivel, 'Registrando nível…')
   const hoje = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date())
   return (
     <form

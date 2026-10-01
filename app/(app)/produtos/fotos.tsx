@@ -1,6 +1,7 @@
 'use client'
 
-import { startTransition, useActionState, useState } from 'react'
+import { startTransition, useState } from 'react'
+import { useActionStateComAviso } from '@/componentes/aviso-acao'
 
 import { aceitos, conferirEnvio } from '@/lib/arquivos-envio'
 import { FOTOS_PRODUTO } from '@/lib/produtos-fotos'
@@ -28,7 +29,7 @@ function QuadroFoto({
   rotulo: string
   url: string | undefined
 }) {
-  const [estado, trocar, trocando] = useActionState(trocarFotoProduto, {})
+  const [estado, trocar, trocando] = useActionStateComAviso(trocarFotoProduto, 'Enviando foto…')
   const [erroLocal, setErroLocal] = useState<string | null>(null)
   const mostrado: EstadoAcao = erroLocal ? { erro: erroLocal } : estado
 

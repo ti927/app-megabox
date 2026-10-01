@@ -2,7 +2,8 @@
 
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
-import { useActionState, useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
+import { useActionStateComAviso } from '@/componentes/aviso-acao'
 
 import { Plus, X } from 'lucide-react'
 
@@ -141,8 +142,8 @@ function FormOportunidade({
   hoje: string
   aoFechar: () => void
 }) {
-  const [estado, salvar] = useActionState(salvarOportunidade, {})
-  const [estadoExcluir, excluir] = useActionState(excluirOportunidade, {})
+  const [estado, salvar] = useActionStateComAviso(salvarOportunidade, 'Salvando oportunidade…')
+  const [estadoExcluir, excluir] = useActionStateComAviso(excluirOportunidade, 'Apagando oportunidade…')
   const [resultado, setResultado] = useState<Oportunidade['resultado']>(inicial?.resultado ?? 'em_andamento')
 
   // Gravou uma nova: fecha (a lista recarrega pelo revalidatePath). Apagou: fecha também.

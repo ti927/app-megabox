@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
+import { ProvedorAvisoAcao } from '@/componentes/aviso-acao'
 import { Casca } from '@/componentes/casca'
 import { COOKIE_TEMA, lerTema } from '@/componentes/tema'
 import { minhasConfiguracoes, minhasPaginas, usuarioAtual } from '@/lib/autorizacao'
@@ -33,7 +34,8 @@ export default async function LayoutApp({ children }: { children: React.ReactNod
       configuracoes={configuracoes}
       tema={lerTema(jar.get(COOKIE_TEMA)?.value)}
     >
-      {children}
+      {/* Aviso de ação (toast "Salvando…" → "Pronto"/erro) para todas as telas: useAcao(). */}
+      <ProvedorAvisoAcao>{children}</ProvedorAvisoAcao>
     </Casca>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
-import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
+import { startTransition, useEffect, useRef, useState } from 'react'
+import { useActionStateComAviso } from '@/componentes/aviso-acao'
 import { useFormStatus } from 'react-dom'
 import { TriangleAlert, X } from 'lucide-react'
 
@@ -231,8 +232,8 @@ function FormularioProduto({
 // --------------------------------------------------------------------- aba Versões
 
 function LinhaVersao({ versao, produtoId }: { versao: Versao; produtoId: string }) {
-  const [estado, renomear, renomeando] = useActionState(salvarVersao, {})
-  const [estadoAtivo, alternar] = useActionState(definirAtivoVersao, {})
+  const [estado, renomear, renomeando] = useActionStateComAviso(salvarVersao, 'Salvando versão…')
+  const [estadoAtivo, alternar] = useActionStateComAviso(definirAtivoVersao, 'Atualizando versão…')
 
   return (
     <li className="pf-item" data-inativo={!versao.ativo || undefined}>
@@ -275,7 +276,7 @@ function LinhaVersao({ versao, produtoId }: { versao: Versao; produtoId: string 
 }
 
 function AbaVersoes({ ficha }: { ficha: Ficha }) {
-  const [estado, incluir] = useActionState(salvarVersao, {})
+  const [estado, incluir] = useActionStateComAviso(salvarVersao, 'Salvando versão…')
   const produtoId = ficha.produto.id
 
   return (
@@ -401,8 +402,8 @@ function BuscaFilial({ produtoId, ligadas, ligar }: { produtoId: string; ligadas
 }
 
 function AbaFornecedores({ ficha }: { ficha: Ficha }) {
-  const [estadoLigar, ligar] = useActionState(ligarFilial, {})
-  const [estadoDesligar, desligar] = useActionState(desligarFilial, {})
+  const [estadoLigar, ligar] = useActionStateComAviso(ligarFilial, 'Ligando filial…')
+  const [estadoDesligar, desligar] = useActionStateComAviso(desligarFilial, 'Desligando filial…')
   const produtoId = ficha.produto.id
   const ligadas = new Set(ficha.filiais.map((f) => f.endereco_fornecedor_id))
   // Mostra a mensagem da última ação que respondeu.
@@ -612,8 +613,8 @@ export function FichaProduto({
   aoFechar: () => void
 }) {
   const [aba, setAba] = useState<Aba>('dados')
-  const [estado, salvar, salvando] = useActionState(salvarProduto, {})
-  const [estadoAtivo, acaoAtivo] = useActionState(definirAtivoProduto, {})
+  const [estado, salvar, salvando] = useActionStateComAviso(salvarProduto, 'Salvando produto…')
+  const [estadoAtivo, acaoAtivo] = useActionStateComAviso(definirAtivoProduto, 'Atualizando produto…')
 
   const criou = !ficha && estado.id ? estado.id : null
   useEffect(() => {

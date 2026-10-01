@@ -2,10 +2,11 @@
 
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
-import { startTransition, useActionState, useEffect, useRef, useState, useTransition } from 'react'
+import { startTransition, useEffect, useRef, useState, useTransition } from 'react'
 
 import { Check, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
 
+import { useActionStateComAviso } from '@/componentes/aviso-acao'
 import { Icone } from '@/componentes/icone'
 import { SeletorPeriodo } from '@/componentes/seletor-periodo'
 import { totalPaginas } from '@/lib/clifor'
@@ -441,8 +442,8 @@ function LinkEmitido({ caminho, aoFechar }: { caminho: string; aoFechar: () => v
 }
 
 function LinhaConvite({ convite }: { convite: Convite }) {
-  const [estadoEmitir, emitir, emitindo] = useActionState(emitirConvite, {})
-  const [estadoCancelar, cancelar] = useActionState(cancelarConvite, {})
+  const [estadoEmitir, emitir, emitindo] = useActionStateComAviso(emitirConvite, 'Emitindo convite…')
+  const [estadoCancelar, cancelar] = useActionStateComAviso(cancelarConvite, 'Cancelando convite…')
   const [link, setLink] = useState<string | null>(null)
   const [removendo, setRemovendo] = useState(false)
   const situacao = situacaoConvite(convite)
@@ -550,7 +551,7 @@ function LinhaConvite({ convite }: { convite: Convite }) {
 
 /** Montar a lista de convidados — no lugar de `rpg adicionar contatos` (WF bUDcQ). */
 function AdicionarConvidado({ pesquisaId }: { pesquisaId: string }) {
-  const [estado, adicionar] = useActionState(adicionarConvidado, {})
+  const [estado, adicionar] = useActionStateComAviso(adicionarConvidado, 'Adicionando convidado…')
   const [cliente, setCliente] = useState<CliforEncontrado | null>(null)
   /** null = carregando os contatos do cliente escolhido */
   const [contatos, setContatos] = useState<Contato[] | null>([])

@@ -16,7 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 
 import { Foto } from '@/componentes/foto'
 import { Icone } from '@/componentes/icone'
@@ -35,15 +35,16 @@ import {
   POR_COLUNA,
   primeiroNome,
 } from '@/lib/vendas'
+import { type FichaTela, mesclarFicha } from '@/lib/vendas-ficha'
 import { comOrdem } from '@/lib/vendas-ordem'
 
+import { opcoesDaCotacaoNova } from './acoes-cotacao'
 import { TelaCotacao } from './cotacao'
 import type {
   CartaoCotacao,
   CartaoEntrega,
   CartaoPedido,
   ColunaDados,
-  Ficha,
   Kanban,
   Opcoes,
   OpcoesFicha,
@@ -367,8 +368,8 @@ export function TelaVendas({
   crescente,
   kanban: kanbanDoServidor,
   opcoes,
-  ficha,
-  opcoesFicha,
+  ficha: fichaDoServidor,
+  fichaFalhou,
   usuario,
   permissoes,
 }: {
@@ -378,8 +379,10 @@ export function TelaVendas({
   /** null com a cotação aberta em tela cheia: o servidor não refaz o quadro coberto */
   kanban: Kanban | null
   opcoes: Opcoes
-  ficha: Ficha | null
-  opcoesFicha: OpcoesFicha | null
+  /** a ficha da cotação aberta, por partes (lib/vendas-ficha) */
+  ficha: FichaTela | null
+  /** o cabeçalho da cotação não carregou (timeout): não é "não existe" */
+  fichaFalhou: boolean
   usuario: { id: string; perfilId: number }
   permissoes: Permissoes
 }) {
@@ -395,6 +398,39 @@ export function TelaVendas({
    * pela URL — o que a pessoa escolheu no cabeçalho não se perde.
    */
   const [nova, setNova] = useState<string | null>(null)
+
+  /*
+   * A ficha mora AQUI, no cliente: o servidor manda as partes que leu, e `mesclarFicha` mantém o
+   * último valor BOM de cada parte que falhou ou não foi pedida — nunca vira lista vazia (era o
+   * que fazia as propostas "sumirem" depois de enviar, quando a releitura caía em 57014). As
+   * actions do carrinho devolvem o carrinho relido e trocam só ele (`atualizarFicha`).
+   */
+  const [fichaRecebida, setFichaRecebida] = useState(fichaDoServidor)
+  const [ficha, setFicha] = useState<FichaTela | null>(fichaDoServidor)
+  if (fichaDoServidor !== fichaRecebida) {
+    setFichaRecebida(fichaDoServidor)
+    if (fichaDoServidor) setFicha(mesclarFicha(ficha, fichaDoServidor))
+    // Cabeçalho caiu num refresh da MESMA cotação: fica a ficha que já está na tela.
+    else if (!(fichaFalhou && ficha?.cotacao.id === filtros.sel)) setFicha(null)
+  }
+  const atualizarFicha = useCallback((fn: (f: FichaTela) => FichaTela) => setFicha((f) => (f ? fn(f) : f)), [])
+
+  // Listas dos selects do carrinho: pedidas UMA vez, na primeira cotação aberta, e guardadas
+  // (antes: 7 consultas a cada render da ficha, inclusive a cada gravação).
+  const [opcoesFicha, setOpcoesFicha] = useState<OpcoesFicha | null>(null)
+  const precisaOpcoes = !opcoesFicha && (!!filtros.sel || nova !== null)
+  useEffect(() => {
+    if (!precisaOpcoes) return
+    let vivo = true
+    opcoesDaCotacaoNova()
+      .then((o) => {
+        if (vivo) setOpcoesFicha(o)
+      })
+      .catch((e: unknown) => console.error('vendas: listas da cotação', e))
+    return () => {
+      vivo = false
+    }
+  }, [precisaOpcoes])
   const [numero, setNumero] = useState(filtros.numero)
   const [cliente, setCliente] = useState(filtros.cliente)
   const espera = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -424,7 +460,7 @@ export function TelaVendas({
     else setCliente('')
     filtrar({ [chave]: '' })
   }
-  /** Coluna que falhou (timeout no banco): refaz a página no servidor, sem perder a URL. */
+  /** Coluna ou parte da ficha que falhou (timeout no banco): refaz no servidor, sem perder a URL. */
   function tentarDeNovo() {
     iniciar(() => router.refresh())
   }
@@ -626,8 +662,13 @@ export function TelaVendas({
           ficha={ficha && ficha.cotacao.id === nova ? ficha : null}
           abaInicial="cotacao"
           opcoes={opcoes}
-          opcoesFicha={ficha && ficha.cotacao.id === nova ? opcoesFicha : null}
+          opcoesFicha={opcoesFicha}
           permissoes={permissoes}
+          aoAtualizar={atualizarFicha}
+          aoTrocarAba={(aba) => navegar({ aba })}
+          aoRecarregar={tentarDeNovo}
+          recarregando={pendente}
+          cabecalhoFalhou={fichaFalhou}
           aoCriarRascunho={(id) => {
             setNova(id)
             abrir(id, 'cotacao')
@@ -637,7 +678,7 @@ export function TelaVendas({
             navegar({ sel: null, aba: 'cotacao' })
           }}
         />
-      ) : ficha && opcoesFicha ? (
+      ) : ficha && ficha.cotacao.id === filtros.sel ? (
         <TelaCotacao
           // key: trocar de cotação remonta a tela e zera formulários e aba.
           key={ficha.cotacao.id}
@@ -646,9 +687,25 @@ export function TelaVendas({
           opcoes={opcoes}
           opcoesFicha={opcoesFicha}
           permissoes={permissoes}
+          aoAtualizar={atualizarFicha}
+          aoTrocarAba={(aba) => navegar({ aba })}
+          aoRecarregar={tentarDeNovo}
+          recarregando={pendente}
+          cabecalhoFalhou={fichaFalhou}
           aoCriarRascunho={() => undefined}
           aoFechar={() => navegar({ sel: null, aba: 'cotacao' })}
         />
+      ) : filtros.sel && fichaFalhou ? (
+        // O cabeçalho caiu mesmo com a retentativa: não é "não existe" — oferece reler.
+        <div className="aviso vendas-aviso" data-tom="erro" role="alert">
+          <p>Esta cotação não carregou agora: o banco demorou a responder.</p>
+          <button type="button" className="botao-secundario" disabled={pendente} aria-busy={pendente} onClick={tentarDeNovo}>
+            {pendente ? 'Carregando…' : 'Tentar de novo'}
+          </button>{' '}
+          <button type="button" className="vendas-link" onClick={() => navegar({ sel: null, aba: 'cotacao' })}>
+            Fechar
+          </button>
+        </div>
       ) : filtros.sel ? (
         <p className="aviso vendas-aviso" role="alert">
           Esta cotação não existe ou não é sua.{' '}

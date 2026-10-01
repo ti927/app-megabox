@@ -3,7 +3,8 @@
 import type { Route } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useActionState, useEffect, useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
+import { useActionStateComAviso } from '@/componentes/aviso-acao'
 import { createPortal } from 'react-dom'
 
 import { FileSpreadsheet, FileText, Printer, Settings2, X } from 'lucide-react'
@@ -295,7 +296,7 @@ const CAMPOS_PARAMETROS: { grupo: string; campos: [string, string, string?][] }[
 ]
 
 function Parametros({ d, chave, aoFechar }: { d: IndicadoresApoio; chave: string; aoFechar: () => void }) {
-  const [estado, salvar] = useActionState(salvarParametros, {})
+  const [estado, salvar] = useActionStateComAviso(salvarParametros, 'Salvando metas do trimestre…')
   const p = d.parametros as Record<string, unknown>
   const t = { ano: d.periodo.ano, trimestre: d.periodo.trimestre as 1 | 2 | 3 | 4 }
   const herdado = Number(p.ano) !== t.ano || Number(p.trimestre) !== t.trimestre

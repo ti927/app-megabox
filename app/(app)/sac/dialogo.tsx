@@ -1,9 +1,10 @@
 'use client'
 
-import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
+import { startTransition, useEffect, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { X } from 'lucide-react'
 
+import { useActionStateComAviso } from '@/componentes/aviso-acao'
 import { Icone } from '@/componentes/icone'
 import { formatarData } from '@/lib/datas'
 import { SITUACOES, TIPOS_ACAO, type TipoAcao } from '@/lib/sac-apoio'
@@ -289,9 +290,9 @@ export function FichaProtocolo({
   const ref = useDialogo()
   const [aba, setAba] = useState<'protocolo' | 'interacoes'>('protocolo')
   const [excluindo, setExcluindo] = useState(false)
-  const [estado, salvar, salvando] = useActionState(salvarProtocolo, {})
-  const [estadoExcluir, excluir] = useActionState(excluirProtocolo, {})
-  const [estadoRestaurar, restaurar] = useActionState(restaurarProtocolo, {})
+  const [estado, salvar, salvando] = useActionStateComAviso(salvarProtocolo, 'Salvando chamado…')
+  const [estadoExcluir, excluir] = useActionStateComAviso(excluirProtocolo, 'Excluindo chamado…')
+  const [estadoRestaurar, restaurar] = useActionStateComAviso(restaurarProtocolo, 'Restaurando chamado…')
 
   const p = ficha.protocolo
   // Excluiu ou restaurou: fecha o formulário do motivo (o estado do protocolo mudou).
@@ -562,7 +563,7 @@ export function FichaProtocolo({
  * (prazo, depende do fornecedor, motivo da pendência) e a avaliação do atendimento.
  */
 function Acompanhamento({ ficha, usuario, editavel }: { ficha: Ficha; usuario: UsuarioTela; editavel: boolean }) {
-  const [estado, salvar] = useActionState(salvarAcompanhamento, {})
+  const [estado, salvar] = useActionStateComAviso(salvarAcompanhamento, 'Salvando acompanhamento…')
   const p = ficha.protocolo
   const a = ficha.acompanhamento
   const prazoTravado = Boolean(p.prazo_em) && !usuario.ehGestor
@@ -642,7 +643,7 @@ function Acompanhamento({ ficha, usuario, editavel }: { ficha: Ficha; usuario: U
 
 /** Avaliação do atendimento (030 D8): convite tipo SAC ligado ao protocolo, link para copiar. */
 function Avaliacao({ ficha }: { ficha: Ficha }) {
-  const [estado, emitir] = useActionState(emitirAvaliacao, {})
+  const [estado, emitir] = useActionStateComAviso(emitirAvaliacao, 'Gerando link de avaliação…')
   const [link, setLink] = useState<string | null>(null)
   useEffect(() => {
     if (estado.link) setLink(estado.link)
@@ -703,7 +704,7 @@ function mesclarEntregas(doPedido: Entrega[], ligadas: Entrega[]) {
 
 /** Aba "Histórico" do popup (`Group HistoricoSac` bUDoX): a conversa e a nova interação. */
 function AbaInteracoes({ ficha }: { ficha: Ficha }) {
-  const [estado, registrar, registrando] = useActionState(registrarInteracao, {})
+  const [estado, registrar, registrando] = useActionStateComAviso(registrarInteracao, 'Registrando interação…')
   const [visivel, setVisivel] = useState(false)
   const [tipo, setTipo] = useState<TipoAcao>('atualizacao_interna')
   const formRef = useRef<HTMLFormElement>(null)
@@ -835,7 +836,7 @@ export function NovoProtocolo({
   aoFechar: () => void
 }) {
   const ref = useDialogo()
-  const [estado, criar, criando] = useActionState(criarProtocolo, {})
+  const [estado, criar, criando] = useActionStateComAviso(criarProtocolo, 'Abrindo chamado…')
   const [tipo, setTipo] = useState<'cliente' | 'fornecedor'>('cliente')
   const [pedido, setPedido] = useState<PedidoEncontrado | null>(null)
   const [grupo, setGrupo] = useState<{ id: string; nome: string } | null>(null)
@@ -1048,7 +1049,7 @@ export function NovoProtocolo({
 /** `pop novapesquisa` (bUDNv): título e "Gravar NPS" (WF bUDPr). */
 export function NovaPesquisa({ aoCriar, aoFechar }: { aoCriar: (id: string) => void; aoFechar: () => void }) {
   const ref = useDialogo()
-  const [estado, criar] = useActionState(criarPesquisa, {})
+  const [estado, criar] = useActionStateComAviso(criarPesquisa, 'Criando pesquisa…')
 
   useEffect(() => {
     if (estado.id) aoCriar(estado.id)

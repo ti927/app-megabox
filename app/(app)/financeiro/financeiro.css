@@ -722,39 +722,43 @@ td.fin-num > * {
   display: none; /* os filhos já são bloco: o <br> viraria uma linha em branco */
 }
 
+
 /* ===================================================================================
- * ACABAMENTO (pedido do dono, 30/09/2026: "dar uma embelezada … deixando os elementos
- * todos no mesmo lugar, apenas questões de cores"). Só cor, peso, borda, sombra e estado —
- * nenhum padding, margem, tamanho de fonte ou largura muda aqui, para não perder a
- * densidade do bloco acima. Sombras e barras de destaque são `box-shadow` (não ocupam
- * espaço). Contrastes medidos em design/sistema-visual.md, seção do financeiro.
+ * ACABAMENTO DE COR (pedido do dono, 30/09/2026: "dar uma embelezada … deixando os
+ * elementos todos no mesmo lugar, apenas questões de cores").
+ *
+ * Regra deste bloco: SÓ cor — color, background, border-color (de borda que já existe),
+ * outline-color, text-decoration-color e box-shadow (não ocupa espaço). Nada de padding,
+ * margem, largura, display, font-size, font-weight, line-height ou letter-spacing: peso e
+ * tamanho de fonte mudam a largura do texto e mexeriam nas colunas da tabela e na
+ * densidade do bloco acima. Faixas de destaque são `box-shadow: inset`.
+ *
+ * Tudo com tokens (estilos/tokens.css): no escuro --azul* é roxo MegaBox e --roxo é lilás,
+ * então o mesmo bloco serve aos dois temas. Contrastes (texto normal, AA 4,5:1):
+ *   cabeçalho --roxo sobre --lilas-cabeca ........ claro 8,0:1 · escuro 8,3:1
+ *   --verde / --vermelho sobre --azul-claro ....... claro 4,9 / 5,0:1 · escuro > 7:1
+ *   --texto-3 sobre zebra e --laranja-fundo ....... claro > 5,4:1 · escuro > 5,6:1
+ *   título "A receber vencidos" --roxo s/ --lilas  claro 7,7:1 · escuro 7,0:1
  * =================================================================================== */
 
 /* --- topo: abas e grupos de botões --------------------------------------------------- */
-.fin-abas {
+.fin-abas,
+.fin-grupo-botoes,
+.fin-filtros {
   box-shadow: var(--sombra-1);
 }
-.fin-abas button[aria-current='page'] {
-  font-weight: var(--peso-forte);
+/* Faixa de cor no primeiro botão do grupo, a mesma dos totais do rodapé:
+ * verde = receber, vermelho = pagar. No botão (e não no grupo) para o hover não cobri-la. */
+.fin-grupo-botoes[data-tom='verde'] > :first-child {
+  box-shadow: inset 3px 0 0 var(--verde);
 }
-.fin-grupo-botoes {
-  box-shadow: var(--sombra-1);
-}
-/* Faixa de cor do grupo, a mesma dos totais do rodapé: verde = receber, vermelho = pagar. */
-.fin-grupo-botoes[data-tom='verde'] {
-  box-shadow: inset 3px 0 0 var(--verde), var(--sombra-1);
-}
-.fin-grupo-botoes[data-tom='vermelho'] {
-  box-shadow: inset 3px 0 0 var(--vermelho), var(--sombra-1);
-}
-.fin-grupo-botoes button {
-  font-weight: var(--peso-medio);
+.fin-grupo-botoes[data-tom='vermelho'] > :first-child {
+  box-shadow: inset 3px 0 0 var(--vermelho);
 }
 .fin-grupo-botoes button:hover:not(:disabled) {
   color: var(--azul-escuro);
 }
 .fin-grupo-botoes button:disabled {
-  font-weight: normal;
   color: var(--texto-3);
 }
 .fin-grupo-botoes button:disabled svg {
@@ -764,32 +768,31 @@ td.fin-num > * {
   background: var(--azul-claro);
 }
 
-/* --- filtros ------------------------------------------------------------------------- */
-.fin-filtros {
-  box-shadow: var(--sombra-1);
-}
-
 /* --- tabela -------------------------------------------------------------------------- */
-.fin-rolagem {
-  background: var(--superficie);
-  box-shadow: var(--sombra-1);
-}
-.fin-tabela th {
-  font-weight: var(--peso-forte);
-  color: var(--texto-2);
-  border-bottom-color: var(--borda-forte);
-}
-/* Zebra no azul-claro do Bubble (a linha #EEF3FB), meio tom, para não brigar com hover. */
-.fin-tabela tbody tr:nth-child(even) {
-  background: color-mix(in srgb, var(--azul-claro) 60%, var(--superficie));
-}
-/* Hover: azul-claro cheio + faixa de ação à esquerda. Não --azul-medio: verde e vermelho
- * cairiam para 4,36 e 4,48:1 no claro. */
-.fin-tabela tbody tr:hover {
-  background: var(--azul-claro);
-}
-.fin-tabela tbody tr:hover > td:first-child {
-  box-shadow: inset 3px 0 0 var(--azul-vivo);
+/* Só na tabela de mesa: no celular (<= 48rem, bloco acima) as linhas viram cartões com
+ * fundo e borda próprios, e a zebra e a faixa de hover não se aplicam. */
+@media (min-width: 48.0625rem) {
+  .fin-rolagem {
+    background: var(--superficie);
+    box-shadow: var(--sombra-1);
+  }
+  /* Cabeçalho na cor da marca, com um fio roxo embaixo (sombra: a borda segue com 1px). */
+  .fin-tabela th {
+    color: var(--roxo);
+    box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--roxo) 35%, transparent);
+  }
+  /* Zebra no azul-claro do Bubble (a linha #EEF3FB), meio tom, para não brigar com o hover. */
+  .fin-tabela tbody tr:nth-child(even) {
+    background: color-mix(in srgb, var(--azul-claro) 50%, var(--superficie));
+  }
+  /* Hover: azul-claro cheio + faixa de ação à esquerda. Não --azul-medio: verde e vermelho
+   * cairiam para 4,36 e 4,48:1 no claro. */
+  .fin-tabela tbody tr:hover {
+    background: var(--azul-claro);
+  }
+  .fin-tabela tbody tr:hover > td:first-child {
+    box-shadow: inset 3px 0 0 var(--azul-vivo);
+  }
 }
 /* Marcada: creme do Bubble + faixa laranja à esquerda (a pista que não depende do fundo). */
 .fin-tabela tbody tr[data-marcada],
@@ -805,12 +808,15 @@ td.fin-num > * {
 .fin-tabela td strong {
   color: var(--texto);
 }
-.fin-rot {
+.fin-rot,
+.fin-datas .fin-rot-data {
   color: var(--texto-3);
 }
+/* Na data vencida o rótulo acompanha o vermelho da data. */
+.fin-datas [data-vencida] .fin-rot-data {
+  color: inherit;
+}
 .fin-abrir {
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
   text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
   transition: text-decoration-color var(--dur-1) var(--curva);
 }
@@ -818,69 +824,22 @@ td.fin-num > * {
   text-decoration-color: currentColor;
 }
 
-/* Datas: rótulo discreto de largura fixa (as datas alinham em coluna); o rótulo da data
- * usada no filtro fica laranja e negrito (regra acima) e a data vencida, vermelha. */
-.fin-datas {
-  font-variant-numeric: tabular-nums;
-}
-.fin-datas .fin-rot-data {
-  display: inline-block;
-  min-width: 3.3em;
-  font-weight: var(--peso-medio);
-  color: var(--texto-3);
-}
-.fin-datas [data-destaque] {
-  font-weight: var(--peso-medio);
-}
-.fin-datas [data-vencida] .fin-rot-data {
-  color: inherit;
-}
-
-/* Valores: venda neutra e discreta, comissão em destaque, recebido em verde, saldo em vermelho. */
-.fin-tabela td.fin-num > .fin-sub {
-  color: var(--texto-2);
-}
-.fin-tabela td.fin-num > strong {
-  font-weight: var(--peso-forte);
-}
+/* Valores: venda discreta, comissão em destaque, recebido em verde, saldo em vermelho. */
 .fin-tabela td.fin-num > .fin-recebido {
-  font-weight: var(--peso-medio);
   color: var(--verde);
 }
-.fin-saldo {
-  font-weight: var(--peso-forte);
-}
 
-/* Selos: um ponto na cor do texto antes do nome — o estado lê de relance, sem depender só
- * do fundo. Aberto = lilás (Bubble); "Vencida" fica sozinha em vermelho. */
-.fin-status .selo::before,
-.fin-tabela td[data-rotulo='Status'] > .selo::before {
-  content: '';
-  flex: none;
-  width: 0.4em;
-  height: 0.4em;
-  background: currentColor;
-  border-radius: 50%;
-}
+/* Selos: aberto = lilás (Bubble) com contorno roxo leve; "Vencida" é o selo vermelho ao lado
+ * (tela.tsx deixa de pintar o selo da situação de vermelho também). */
 .fin-status .selo:not([data-tom]) {
   border-color: color-mix(in srgb, var(--roxo) 22%, transparent);
 }
 
-/* --- rodapé de totais: rótulo discreto em cima, valor forte embaixo ------------------- */
+/* --- rodapé de totais ---------------------------------------------------------------- */
 .fin-rodape {
   background: var(--superficie);
   border-color: var(--borda-forte);
   box-shadow: 0 -2px 6px rgb(0 0 0 / 6%), 0 -10px 24px rgb(0 0 0 / 8%);
-}
-.fin-total-texto {
-  line-height: 1.15; /* o valor subiu um degrau; a altura da barra fica a mesma */
-}
-.fin-total-titulo {
-  font-weight: var(--peso-medio);
-}
-.fin-total strong {
-  font-size: var(--t-md);
-  letter-spacing: -0.01em;
 }
 button.fin-total:hover {
   background: var(--azul-claro);
@@ -889,6 +848,13 @@ button.fin-total:hover {
 .fin-total[data-ativo] {
   background: var(--azul-claro);
   border-color: var(--borda-forte);
+}
+/* Faixa do tom à esquerda de cada total: verde = receber, vermelho = pagar. */
+.fin-total[data-tom='verde'] {
+  box-shadow: inset 3px 0 0 var(--verde);
+}
+.fin-total[data-tom='vermelho'] {
+  box-shadow: inset 3px 0 0 var(--vermelho);
 }
 /* "A receber vencidos": alerta — pílula lilás com faixa roxa (roxo = vencidos, Bubble). */
 .fin-total[data-tom='roxo'] {

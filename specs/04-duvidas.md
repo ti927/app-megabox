@@ -498,6 +498,42 @@ mesma regra, e toda FK é uuid lido do banco.
 8. **Contas cujas entregas não estão no banco.** 106 entregas antigas do Bubble ficaram fora da carga de
    vendas de 29/09 (73 com orçamento não carregado, 32 sem pedido, 1 os dois) e 15 foram criadas depois
    dela. Isso leva junto 70 CR e 79 CP. Voltam sozinhas numa recarga das vendas + financeiro no corte.
+9. **[DÚVIDA] Orçamentos com ICMS e PIS/COFINS = 0 (investigado em 01/10, sem alterar dado).**
+   4.432 dos 10.790 `proposta_itens` (4.428 orçamentos, de 12/2024 a 09/2026, espalhados no tempo)
+   apontam para orçamento com `aliquota_icms = 0` e `aliquota_pis_cofins = 0`. **É dado real do
+   Bubble, não artefato da carga:** 38 de 38 amostras aleatórias lidas na Data API têm
+   `TributosICMS`/`TributoPISCOFINS` vazios (omitidos pela API) ou 0, e o próprio Bubble calculou
+   `ValorICMS = 0`, `ValorPISCOFINS = 0` e líquido = bruto. Controle: os orçamentos com alíquota no
+   banco têm o mesmo valor no Bubble (0,18/0,0925; 0,07/0,0925). No mapa as alíquotas são campos
+   DIGITADOS (`ip icms` bThsE e `ip piscofins` bThry em pagina-vendas, auto-binding, sem valor
+   padrão): vazio = ninguém digitou. O carregador grava vazio → 0 de propósito (com nulo o trigger
+   consultaria a tabela de ICMS de HOJE para uma linha histórica).
+   *Recomendação padrão:* manter como está (histórico fiel). Para orçamento NOVO, a tela deve sugerir a
+   alíquota da tabela `icms_aliquotas` (comportamento do trigger com nulo) em vez de começar em 0;
+   relatório de margem deve sinalizar "sem tributo informado" em vez de tratar como isento. Se o
+   Comercial disser que 0 era sempre esquecimento, um script pode preencher pela tabela — decisão do
+   negócio, não da carga.
+10. **[DÚVIDA] Entregas importadas com comissão absurda (investigado em 01/10, sem alterar dado).**
+    As maiores: R$ 19.600.000,00 (venda de R$ 2.800,00), 2.592.000,00 (venda 720,00), 1.461.681,00,
+    1.026.432,00… **22 entregas da importação de 14/03/2025** (`Importado = true`, bubble_id `17419…`)
+    somam R$ 29.717.065,75 de comissão, centenas a milhares de vezes a venda bruta (uma 23ª do mesmo lote tem
+    venda 0 e comissão 340,00 — escala plausível, fora desta conta). **A causa está no Bubble,
+    não no carregador:** a Data API devolve `ValorComissaoBruto = 19.600.000` para a entrega de 7.000 un
+    × R$ 0,40. O padrão é **quantidade aplicada duas vezes**: `ValorComissaoBruto = QtdEntrega × X`,
+    em que X já era um TOTAL — em 17 das 22, X é a própria venda bruta (19.600.000 = 7.000 × 2.800);
+    em 4, X fica a menos de 1% da venda bruta (ex.: 445,05 × 446,70); em 1, X = qtd × comissão
+    unitária do orçamento (189.843,75 = 375 × 506,25 = 375 × 375 × 1,35).
+    O carregador preserva o total do Bubble (`unitarioQueFecha`) e por isso o unitário no banco
+    (`valor_comissao_unit`) ficou = X. Fora desse lote há 57 entregas com comissão > venda, somando só
+    R$ 37.206,19 (escala plausível, provavelmente comissão alterada à mão — conferir caso a caso).
+    Alcance: nenhuma está em meta fechada nem tem conta a receber (as 3 CR do lote são da 23ª, a de
+    comissão 340,00); todas têm conta a pagar — são as CP "da importação" do item 7.
+    *Recomendação padrão:* não corrigir na carga (o carregador é fiel e não é bug dele). Correção
+    proposta, para o Financeiro aprovar: nas 22 entregas `Importado` de 14/03/2025 com comissão > venda,
+    `valor_comissao_unit := valor_comissao_unit ÷ qtd` (desfaz a 2ª multiplicação; nas 17 em que o
+    resultado é o preço de venda unitário, isso ainda é comissão de 100% — então nessas a comissão
+    correta deve vir da CR/contrato, não de fórmula), por script com motivo em
+    `motivo_alteracao_valores`, e as CP derivadas canceladas/refeitas como no item 7.
 
 ---
 

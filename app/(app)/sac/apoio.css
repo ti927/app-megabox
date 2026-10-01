@@ -1,0 +1,440 @@
+/* =====================================================================================
+ * Apoio Comercial (db/030): painel do trimestre, ocorrências, parados, relatório e
+ * oportunidades. Tokens de estilos/tokens.css; claro e escuro vêm deles.
+ * ===================================================================================== */
+
+/* ------------------------------------------------------------------ topo e filtros */
+.ap-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2);
+}
+.ap-filtros {
+  align-items: center;
+}
+/* .sac-filtros > .campo (sac.css) dá 10rem; o rótulo do trimestre pede mais */
+.sac-filtros.ap-filtros > .campo {
+  flex: 0 0 15rem;
+}
+.ap-quem,
+.ap-referencia {
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--texto-2);
+}
+.ap-referencia {
+  margin-left: auto;
+}
+
+/* contador de parados na aba Chamados */
+.sac-contador [data-alerta] strong {
+  color: var(--vermelho);
+}
+.sac-linha[data-parado] {
+  background: color-mix(in srgb, var(--vermelho-fundo) 55%, var(--superficie));
+}
+
+/* ------------------------------------------------------------------ grade do painel */
+.ap {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--e4);
+  transition: opacity var(--dur-2) var(--curva);
+}
+.ap[aria-busy='true'] {
+  opacity: 0.6;
+}
+.ap > .ap-placar,
+.ap > .ap-largo {
+  grid-column: 1 / -1;
+}
+.ap > .ap-largo2 {
+  grid-column: span 2;
+}
+
+/* placar: total + 4 indicadores numa faixa */
+.ap-placar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) repeat(3, minmax(0, 1fr)) minmax(0, 1.35fr);
+  gap: var(--e3);
+}
+.ap-total,
+.ap-cartao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  min-width: 0;
+  padding: var(--e4);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  box-shadow: var(--sombra-1);
+}
+.ap-total {
+  background: var(--azul-claro);
+  border-color: var(--azul);
+}
+.ap-total > small,
+.ap-cartao header small {
+  font-size: var(--t-xs);
+  font-weight: var(--peso-medio);
+  color: var(--texto-2);
+}
+.ap-total p,
+.ap-nota {
+  display: flex;
+  align-items: baseline;
+  gap: var(--e2);
+  margin: 0;
+}
+.ap-total strong {
+  font-family: var(--fonte-numero);
+  font-size: calc(var(--t-xl) * 1.6);
+  font-weight: var(--peso-forte);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--azul);
+}
+.ap-total p span,
+.ap-nota span,
+.ap-total > span:last-child {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.ap-cartao header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ap-cartao h3 {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: var(--peso-forte);
+  line-height: 1.25;
+}
+.ap-nota strong {
+  font-family: var(--fonte-numero);
+  font-size: var(--t-xl);
+  font-weight: var(--peso-forte);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.ap-cartao footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e1) var(--e2);
+  margin-top: auto;
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+
+/* barra da nota no peso: trilho neutro, preenchimento verde se atingiu, vermelho se não */
+.ap-barra {
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  background: var(--fundo-2);
+  border-radius: var(--raio-pilula);
+}
+.ap-barra i {
+  display: block;
+  height: 100%;
+  background: var(--vermelho);
+  border-radius: var(--raio-pilula);
+}
+.ap-barra i[data-atingida],
+.ap-barra-grossa i {
+  background: var(--verde);
+}
+.ap-barra-grossa {
+  height: 10px;
+  background: color-mix(in srgb, var(--azul) 14%, var(--superficie));
+}
+.ap-barra-grossa i {
+  background: var(--azul);
+}
+
+.ap-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--e2);
+  margin: 0;
+  font-size: var(--t-xs);
+}
+.ap-meta dt {
+  color: var(--texto-2);
+}
+.ap-meta dd {
+  margin: 0;
+  font-weight: var(--peso-medio);
+  font-variant-numeric: tabular-nums;
+}
+
+.ap-subs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ap-subs li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--e2);
+  font-size: var(--t-xs);
+}
+.ap-sub-nome {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-weight: var(--peso-medio);
+}
+.ap-sub-nome small {
+  font-weight: normal;
+  color: var(--texto-2);
+}
+.ap-sub-nota {
+  font-family: var(--fonte-numero);
+  font-weight: var(--peso-forte);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ap-sub-nota small {
+  font-weight: normal;
+  color: var(--texto-2);
+}
+
+/* gráfico */
+.ap-grafico {
+  min-width: 0;
+}
+.ap-dica {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--e2) var(--e3);
+  font-size: var(--t-xs);
+  color: var(--texto);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra-2);
+}
+
+/* tabelas */
+.ap-ocorrencias td small,
+.op-lista td small {
+  display: block;
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.ap-ocorrencias tr[data-parado] td {
+  background: color-mix(in srgb, var(--vermelho-fundo) 55%, transparent);
+}
+.op-cliente-celula {
+  font-weight: var(--peso-medio);
+  overflow-wrap: anywhere;
+}
+.ap-protocolo {
+  font-weight: var(--peso-forte);
+  white-space: nowrap;
+}
+.ap-selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e1);
+}
+.ap-pendencias {
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+  max-width: 22rem;
+}
+
+.ap-relatorio {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-sm);
+}
+.ap-relatorio th,
+.ap-relatorio td {
+  padding: var(--e2) var(--e3);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--borda);
+}
+.ap-relatorio thead th {
+  font-size: var(--t-xs);
+  font-weight: var(--peso-medio);
+  color: var(--texto-2);
+  border-bottom-color: var(--borda-forte);
+}
+.ap-relatorio tbody th {
+  font-weight: var(--peso-medio);
+}
+.ap-relatorio tbody th small {
+  display: block;
+  font-weight: normal;
+  font-size: var(--t-xs);
+  color: var(--texto-2);
+}
+.ap-relatorio tr[data-sub] th {
+  padding-left: var(--e6);
+  font-weight: normal;
+}
+.ap-relatorio .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ap-relatorio tfoot th,
+.ap-relatorio tfoot td {
+  font-weight: var(--peso-forte);
+  border-bottom: none;
+  border-top: 2px solid var(--borda-forte);
+}
+
+/* ------------------------------------------------------------------ painéis laterais */
+.ap-painel-cabeca {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--e3);
+  padding: var(--e4) var(--e5);
+  border-bottom: 1px solid var(--borda);
+}
+.ap-painel-cabeca h2 {
+  margin: 0;
+}
+.ap-parametros,
+.op-form {
+  padding: var(--e4) var(--e5);
+}
+.ap-parametros fieldset,
+.op-cliente {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  margin: 0;
+  padding: var(--e3);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+.ap-parametros legend,
+.op-cliente legend {
+  padding: 0 var(--e1);
+  font-size: var(--t-sm);
+  font-weight: var(--peso-forte);
+}
+.ap-parametros-campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: var(--e3);
+}
+.op-modo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e4);
+}
+
+/* ------------------------------------------------------------------ ficha do chamado */
+.sf-acompanhamento {
+  margin-top: var(--e4);
+}
+.sf-acompanhamento .sf-form {
+  margin-top: var(--e3);
+}
+.sf-acomp-dados {
+  padding: var(--e3);
+  background: var(--fundo-2);
+  border-radius: var(--raio);
+}
+.sf-caixa-campo {
+  align-self: end;
+  padding-bottom: var(--e2);
+}
+.sf-avaliacao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  margin-top: var(--e3);
+  padding-top: var(--e3);
+  border-top: 1px dashed var(--borda);
+}
+.sf-acao > .campo {
+  max-width: 18rem;
+}
+
+/* ------------------------------------------------------------------ impressão */
+.ap-impressao {
+  display: none;
+}
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 14mm;
+  }
+  body > *:not(.ap-impressao) {
+    display: none !important;
+  }
+  .ap-impressao {
+    display: block;
+    font-size: 10pt;
+    color: black;
+    background: white;
+  }
+  .ap-impressao h1 {
+    margin: 0 0 2mm;
+    font-size: 16pt;
+  }
+  .ap-impressao p {
+    margin: 3mm 0 0;
+  }
+  .ap-impressao .ap-relatorio {
+    margin-top: 4mm;
+    font-size: 9pt;
+  }
+  .ap-impressao .ap-relatorio th,
+  .ap-impressao .ap-relatorio td,
+  .ap-impressao .ap-relatorio small {
+    color: black;
+    border-color: #999;
+  }
+  .ap-impressao .ap-relatorio th {
+    font-size: 9pt;
+  }
+  .ap-impressao .ap-relatorio small {
+    font-size: 8pt;
+  }
+  .ap-impressao .ap-relatorio thead th {
+    background: #e8e8e8;
+  }
+  .ap-impressao tr {
+    break-inside: avoid;
+  }
+  .ap-impressao-rodape {
+    font-size: 8pt;
+    color: #444;
+  }
+}
+
+/* ------------------------------------------------------------------ telas menores */
+@media (max-width: 1280px) {
+  .ap-placar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ap-placar > .ap-total {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 900px) {
+  .ap {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ap > .ap-largo2 {
+    grid-column: auto;
+  }
+  .ap-placar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

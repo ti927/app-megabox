@@ -21,7 +21,10 @@ import {
   lerFiltrosPosVenda,
   lerFiltrosRelatorio,
 } from '@/lib/sac-paineis'
+import { lerFiltrosApoio } from '@/lib/sac-apoio'
 import { clienteServidor } from '@/lib/supabase/servidor'
+
+import { buscarApoio, buscarOportunidades } from './dados-apoio'
 
 import { TelaSac } from './tela'
 import type {
@@ -42,6 +45,7 @@ import type {
 } from './tipos'
 
 import './sac.css'
+import './apoio.css'
 
 export const metadata: Metadata = { title: 'SAC — MegaBox' }
 
@@ -129,7 +133,8 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
     .select(
       'id, numero, grupo_clifor_id, filial_id, pedido_id, responsavel_id, tipo_ocorrencia_id, ' +
         'prioridade_id, status_id, descricao, aberto_em, fechado_em, tempo_resolucao, excluido_em, ' +
-        'excluido_motivo, criado_em, alterado_em, cliente:grupos_clifor(id, nome, tipo), ' +
+        'excluido_motivo, criado_em, alterado_em, prazo_em, depende_fornecedor, motivo_pendencia, ' +
+        'cliente:grupos_clifor(id, nome, tipo), ' +
         'pedido:pedidos(numero), autor:usuarios!criado_por(nome), editor:usuarios!alterado_por(nome), ' +
         'excluidor:usuarios!excluido_por(nome)',
     )
@@ -140,7 +145,7 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
   const protocolo = p as unknown as Protocolo
 
   const colunasEntrega = 'id, numero_entrega, dt_prev_entrega, qtd, nf_fornecedor_numero'
-  const [ligadas, doPedido, filiais, contatos, interacoes] = await Promise.all([
+  const [ligadas, doPedido, filiais, contatos, interacoes, acomp, aval] = await Promise.all([
     supabase
       .from('sac_protocolo_entregas')
       .select(`entrega_id, entrega:entregas(${colunasEntrega})`)
@@ -168,13 +173,23 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
     supabase
       .from('sac_interacoes')
       .select(
-        'id, descricao, visivel_cliente, criado_em, email_id, autor:usuarios!autor_id(nome), ' +
+        'id, descricao, tipo_acao, visivel_cliente, criado_em, email_id, autor:usuarios!autor_id(nome), ' +
           'contato:contatos_clifor(nome, email)',
       )
       .eq('protocolo_id', id)
       .order('criado_em')
       .order('id'),
+    // Acompanhamento AGORA (db/030): prazo efetivo, última ação, parado, situação.
+    supabase.rpc('fn_sac_acompanhamento', { p_ids: [id] }),
+    // Avaliação do atendimento ligada ao protocolo (030 D8). Colunas explícitas (sem token_hash).
+    supabase
+      .from('pesquisa_convites')
+      .select('enviado_em, usado_em, resposta:pesquisa_respostas(nota_atendimento, nota_nps)')
+      .eq('protocolo_id', id)
+      .is('cancelado_em', null)
+      .maybeSingle(),
   ])
+  if (acomp.error) console.error('sac: acompanhamento', { code: acomp.error.code, message: acomp.error.message })
 
   type Ligada = { entrega_id: string; entrega: Entrega | null }
   // Entrega que a RLS de vendas não deixa ler aparece só pelo id (o vínculo é do SAC).
@@ -196,7 +211,39 @@ async function buscarFicha(supabase: Supabase, id: string): Promise<Ficha | null
     filiais: (filiais.data ?? []) as Filial[],
     contatos: (contatos.data ?? []) as Contato[],
     interacoes: (interacoes.data ?? []) as unknown as Interacao[],
+    acompanhamento: ((acomp.data ?? [])[0] ?? null) as Ficha['acompanhamento'],
+    avaliacao: avaliacaoDoConvite(aval.data),
   }
+}
+
+type NotaBruta = { nota_atendimento: number | null; nota_nps: number | null }
+function avaliacaoDoConvite(c: unknown): Ficha['avaliacao'] {
+  const x = c as { enviado_em: string | null; usado_em: string | null; resposta: NotaBruta | NotaBruta[] | null } | null
+  if (!x) return null
+  const r = Array.isArray(x.resposta) ? (x.resposta[0] ?? null) : x.resposta
+  return { enviado_em: x.enviado_em, usado_em: x.usado_em, nota: r ? (r.nota_atendimento ?? r.nota_nps) : null }
+}
+
+/**
+ * Sinalização de chamado parado na lista (db/030 D4): o acompanhamento só das linhas da
+ * página, e o contador de parados visíveis a quem olha.
+ */
+async function buscarParados(supabase: Supabase, ids: string[]) {
+  const [linhas, contagem] = await Promise.all([
+    ids.length > 0
+      ? supabase.rpc('fn_sac_acompanhamento', { p_ids: ids }).select('protocolo_id, parado, dias_sem_acao, dias_limite')
+      : Promise.resolve({ data: [], error: null }),
+    supabase.rpc('fn_sac_acompanhamento', {}, { count: 'exact', head: true }).eq('parado', true),
+  ])
+  if (linhas.error) console.error('sac: parados', { code: linhas.error.code, message: linhas.error.message })
+  type Linha = { protocolo_id: string; parado: boolean; dias_sem_acao: number; dias_limite: number }
+  const mapa: Record<string, number> = {}
+  let limite: number | null = null
+  for (const l of (linhas.data ?? []) as Linha[]) {
+    limite = l.dias_limite
+    if (l.parado) mapa[l.protocolo_id] = l.dias_sem_acao
+  }
+  return { mapa, total: contagem.count ?? 0, limite }
 }
 
 /**
@@ -320,7 +367,7 @@ export default async function PaginaSac({
   // Cliente da SESSÃO: a RLS decide o que cada um vê. Nunca service_role aqui.
   const supabase = await clienteServidor()
   const opcoes = await buscarOpcoes(supabase)
-  const quem = { id: usuario.id, ehDiretor: usuario.ehDiretor }
+  const quem = { id: usuario.id, nome: usuario.nome, ehDiretor: usuario.ehDiretor, ehGestor: usuario.ehGerenciaOuAcima }
 
   if (aba === 'relatorios') {
     const { filtros: fr, aviso } = lerFiltrosRelatorio(params, hojeSaoPaulo())
@@ -349,6 +396,26 @@ export default async function PaginaSac({
     )
   }
 
+  if (aba === 'apoio' || aba === 'oportunidades') {
+    const fa = lerFiltrosApoio(params, hojeSaoPaulo())
+    if (!usuario.ehGerenciaOuAcima) fa.responsavel = null
+    const apoio = aba === 'apoio' ? await buscarApoio(supabase, fa, usuario) : null
+    const oportunidades = aba === 'oportunidades' ? await buscarOportunidades(supabase, fa, usuario) : null
+    return (
+      <TelaSac
+        aba={aba}
+        filtros={filtros}
+        usuario={quem}
+        opcoes={opcoes}
+        abertos={null}
+        lista={null}
+        ficha={null}
+        painel={null}
+        apoio={{ filtros: fa, hoje: hojeSaoPaulo(), dados: apoio, oportunidades }}
+      />
+    )
+  }
+
   if (aba === 'posvenda') {
     const fp = lerFiltrosPosVenda(params)
     const painel = await buscarPosVenda(supabase, fp)
@@ -373,7 +440,7 @@ export default async function PaginaSac({
       <TelaSac
         aba={aba}
         filtros={filtros}
-        usuario={{ id: usuario.id, ehDiretor: usuario.ehDiretor }}
+        usuario={quem}
         opcoes={opcoes}
         abertos={null}
         lista={null}
@@ -389,13 +456,19 @@ export default async function PaginaSac({
     filtros.sel ? buscarFicha(supabase, filtros.sel) : Promise.resolve(null),
   ])
 
+  const parados = await buscarParados(
+    supabase,
+    lista.linhas.map((l) => l.id),
+  )
+
   return (
     <TelaSac
       aba={aba}
       filtros={filtros}
-      usuario={{ id: usuario.id, ehDiretor: usuario.ehDiretor }}
+      usuario={quem}
       opcoes={opcoes}
       abertos={abertos}
+      parados={parados}
       lista={lista}
       ficha={ficha}
       painel={null}

@@ -128,3 +128,10 @@ condição, calculada uma vez por consulta (initPlan) — e aborta se sobrar cha
 **Regra para policy nova:** função sem argumento de linha vai sempre dentro de `(select …)`.
 Função que recebe coluna da linha (ex.: `fn_pode_ver_tipo_anexo(tipo_anexo_id)`, 018) fica como
 está, porque ali o valor muda por linha.
+
+### 030 Apoio Comercial (01/10/2026) — nenhum aviso novo
+
+`get_advisors` depois da 030: segurança só com os avisos já aceitos acima; performance só com
+`unused_index` (INFO, base quase vazia) e os `multiple_permissive_policies` já existentes das listas
+fixas do SAC (013). A 030 **troca** a policy de leitura de `sac_protocolos` em vez de somar uma
+segunda permissiva, justamente para não criar um `multiple_permissive_policies` novo.

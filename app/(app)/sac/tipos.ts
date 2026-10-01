@@ -3,6 +3,8 @@
  * colunas do banco.
  */
 
+import type { Categoria, IndicadoresApoio, Ocorrencia, Resultado, TipoAcao } from '@/lib/sac-apoio'
+
 type Nome = { nome: string } | null
 
 export type ItemLista = { id: number; nome: string }
@@ -50,6 +52,10 @@ export type Protocolo = {
   excluido_motivo: string | null
   criado_em: string
   alterado_em: string | null
+  /** acompanhamento (db/030 D2, D3, D5) */
+  prazo_em: string | null
+  depende_fornecedor: boolean
+  motivo_pendencia: string | null
   cliente: { id: string; nome: string; tipo: 'cliente' | 'fornecedor' } | null
   pedido: { numero: string } | null
   autor: Nome
@@ -68,6 +74,8 @@ export type Entrega = {
 export type Interacao = {
   id: string
   descricao: string
+  /** db/030: contato_cliente | cobranca_fornecedor | atualizacao_interna | retorno_cliente */
+  tipo_acao: TipoAcao
   visivel_cliente: boolean
   criado_em: string
   email_id: string | null
@@ -87,6 +95,10 @@ export type Ficha = {
   filiais: Filial[]
   contatos: Contato[]
   interacoes: Interacao[]
+  /** a foto do acompanhamento AGORA (`fn_sac_acompanhamento`); nulo se não carregou */
+  acompanhamento: (Ocorrencia & { dias_limite: number }) | null
+  /** convite de avaliação do atendimento ligado ao protocolo (030 D8) */
+  avaliacao: { enviado_em: string | null; usado_em: string | null; nota: number | null } | null
 }
 
 // ------------------------------------------------------------------------------ NPS
@@ -169,3 +181,45 @@ export type LinhaPosVenda = {
 }
 
 export type PainelPosVenda = { linhas: LinhaPosVenda[]; total: number; falhou: boolean }
+
+// ------------------------------------------------------------------ apoio comercial
+
+/** Protocolo como aparece nas listas do Apoio Comercial. */
+export type ProtocoloResumo = {
+  id: string
+  numero: number
+  status_id: number
+  cliente: Nome
+  responsavel: Nome
+}
+
+export type LinhaOcorrencia = Ocorrencia & { protocolo: ProtocoloResumo | null }
+
+export type DadosApoio = {
+  painel: IndicadoresApoio | null
+  /** ocorrências abertas no trimestre, classificadas na referência (fim do trimestre ou agora) */
+  ocorrencias: LinhaOcorrencia[]
+  /** chamados parados AGORA (qualquer trimestre) */
+  parados: LinhaOcorrencia[]
+  diasLimite: number
+  falhou: boolean
+}
+
+export type Oportunidade = {
+  id: string
+  grupo_clifor_id: string | null
+  prospect_nome: string | null
+  prospect_contato: string | null
+  responsavel_id: string
+  vendedor_id: string | null
+  identificada_em: string
+  apresentacao_em: string | null
+  categoria: Categoria
+  resultado: Resultado
+  observacao: string | null
+  cliente: Nome
+  responsavel: Nome
+  vendedor: Nome
+}
+
+export type DadosOportunidades = { linhas: Oportunidade[]; meta: number | null; falhou: boolean }

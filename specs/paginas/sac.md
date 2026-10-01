@@ -729,3 +729,55 @@ Total: **27 workflows**, igual a `mapa/00-inventario.md` (`sac`: 378 elementos �
 | 5 | bUBzW | `pop.RespostasEmails` | Clique `gp toggle rpgemails` | alterna a tabela `rpg RespostasEmails` | 4.13 |
 
 Bate com `00-inventario.md`: `pop.HistoricoConversas` 3 WF / 7 ações; `pop.RespostasEmails` 2 WF / 2 ações.
+
+## 12. Apoio Comercial — metas trimestrais (funcionalidade nova, 01/10/2026)
+
+Não existe no Bubble: pedido do dono ("dentro da parte de SAC haveremos novos funcionários e
+metas"). Banco em `db/030_sac_apoio_comercial.sql` (decisões D1–D13 no cabeçalho), regras puras em
+`lib/sac-apoio.ts`, prova em `scripts/testar-rls-sac-apoio.mjs` (67 casos). Dúvidas em
+`specs/04-duvidas.md` § "SAC — Apoio Comercial".
+
+### 12.1 Os indicadores (nota de 0 a 100)
+
+| # | Indicador | Peso | Meta padrão | Realizado |
+|---|---|---|---|---|
+| 1 | Pesquisa de satisfação | 25 | ≥ 25% de respostas | respondidos ÷ convites NPS emitidos no trimestre pela colaboradora |
+| 2 | Avaliação dos atendimentos | 25 | média ≥ 9,0 com ≥ 10 avaliações | média das médias mensais das notas de atendimento dos chamados dela |
+| 3 | Novos clientes / oportunidades | 30 | 30 no trimestre | oportunidades identificadas no trimestre, qualquer tipo |
+| 4a | Resolvidas no prazo (ou acompanhadas) | 10 | ≥ 95% | (no prazo + atrasadas acompanhadas) ÷ (no prazo + acompanhadas + fora do prazo) |
+| 4b | Chamados parados | 5 | = 0 | não resolvidos sem ação registrada há mais de X dias (X = 3) |
+| 4c | Retorno ao cliente registrado | 5 | ≥ 95% | resolvidas com cliente informado ÷ resolvidas |
+
+**Nota de cada indicador** (`fn_sac_apoio_indicadores`, numeric, 2 casas): atingiu a meta → peso
+cheio; não atingiu → 0 (padrão) ou, se `nota_proporcional` ligado no trimestre,
+`peso × min(1, realizado ÷ meta)`. "Parados" e amostra de avaliações abaixo do mínimo dão 0 em
+qualquer modo; indicador sem base (nenhuma ocorrência vencida / nenhuma resolvida) conta como
+atingido. **Total = soma das notas** (máximo 100). Pesos, metas, X dias, prazo padrão e mínimo de
+avaliações são por trimestre (`sac_apoio_parametros`, só perfil 1 altera; vale a linha do trimestre
+ou a do último anterior).
+
+### 12.2 Ocorrência = chamado SAC (`sac_protocolos`), com acompanhamento
+
+Campos novos no chamado: **prazo de solução** (`prazo_em`; vazio = abertura + 5 dias; depois de
+definido só a gerência altera), **depende do fornecedor** e **motivo da pendência**. Cada interação
+ganhou o **tipo da ação** (contato com cliente, cobrança ao fornecedor, atualização interna, retorno
+ao cliente). "Cliente informado", "fornecedor cobrado" e "última atualização" são DERIVADOS das
+ações registradas, nunca digitados. Situação na data de referência (fim do trimestre ou agora):
+resolvida no prazo · no prazo em andamento (fora do cálculo) · atrasada mas acompanhada (motivo +
+cliente informado + fornecedor cobrado se aplicável + não parada — não penaliza) · fora do prazo.
+
+### 12.3 Tela (`/sac`, abas novas depois das do Bubble)
+
+- **Apoio Comercial** (`?aba=apoio&t=AAAA-T&responsavel=`): placar (total ponderado + 4 cartões com
+  nota no peso, meta, realizado e sub-indicadores do item 4), gráfico da avaliação por mês com a
+  linha da meta, oportunidades por tipo/resultado, **chamados parados agora**, **ocorrências do
+  trimestre** com situação e "o que falta registrar", e o **relatório de avaliação** (tabela) com
+  Imprimir (folha A4 própria), Excel (.xlsx) e CSV (`;`, BOM). Perfil ≤ 2 escolhe a colaboradora
+  ou "toda a equipe"; os demais veem só o próprio painel (o banco impõe). Perfil 1 edita as metas
+  do trimestre num painel lateral.
+- **Oportunidades** (`?aba=oportunidades`): lista do trimestre e painel lateral para registrar,
+  alterar e apagar (cliente cadastrado ou prospect; tipo; apresentação; resultado; vendedor).
+- **Chamados**: contador "Parados: N" no topo e selo "Parado Nd" na linha; na ficha, seção
+  Acompanhamento (situação, prazo, última ação, cliente informado, fornecedor cobrado; campos de
+  prazo/fornecedor/motivo) e o pedido de **avaliação do atendimento** (link de uso único para
+  copiar, só em chamado de cliente resolvido); na aba Interações, o tipo da ação.

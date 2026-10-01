@@ -1,7 +1,7 @@
 'use client'
 
 import { CircleAlert, CircleCheck, LoaderCircle, X } from 'lucide-react'
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useActionState, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { Icone } from '@/componentes/icone'
@@ -49,6 +49,7 @@ export type Acao = {
   acompanhar: (rotulo: string) => Acompanhamento
 }
 
+const FALHA = 'Não foi possível concluir agora. Verifique a conexão e tente de novo.'
 const TEMPO_OK = 2200
 const TEMPO_ERRO = 9000
 const MAX_VISIVEIS = 4
@@ -63,6 +64,31 @@ const SEM_AVISO: Acao = {
 
 export function useAcao(): Acao {
   return useContext(Contexto) ?? SEM_AVISO
+}
+
+/**
+ * `useActionState` com o aviso — troca direta nas telas que já usam o padrão das actions
+ * (`EstadoAcao`: `{ erro?, ok? }`):
+ *
+ *   const [estado, salvar, salvando] = useActionStateComAviso(salvarProposta, (f) =>
+ *     f.get('acao') === 'enviar' ? 'Enviando proposta…' : 'Gravando proposta…')
+ *
+ * Exceção (rede caiu, servidor fora) não derruba a tela no error boundary: vira `{ erro }`.
+ */
+export function useActionStateComAviso<E extends { erro?: string; ok?: string }>(
+  acao: (anterior: E, form: FormData) => Promise<E>,
+  rotulo: string | ((form: FormData) => string),
+  inicial: E = {} as E,
+  opcoes?: OpcoesAcao,
+) {
+  const aviso = useAcao()
+  return useActionState<E, FormData>(async (anterior, form) => {
+    try {
+      return await aviso.executar(typeof rotulo === 'function' ? rotulo(form) : rotulo, () => acao(anterior, form), opcoes)
+    } catch {
+      return { ...anterior, ok: undefined, erro: opcoes?.falha ?? FALHA }
+    }
+  }, inicial as Awaited<E>)
 }
 
 /** O <dialog> modal de cima, se houver; senão o body. */
@@ -113,7 +139,10 @@ export function ProvedorAvisoAcao({ children }: { children: React.ReactNode }) {
   const acompanhar = useCallback(
     (rotulo: string): Acompanhamento => {
       const id = proximo.current++
-      setAvisos((l) => [...l, { id, rotulo, estado: 'carregando', mensagem: null }])
+      // Fora do escopo síncrono da transição: chamado de dentro de uma action (useActionState,
+      // startTransition), o setState viraria parte da transição e o "Salvando…" só apareceria
+      // quando a action já tivesse terminado. Na microtarefa ele é urgente e aparece no clique.
+      queueMicrotask(() => setAvisos((l) => [...l, { id, rotulo, estado: 'carregando', mensagem: null }]))
       let feito = false
       return {
         pronto: (mensagem) => {
@@ -142,7 +171,7 @@ export function ProvedorAvisoAcao({ children }: { children: React.ReactNode }) {
         else a.pronto(fim.pronto)
         return r
       } catch (e) {
-        a.falhou(opcoes.falha ?? 'Não foi possível concluir agora. Verifique a conexão e tente de novo.')
+        a.falhou(opcoes.falha ?? FALHA)
         throw e
       }
     },

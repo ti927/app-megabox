@@ -3,8 +3,9 @@
 import { Ban, ChevronLeft, ChevronRight, Paperclip, Plus, Search, UserX, X } from 'lucide-react'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
-import { useActionState, useRef, useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 
+import { useActionStateComAviso } from '@/componentes/aviso-acao'
 import { Foto } from '@/componentes/foto'
 import { PainelLateral } from '@/componentes/painel-lateral'
 import { type FiltrosClifor, paraQuery, POR_PAGINA, type TipoClifor, totalPaginas } from '@/lib/clifor'
@@ -26,7 +27,7 @@ const idLinha = (id: string) => `clifor-${id}`
  * com a mesma confirmação. Sem permissão (fornecedor, hierarquia > 2), só o selo.
  */
 function ChaveAtivo({ linha, pode }: { linha: LinhaGrupo; pode: boolean }) {
-  const [estado, acao, gravando] = useActionState(definirAtivoGrupo, {})
+  const [estado, acao, gravando] = useActionStateComAviso(definirAtivoGrupo, 'Alterando situação do cadastro…')
   if (!pode) {
     return (
       <span className="selo" data-tom={linha.ativo ? 'ok' : 'erro'}>

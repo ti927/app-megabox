@@ -1,9 +1,10 @@
 'use client'
 
 import { AlertTriangle, Building2, FileText, Paperclip, X } from 'lucide-react'
-import { startTransition, useActionState, useEffect, useState } from 'react'
+import { startTransition, useEffect, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
+import { useActionStateComAviso } from '@/componentes/aviso-acao'
 import { Foto } from '@/componentes/foto'
 import type { TipoClifor } from '@/lib/clifor'
 import { formatarData } from '@/lib/datas'
@@ -251,8 +252,8 @@ export function FichaGrupo({
     setPedidoVisto(pedidoAba.n)
     if (ficha) setAba(pedidoAba.aba)
   }
-  const [estado, salvar, salvando] = useActionState(salvarGrupo, {})
-  const [estadoAtivo, acaoAtivo] = useActionState(definirAtivoGrupo, {})
+  const [estado, salvar, salvando] = useActionStateComAviso(salvarGrupo, 'Salvando cadastro…')
+  const [estadoAtivo, acaoAtivo] = useActionStateComAviso(definirAtivoGrupo, 'Alterando situação do cadastro…')
 
   // Grupo recém-criado: abre a ficha dele (a URL passa a apontar para o id novo).
   const criou = !ficha && estado.id ? estado.id : null

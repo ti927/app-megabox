@@ -1,8 +1,9 @@
 'use client'
 
-import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
+import { startTransition, useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 
+import { useActionStateComAviso } from '@/componentes/aviso-acao'
 import { Icone } from '@/componentes/icone'
 import { formatarData } from '@/lib/datas'
 import {
@@ -113,7 +114,7 @@ export function DialogoBaixaLote({
   aoFechar: () => void
 }) {
   const ref = useDialogo()
-  const [estado, acao, gravando] = useActionState(tipo === 'receber' ? baixarReceber : baixarPagar, {})
+  const [estado, acao, gravando] = useActionStateComAviso(tipo === 'receber' ? baixarReceber : baixarPagar, 'Registrando baixa…')
   const [recibo, setRecibo] = useState(false)
   const [fornecedor, setFornecedor] = useState<DadosFornecedor | null>(null)
   // A lista mostrada é a do momento em que o diálogo abriu: concluir zera a seleção lá fora.
@@ -251,7 +252,7 @@ export function DialogoCobranca({
   aoFechar: () => void
 }) {
   const ref = useDialogo()
-  const [estado, acao, gravando] = useActionState(registrarCobranca, {})
+  const [estado, acao, gravando] = useActionStateComAviso(registrarCobranca, 'Registrando cobrança…')
   const [dados, setDados] = useState<DadosFornecedor | null>(null)
   const [lista] = useState(selecionadas)
 
@@ -417,9 +418,9 @@ export function FichaContaDialogo({
   aoFechar: () => void
 }) {
   const ref = useDialogo()
-  const [estadoBaixa, acaoBaixa, gravandoBaixa] = useActionState(baixarParcial, {})
-  const [estadoEstorno, acaoEstorno] = useActionState(estornarBaixa, {})
-  const [estadoArquivo, acaoArquivo] = useActionState(arquivarConta, {})
+  const [estadoBaixa, acaoBaixa, gravandoBaixa] = useActionStateComAviso(baixarParcial, 'Registrando baixa…')
+  const [estadoEstorno, acaoEstorno] = useActionStateComAviso(estornarBaixa, 'Estornando baixa…')
+  const [estadoArquivo, acaoArquivo] = useActionStateComAviso(arquivarConta, 'Arquivando conta…')
   const c = ficha.conta
   const receber = ficha.tipo === 'receber'
   const aberta = paraCentavos(c.saldo) > 0n
@@ -642,7 +643,7 @@ export function DialogoConfirmarEntrega({
   aoFechar: () => void
 }) {
   const ref = useDialogo()
-  const [estado, acao, gravando] = useActionState(confirmarEntrega, {})
+  const [estado, acao, gravando] = useActionStateComAviso(confirmarEntrega, 'Confirmando entrega…')
   const negociados = new Set(entrega.pedido?.prazos.map((p) => p.prazo_id) ?? [])
   const concluido = Boolean(estado.ok)
 

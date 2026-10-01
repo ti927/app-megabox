@@ -1,9 +1,10 @@
 'use client'
 
 import { Pencil, Plus, Power, PowerOff } from 'lucide-react'
-import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
+import { startTransition, useEffect, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
+import { useActionStateComAviso } from '@/componentes/aviso-acao'
 import { documentoValido, formatarDocumento, somenteDigitos } from '@/lib/documento'
 import {
   mascararCep,
@@ -107,7 +108,7 @@ function FormularioFilial({
   aoConcluir: (estado: EstadoItem) => void
   aoCancelar: () => void
 }) {
-  const [estado, salvar, salvando] = useActionState(salvarFilial, {})
+  const [estado, salvar, salvando] = useActionStateComAviso(salvarFilial, 'Salvando filial…')
   const [documento, setDocumento] = useState(
     filial?.documento ? mascararDocumento(filial.documento) : '',
   )
@@ -415,7 +416,7 @@ export function AbaFiliais({
 }) {
   const [editando, setEditando] = useState<Filial | 'nova' | null>(null)
   const [retorno, setRetorno] = useState<EstadoItem>({})
-  const [estadoAtivo, alternar] = useActionState(definirAtivoFilial, {})
+  const [estadoAtivo, alternar] = useActionStateComAviso(definirAtivoFilial, 'Alterando situação da filial…')
   // Só o retorno da ÚLTIMA ação fica na tela (gravar no formulário × ativar na lista).
   const [verAtivo, setVerAtivo] = useState(false)
 
@@ -572,7 +573,7 @@ function FormularioContato({
   aoConcluir: (estado: EstadoItem) => void
   aoCancelar: () => void
 }) {
-  const [estado, salvar, salvando] = useActionState(salvarContato, {})
+  const [estado, salvar, salvando] = useActionStateComAviso(salvarContato, 'Salvando contato…')
   // "quando vazio → default Celular" (condicional de bTxqN, §2.5)
   const tipoInicial = (contato?.tipo_telefone_id ?? TIPO_TELEFONE.celular) as TipoTelefoneId
   const [tipo, setTipo] = useState<TipoTelefoneId>(tipoInicial)
@@ -679,7 +680,7 @@ function FormularioContato({
 export function AbaContatos({ ficha }: { ficha: Ficha }) {
   const [editando, setEditando] = useState<Contato | 'novo' | null>(null)
   const [retorno, setRetorno] = useState<EstadoItem>({})
-  const [estadoAtivo, alternar] = useActionState(definirAtivoContato, {})
+  const [estadoAtivo, alternar] = useActionStateComAviso(definirAtivoContato, 'Alterando situação do contato…')
   const [verAtivo, setVerAtivo] = useState(false)
 
   if (editando) {

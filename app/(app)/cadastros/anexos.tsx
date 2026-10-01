@@ -1,8 +1,9 @@
 'use client'
 
 import { ExternalLink, Plus, Trash2 } from 'lucide-react'
-import { startTransition, useActionState, useEffect, useState } from 'react'
+import { startTransition, useEffect, useState } from 'react'
 
+import { useActionStateComAviso } from '@/componentes/aviso-acao'
 import { formatarTamanho } from '@/lib/anexos'
 import { aceitos, conferirEnvio } from '@/lib/arquivos-envio'
 import { formatarData } from '@/lib/datas'
@@ -26,7 +27,7 @@ const ACEITOS = aceitos('anexos')
 function LinhaAnexo({ anexo, podeApagar }: { anexo: Anexo; podeApagar: boolean }) {
   const [abrindo, setAbrindo] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
-  const [estado, apagar, apagando] = useActionState(removerAnexo, {})
+  const [estado, apagar, apagando] = useActionStateComAviso(removerAnexo, 'Removendo anexo…')
 
   async function abrir() {
     setErro(null)
@@ -118,7 +119,7 @@ function FormularioAnexo({
   /** volta à lista; com o retorno do envio quando ele deu certo */
   aoFechar: (retorno?: EstadoItem) => void
 }) {
-  const [estado, enviar, enviando] = useActionState(enviarAnexoGrupo, {})
+  const [estado, enviar, enviando] = useActionStateComAviso(enviarAnexoGrupo, 'Enviando anexo…')
   const [erroLocal, setErroLocal] = useState<string | null>(null)
   const ativas = ficha.filiais.filter((f) => f.ativo)
 

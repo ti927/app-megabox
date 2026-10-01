@@ -119,7 +119,7 @@ export function AbaPedidos({ ficha, etapas, opcoesFicha }: { ficha: Ficha; etapa
       <section className="mesa-papel" aria-label="Documento do pedido">
         <p className="mesa-estado" data-tom={pedido.formalizado ? 'ok' : 'rascunho'}>
           {pedido.formalizado
-            ? `Pedido formalizado ${formatarData(pedido.formalizado_em)}. Mudanças ao lado só chegam ao cliente e ao fornecedor se você reenviar.`
+            ? `Pedido formalizado${pedido.formalizado_em ? ` ${formatarData(pedido.formalizado_em)}` : ''}. Mudanças ao lado só chegam ao cliente e ao fornecedor se você reenviar.`
             : 'Pedido ainda não enviado: o documento acompanha o que você faz ao lado. O que ainda não foi gravado aparece marcado.'}
         </p>
         <DocumentoPedido ficha={ficha} vista={vista} />
@@ -291,7 +291,7 @@ function PainelPedido({
             {p.etapa?.nome ?? '—'}
           </span>
           <span className="selo" data-tom={p.formalizado ? 'ok' : 'alerta'} data-teste="selo-formalizado">
-            {p.formalizado ? `Enviado ${formatarData(p.formalizado_em)}` : 'Não enviado'}
+            {p.formalizado ? (p.formalizado_em ? `Enviado ${formatarData(p.formalizado_em)}` : 'Enviado') : 'Não enviado'}
           </span>
           {p.finalizado ? <span className="selo">Finalizado</span> : null}
           <button

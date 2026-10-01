@@ -33,6 +33,11 @@ import { ANCORA_ENTREGAS } from './tipos-fluxo'
 
 type Passo = { id: 'proposta' | 'pedido' | 'entregas'; titulo: string; estado: string; tom?: 'ok' | 'alerta' | 'erro'; feito: boolean; aberto: boolean }
 
+/** "Enviada 29/09/26" — sem a data (base carregada do Bubble), só "Enviada". */
+function quando(rotulo: string, data: string | null): string {
+  return data ? `${rotulo} ${formatarData(data)}` : rotulo
+}
+
 function passos(ficha: Ficha): Passo[] {
   const props = ficha.propostas
   const enviada = props.find((p) => p.enviada)
@@ -43,7 +48,7 @@ function passos(ficha: Ficha): Passo[] {
     {
       id: 'proposta',
       titulo: 'Proposta',
-      estado: enviada ? `Enviada ${formatarData(enviada.enviada_em)}` : props.length ? 'Rascunho, não enviada' : 'Ainda não criada',
+      estado: enviada ? quando('Enviada', enviada.enviada_em) : props.length ? 'Rascunho, não enviada' : 'Ainda não criada',
       tom: enviada ? 'ok' : props.length ? 'alerta' : undefined,
       feito: !!enviada,
       aberto: true,
@@ -56,7 +61,7 @@ function passos(ficha: Ficha): Passo[] {
         : pedido.etapa_id === ETAPA.CANCELADO
           ? 'Cancelado'
           : pedido.formalizado
-            ? `Enviado ${formatarData(pedido.formalizado_em)}`
+            ? quando('Enviado', pedido.formalizado_em)
             : 'Criado, não enviado',
       tom: !pedido ? undefined : pedido.etapa_id === ETAPA.CANCELADO ? 'erro' : pedido.formalizado ? 'ok' : 'alerta',
       feito: !!pedido?.formalizado,

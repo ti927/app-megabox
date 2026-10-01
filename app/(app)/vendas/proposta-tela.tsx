@@ -97,7 +97,7 @@ export function AbaPropostas({ ficha, editavel, irParaPedidos }: { ficha: Ficha;
           <>
             <p className="mesa-estado" data-tom={proposta.enviada ? 'ok' : 'rascunho'}>
               {proposta.enviada
-                ? `Enviada ${formatarData(proposta.enviada_em)} — este é o documento que o cliente recebeu e não muda. Para mudar valores, edite a cotação e crie outra proposta.`
+                ? `Enviada${proposta.enviada_em ? ` ${formatarData(proposta.enviada_em)}` : ''} — este é o documento que o cliente recebeu e não muda. Para mudar valores, edite a cotação e crie outra proposta.`
                 : 'Rascunho: o documento acompanha o que você digita ao lado. O que ainda não foi gravado aparece marcado. Para mudar valores, edite a cotação antes de enviar.'}
             </p>
             <DocumentoProposta ficha={ficha} vista={vista} />
